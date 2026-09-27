@@ -13,6 +13,16 @@ from app.api.pickups import router as pickups_router
 from app.api.admin_pickups import router as admin_pickups_router
 from app.api.admin_routes import router as admin_routes_router
 from app.api.admin_warehouses import router as admin_warehouses_router
+from app.api.admin_route_optimization import (
+    router as admin_route_optimization_router,
+)
+from app.api.driver_routes import (
+    router as driver_routes_router,
+)
+from app.api.driver_route_execution import (
+    router as driver_route_execution_router,
+)
+
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -45,6 +55,11 @@ app.include_router(pickups_router)
 app.include_router(admin_pickups_router)
 app.include_router(admin_routes_router)
 app.include_router(admin_warehouses_router)
+app.include_router(admin_route_optimization_router)
+app.include_router(driver_routes_router)
+app.include_router(driver_route_execution_router)
+
+
 
 @app.get("/health")
 def health():

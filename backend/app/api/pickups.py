@@ -35,6 +35,7 @@ def create_pickup_endpoint(
         location_id=data.location_id,
         requested_date=data.requested_date,
         priority=data.priority,
+        estimated_weight_kg=data.estimated_weight_kg,
         notes=data.notes,
     )
 

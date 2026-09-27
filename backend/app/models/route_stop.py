@@ -12,6 +12,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 from app.models.enums import RouteStopType
 
+from sqlalchemy import Numeric, String
+from app.models.enums import RouteStopStatus
+
 
 class RouteStop(Base):
     __tablename__ = "route_stops"
@@ -73,6 +76,36 @@ class RouteStop(Base):
 
     warehouse = relationship(
         "Warehouse",
+    )
+
+    execution_status: Mapped[RouteStopStatus] = mapped_column(
+        SAEnum(
+            RouteStopStatus,
+            name="routestopstatus",
+            native_enum=True,
+        ),
+        nullable=False,
+        default=RouteStopStatus.PENDING,
+    )
+
+    arrived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    collected_weight_kg: Mapped[float | None] = mapped_column(
+        Numeric(10, 2),
+        nullable=True,
+    )
+
+    failure_reason: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
     )
 
     __table_args__ = (

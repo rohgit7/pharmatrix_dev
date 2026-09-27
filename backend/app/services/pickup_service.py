@@ -45,6 +45,7 @@ def create_pickup(
     location_id: int,
     requested_date,
     priority,
+    estimated_weight_kg,
     notes,
 ) -> Pickup:
 
@@ -87,6 +88,7 @@ def create_pickup(
         status=PickupStatus.REQUESTED,
         priority=priority,
         requested_date=requested_date,
+        estimated_weight_kg=estimated_weight_kg,
         notes=notes,
     )
 

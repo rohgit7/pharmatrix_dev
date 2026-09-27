@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.enums import PickupPriority, PickupStatus
-
+from sqlalchemy import Numeric
 
 class Pickup(Base):
     __tablename__ = "pickups"
@@ -68,6 +68,11 @@ class Pickup(Base):
 
     scheduled_date: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
+        nullable=True,
+    )
+    
+    estimated_weight_kg: Mapped[float | None] = mapped_column(
+        Numeric(10, 2),
         nullable=True,
     )
 

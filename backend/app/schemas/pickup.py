@@ -10,6 +10,10 @@ class PickupCreate(BaseModel):
     requested_date: datetime | None = None
     priority: PickupPriority = PickupPriority.NORMAL
     notes: str | None = Field(default=None, max_length=1000)
+    estimated_weight_kg: float | None = Field(
+        default=None,
+        gt=0,
+    )
 
 
 class PickupResponse(BaseModel):

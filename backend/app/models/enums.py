@@ -60,3 +60,10 @@ class RouteStatus(str, Enum):
 class RouteStopType(str, Enum):
     PICKUP = "PICKUP"
     WAREHOUSE = "WAREHOUSE" 
+
+class RouteStopStatus(str, Enum):
+    PENDING = "PENDING"
+    ARRIVED = "ARRIVED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
