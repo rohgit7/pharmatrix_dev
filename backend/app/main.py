@@ -4,6 +4,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
 from app.core.config import settings
 from app.core.database import test_database_connection
+from app.api.customers import router as customers_router
+from app.api.customer_documents import router as customer_documents_router
+from app.api.driver_vehicle import router as driver_vehicle_router
+from app.api.drivers import router as drivers_router
+from app.api.vehicles import router as vehicles_router
+from app.api.pickups import router as pickups_router
+from app.api.admin_pickups import router as admin_pickups_router
 
 
 app = FastAPI(
@@ -28,7 +35,13 @@ app.add_middleware(
 
 
 app.include_router(auth_router)
-
+app.include_router(customers_router)
+app.include_router(customer_documents_router)
+app.include_router(driver_vehicle_router)
+app.include_router(drivers_router)
+app.include_router(vehicles_router)
+app.include_router(pickups_router)
+app.include_router(admin_pickups_router)
 
 @app.get("/health")
 def health():

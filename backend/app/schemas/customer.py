@@ -61,3 +61,21 @@ class CustomerOnboardRequest(BaseModel):
     profile: dict
 
     location: LocationCreate
+
+class CustomerResponse(BaseModel):
+    id: int
+    user_id: int
+    customer_type: CustomerType
+
+    legal_name: str
+    display_name: str
+
+    phone: str
+    email: str | None
+    gst_number: str | None
+
+    is_active: bool
+
+    model_config = {
+        "from_attributes": True
+    }

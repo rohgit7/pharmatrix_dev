@@ -14,7 +14,6 @@ class UserRole(str, Enum):
     CUSTOMER = "CUSTOMER"
     FACILITY = "FACILITY"
 
-
 class User(Base):
     __tablename__ = "users"
 
@@ -59,6 +58,12 @@ class User(Base):
 
     customer = relationship(
         "Customer",
+        back_populates="user",
+        uselist=False,
+    )
+
+    driver = relationship(
+        "Driver",
         back_populates="user",
         uselist=False,
     )

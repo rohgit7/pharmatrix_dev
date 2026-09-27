@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     SUPABASE_URL: str
     SUPABASE_PUBLISHABLE_KEY: str
+    SUPABASE_SECRET_KEY: str
+    SUPABASE_STORAGE_BUCKET: str = "customer-documents"  
 
     OSRM_BASE_URL: str = "http://localhost:5000"
 
