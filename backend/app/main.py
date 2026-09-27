@@ -11,7 +11,8 @@ from app.api.drivers import router as drivers_router
 from app.api.vehicles import router as vehicles_router
 from app.api.pickups import router as pickups_router
 from app.api.admin_pickups import router as admin_pickups_router
-
+from app.api.admin_routes import router as admin_routes_router
+from app.api.admin_warehouses import router as admin_warehouses_router
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -42,6 +43,8 @@ app.include_router(drivers_router)
 app.include_router(vehicles_router)
 app.include_router(pickups_router)
 app.include_router(admin_pickups_router)
+app.include_router(admin_routes_router)
+app.include_router(admin_warehouses_router)
 
 @app.get("/health")
 def health():

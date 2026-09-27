@@ -15,3 +15,7 @@ from app.models.vehicle import Vehicle
 from app.models.driver_vehicle_assignment import DriverVehicleAssignment
 
 from app.models.pickup import Pickup
+
+from app.models.warehouse import Warehouse
+from app.models.route import Route
+from app.models.route_stop import RouteStop

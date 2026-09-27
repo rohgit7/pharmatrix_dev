@@ -46,3 +46,17 @@ class PickupPriority(str, Enum):
     NORMAL = "NORMAL"
     HIGH = "HIGH"
     URGENT = "URGENT"
+
+class RouteStatus(str, Enum):
+    DRAFT = "DRAFT"
+    OPTIMIZING = "OPTIMIZING"
+    READY = "READY"
+    ASSIGNED = "ASSIGNED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
+
+class RouteStopType(str, Enum):
+    PICKUP = "PICKUP"
+    WAREHOUSE = "WAREHOUSE" 
