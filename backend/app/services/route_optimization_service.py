@@ -16,7 +16,9 @@ from app.models.route_stop import RouteStop
 from app.models.vehicle import Vehicle
 from app.models.warehouse import Warehouse
 from app.optimizer import Config, HaversineProvider, OSRMProvider, Store, solve
-
+from app.services.notification_events import (
+    notify_driver_assigned,
+)
 
 def _route_code(route_date: datetime) -> str:
     return f"RT-{route_date:%Y%m%d}-{uuid4().hex[:6].upper()}"
@@ -257,6 +259,13 @@ def optimize_and_dispatch(
             )
             db.add(route)
             db.flush()
+
+            notify_driver_assigned(
+                db,
+                driver_user_id=driver.user_id,
+                route_id=route.id,
+                route_code=route.route_code,
+            )
 
             sequence = 1
             for pickup_id in item["pickup_ids"]:

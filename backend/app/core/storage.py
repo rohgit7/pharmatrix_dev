@@ -42,3 +42,14 @@ supabase_storage: Client = create_client(
     settings.SUPABASE_URL,
     settings.SUPABASE_SECRET_KEY,
 )
+
+def create_disposal_certificate_signed_url(
+    storage_path: str,
+    expires_in: int = 3600,
+):
+    return supabase_admin.storage.from_(
+        settings.SUPABASE_DISPOSAL_CERTIFICATE_BUCKET
+    ).create_signed_url(
+        storage_path,
+        expires_in,
+    )

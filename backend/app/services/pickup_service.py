@@ -9,6 +9,10 @@ from app.models.enums import PickupStatus
 from app.models.pickup import Pickup
 from app.models.user import User
 from sqlalchemy.orm import joinedload
+from app.services.notification_events import (
+    notify_pickup_requested,
+    notify_pickup_scheduled,
+)
 
 def generate_pickup_code() -> str:
     return f"PK-{uuid4().hex[:10].upper()}"
@@ -94,6 +98,13 @@ def create_pickup(
     )
 
     db.add(pickup)
+    db.flush()
+    notify_pickup_requested(
+        db,
+        customer_user_id=customer.user_id,
+        pickup_id=pickup.id,
+        pickup_code=pickup.pickup_code,
+    )
     db.commit()
     db.refresh(pickup)
 
@@ -210,6 +221,14 @@ def schedule_pickup(
             detail="Pickup not found",
         )
 
+    customer = db.get(Customer, pickup.customer_id)
+
+    if not customer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer profile not found",
+        )
+
     if pickup.status != PickupStatus.REQUESTED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -218,6 +237,14 @@ def schedule_pickup(
 
     pickup.scheduled_date = scheduled_date
     pickup.status = PickupStatus.SCHEDULED
+
+    notify_pickup_scheduled(
+        db,
+        customer_user_id=customer.user_id,
+        pickup_id=pickup.id,
+        pickup_code=pickup.pickup_code,
+        scheduled_date=pickup.scheduled_date,
+    )
 
     db.commit()
     db.refresh(pickup)

@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.core.supabase import supabase
 from app.models.user import User, UserRole
 
-
+from app.models.facility import Facility
 bearer_scheme = HTTPBearer()
 
 

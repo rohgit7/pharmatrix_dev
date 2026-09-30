@@ -25,6 +25,41 @@ from app.api.driver_route_execution import (
 from app.api.admin_collection_proofs import (
     router as admin_collection_proofs_router,
 )
+from app.api.admin_warehouse_intakes import (
+    router as admin_warehouse_intakes_router,
+)
+from app.api.admin_facilities import (
+    router as admin_facilities_router,
+)
+from app.api.facility import (
+    router as facility_router,
+)
+from app.api.admin_disposal_shipments import router as admin_disposal_shipments_router
+from app.api.facility_disposal_shipments import router as facility_disposal_shipments_router
+from app.api.facility_disposal_certificates import (
+    router as facility_disposal_certificates_router,
+)
+from app.api.customer_disposal import (
+    router as customer_disposal_router,
+)
+from app.api.notifications import (
+    router as notifications_router,
+)
+from app.api.whatsapp_webhooks import router as whatsapp_webhook_router
+
+from app.api.admin_whatsapp_templates import (
+    router as admin_whatsapp_templates_router,
+)
+from app.api.admin_configuration_changes import (
+    router as admin_configuration_changes_router,
+)
+from app.api.admin_configuration_audit import (
+    router as admin_configuration_audit_router,
+)
+from app.api.admin_configuration import (
+    router as admin_configuration_router,
+)
+
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -61,7 +96,36 @@ app.include_router(admin_route_optimization_router)
 app.include_router(driver_routes_router)
 app.include_router(driver_route_execution_router)
 app.include_router(admin_collection_proofs_router)
+app.include_router(admin_warehouse_intakes_router)
+app.include_router(
+    admin_facilities_router
+)
 
+app.include_router(
+    facility_router
+)
+app.include_router(admin_disposal_shipments_router)
+app.include_router(facility_disposal_shipments_router)
+app.include_router(
+    facility_disposal_certificates_router
+)
+app.include_router(customer_disposal_router)
+app.include_router(
+    notifications_router
+)
+app.include_router(whatsapp_webhook_router)
+app.include_router(
+    admin_whatsapp_templates_router
+)
+app.include_router(
+    admin_configuration_changes_router
+)
+app.include_router(
+    admin_configuration_audit_router
+)
+app.include_router(
+    admin_configuration_changes_router
+)
 
 @app.get("/health")
 def health():

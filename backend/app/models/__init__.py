@@ -19,3 +19,21 @@ from app.models.pickup import Pickup
 from app.models.warehouse import Warehouse
 from app.models.route import Route
 from app.models.route_stop import RouteStop
+
+from app.models.warehouse_intake import WarehouseIntake
+
+from app.models.warehouse_intake_item import WarehouseIntakeItem
+from app.models.facility import Facility
+
+from app.models.disposal_shipment import (
+    DisposalShipment,
+    DisposalShipmentItem,
+)
+from app.models.disposal_certificate import DisposalCertificate
+from app.models.notification import Notification
+from app.models.configuration import (
+    Configuration,
+    ConfigurationVersion,
+)
+from app.models.configuration_change import ConfigurationChange
+from app.models.configuration_audit import ConfigurationAudit

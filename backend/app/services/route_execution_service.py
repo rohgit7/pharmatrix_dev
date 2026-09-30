@@ -15,6 +15,13 @@ from app.models.route import Route
 from app.models.route_stop import RouteStop
 from app.models.user import User
 from app.models.vehicle import Vehicle
+from app.models.customer import Customer
+from app.services.warehouse_intake_service import (
+    create_warehouse_intake,
+)
+from app.services.notification_events import (
+    notify_pickup_completed,
+)
 
 
 def get_driver_route(
@@ -254,7 +261,7 @@ def complete_stop(
             status_code=409,
             detail="Collection proof has not been uploaded",
             )
-            
+
         stop.collected_weight_kg = (
             collected_weight_kg
         )
@@ -267,6 +274,19 @@ def complete_stop(
         )
 
         stop.completed_at = now
+
+        customer = db.get(
+            Customer,
+            stop.pickup.customer_id,
+        )
+
+        if customer:
+            notify_pickup_completed(
+                db,
+                customer_user_id=customer.user_id,
+                pickup_id=stop.pickup.id,
+                pickup_code=stop.pickup.pickup_code,
+            )
 
         db.commit()
         db.refresh(stop)
@@ -302,6 +322,39 @@ def complete_stop(
                 ),
             )
 
+        # All pickup stops must be completed
+        pickup_stops = (
+            db.query(RouteStop)
+            .filter(
+                RouteStop.route_id == route.id,
+                RouteStop.stop_type == RouteStopType.PICKUP,
+            )
+            .all()
+        )
+
+        incomplete = [
+            pickup_stop.id
+            for pickup_stop in pickup_stops
+            if pickup_stop.execution_status
+            != RouteStopStatus.COMPLETED
+        ]
+
+        if incomplete:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "All pickup stops must be completed "
+                    f"before warehouse handover. "
+                    f"Incomplete stops: {incomplete}"
+                ),
+            )
+
+        # Create warehouse intake.
+        intake = create_warehouse_intake(
+            db=db,
+            route=route,
+        )
+
         stop.execution_status = (
             RouteStopStatus.COMPLETED
         )
@@ -310,17 +363,15 @@ def complete_stop(
 
         route.status = RouteStatus.COMPLETED
 
-        # Driver becomes available for another route.
+        # Driver becomes available after delivering
+        # the collected waste to the warehouse.
         driver.is_available = True
-
-        # Vehicle remains ASSIGNED to this driver.
-        # It is not unassigned merely because the route ended.
 
         db.commit()
         db.refresh(stop)
 
         return stop
-
+    
     raise HTTPException(
         status_code=400,
         detail="Unsupported stop type",

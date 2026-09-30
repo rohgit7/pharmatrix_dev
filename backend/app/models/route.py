@@ -108,3 +108,9 @@ class Route(Base):
         cascade="all, delete-orphan",
         order_by="RouteStop.sequence_number",
     )
+
+    warehouse_intake = relationship(
+        "WarehouseIntake",
+        back_populates="route",
+        uselist=False,
+    )
