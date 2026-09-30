@@ -1,5 +1,5 @@
 from uuid import uuid4
-
+import secrets
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -83,6 +83,7 @@ def create_pickup(
 
     pickup = Pickup(
         pickup_code=generate_pickup_code(),
+        verification_token=secrets.token_urlsafe(32),
         customer_id=customer.id,
         location_id=location.id,
         status=PickupStatus.REQUESTED,

@@ -102,6 +102,15 @@ class RouteStop(Base):
         Numeric(10, 2),
         nullable=True,
     )
+    proof_storage_path: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    proof_uploaded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     failure_reason: Mapped[str | None] = mapped_column(
         String(1000),

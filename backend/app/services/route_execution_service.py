@@ -237,7 +237,24 @@ def complete_stop(
                     "for pickup completion"
                 ),
             )
+        
+        if stop.pickup.qr_verified_at is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Pickup QR has not been verified",
+            )
 
+        if stop.pickup.otp_verified_at is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Customer OTP has not been verified",
+            )
+        if stop.proof_storage_path is None:
+            raise HTTPException(
+            status_code=409,
+            detail="Collection proof has not been uploaded",
+            )
+            
         stop.collected_weight_kg = (
             collected_weight_kg
         )

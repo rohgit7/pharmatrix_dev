@@ -22,7 +22,9 @@ from app.api.driver_routes import (
 from app.api.driver_route_execution import (
     router as driver_route_execution_router,
 )
-
+from app.api.admin_collection_proofs import (
+    router as admin_collection_proofs_router,
+)
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -58,7 +60,7 @@ app.include_router(admin_warehouses_router)
 app.include_router(admin_route_optimization_router)
 app.include_router(driver_routes_router)
 app.include_router(driver_route_execution_router)
-
+app.include_router(admin_collection_proofs_router)
 
 
 @app.get("/health")

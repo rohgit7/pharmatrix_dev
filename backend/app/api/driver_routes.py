@@ -82,6 +82,9 @@ def get_today_route(
 
                     arrival_time=stop.arrival_time,
                     departure_time=stop.departure_time,
+                    proof_uploaded=(
+                        stop.proof_storage_path is not None
+                    ),
                 )
             )
 

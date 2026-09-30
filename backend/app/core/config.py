@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     SUPABASE_PUBLISHABLE_KEY: str
     SUPABASE_SECRET_KEY: str
     SUPABASE_STORAGE_BUCKET: str = "customer-documents"  
+    SUPABASE_PICKUP_PROOF_BUCKET: str = "pickup-proofs"
 
     OSRM_BASE_URL: str = "http://localhost:5000"
 

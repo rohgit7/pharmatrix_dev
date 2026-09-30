@@ -5,6 +5,7 @@ from sqlalchemy import (
     Enum as SAEnum,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
 )
@@ -12,7 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.enums import PickupPriority, PickupStatus
-from sqlalchemy import Numeric
+
 
 class Pickup(Base):
     __tablename__ = "pickups"
@@ -30,13 +31,19 @@ class Pickup(Base):
     )
 
     customer_id: Mapped[int] = mapped_column(
-        ForeignKey("customers.id", ondelete="CASCADE"),
+        ForeignKey(
+            "customers.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )
 
     location_id: Mapped[int] = mapped_column(
-        ForeignKey("customer_locations.id", ondelete="CASCADE"),
+        ForeignKey(
+            "customer_locations.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )
@@ -70,7 +77,7 @@ class Pickup(Base):
         DateTime(timezone=True),
         nullable=True,
     )
-    
+
     estimated_weight_kg: Mapped[float | None] = mapped_column(
         Numeric(10, 2),
         nullable=True,
@@ -91,6 +98,42 @@ class Pickup(Base):
         nullable=True,
     )
 
+    # ---------------------------------------------------------
+    # Pickup verification
+    # ---------------------------------------------------------
+
+    verification_token: Mapped[str] = mapped_column(
+        String(128),
+        unique=True,
+        nullable=False,
+    )
+
+    qr_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    otp_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+
+    otp_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    otp_attempts: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    otp_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -104,5 +147,14 @@ class Pickup(Base):
         nullable=False,
     )
 
-    customer = relationship("Customer")
-    location = relationship("CustomerLocation")
+    # ---------------------------------------------------------
+    # Relationships
+    # ---------------------------------------------------------
+
+    customer = relationship(
+        "Customer",
+    )
+
+    location = relationship(
+        "CustomerLocation",
+    )

@@ -27,7 +27,7 @@ class DriverRouteStopResponse(BaseModel):
 
     arrival_time: datetime | None = None
     departure_time: datetime | None = None
-
+    proof_uploaded: bool
     execution_status: RouteStopStatus
 
 
@@ -36,7 +36,7 @@ class DriverRouteResponse(BaseModel):
     route_code: str
     route_date: datetime
     status: RouteStatus
-
+   
     vehicle_id: int | None = None
     vehicle_registration_number: str | None = None
 
