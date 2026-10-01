@@ -70,12 +70,6 @@ class Vehicle(Base):
         nullable=False,
     )
 
-    vehicle_assignments = relationship(
-        "DriverVehicleAssignment",
-        back_populates="vehicle",
-        cascade="all, delete-orphan",
-    )
-
     driver_assignments = relationship(
     "DriverVehicleAssignment",
     back_populates="vehicle",
