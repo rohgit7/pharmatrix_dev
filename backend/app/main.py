@@ -11,6 +11,9 @@ from app.services.configuration_runtime_service import (
 from app.services.notification_worker import (
     process_pending_notifications,
 )
+from app.services.configuration_activation_service import (
+    activate_due_configuration_versions,
+)
 from app.api.auth import router as auth_router
 from app.core.config import settings
 from app.core.database import test_database_connection
@@ -82,9 +85,13 @@ async def notification_worker_loop(
 ):
     reminder_check_interval = 60
     exception_check_interval = 60
+    configuration_activation_interval = 10
 
     seconds_since_reminder_check = reminder_check_interval
     seconds_since_exception_check = exception_check_interval
+    seconds_since_configuration_activation = (
+        configuration_activation_interval
+    )
 
     while not stop_event.is_set():
 
@@ -153,6 +160,47 @@ async def notification_worker_loop(
 
             finally:
                 seconds_since_exception_check = 0
+
+        # -----------------------------------------
+        # Configuration version activation
+        # -----------------------------------------
+
+        if (
+            seconds_since_configuration_activation
+            >= configuration_activation_interval
+        ):
+
+            try:
+                from app.core.database import SessionLocal
+
+                db = SessionLocal()
+
+                try:
+                    activated_count = (
+                        activate_due_configuration_versions(
+                            db
+                        )
+                    )
+
+                    if activated_count:
+                        db.commit()
+
+                except Exception as exc:
+                    db.rollback()
+                    print(
+                        f"[configuration-activation] {exc}"
+                    )
+
+                finally:
+                    db.close()
+
+            except Exception as exc:
+                print(
+                    f"[configuration-activation] {exc}"
+                )
+
+            finally:
+                seconds_since_configuration_activation = 0
 
         # -----------------------------------------
         # Wait

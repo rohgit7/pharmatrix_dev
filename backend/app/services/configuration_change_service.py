@@ -203,18 +203,21 @@ def approve_change_request(
         )
         .with_for_update()
     )
-    validated_value = validate_configuration_value(
-        configuration.data_type,
-        change.proposed_value,
-    )
-    validate_configuration_constraints(
-        configuration.key,
-        validated_value,
-    )
+
     if not configuration:
         raise ValueError(
             "Configuration not found"
         )
+
+    validated_value = validate_configuration_value(
+        configuration.data_type,
+        change.proposed_value,
+    )
+
+    validate_configuration_constraints(
+        configuration.key,
+        validated_value,
+    )
 
     latest_version = db.scalar(
         select(ConfigurationVersion)
