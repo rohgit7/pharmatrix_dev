@@ -19,6 +19,7 @@ class NotificationDispatcher:
         recipient: str,
         title: str,
         body: str,
+        metadata: dict | None = None,
     ) -> str | None:
 
         provider = self.providers.get(channel)
@@ -32,4 +33,5 @@ class NotificationDispatcher:
             recipient=recipient,
             title=title,
             body=body,
+            metadata=metadata,
         )

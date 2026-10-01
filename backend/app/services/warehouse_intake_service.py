@@ -3,7 +3,9 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-
+from app.services.operational_exception_service import (
+    create_operational_exception,
+)
 from app.models.driver import Driver
 from app.models.enums import (
     RouteStatus,
@@ -19,6 +21,10 @@ from app.models.enums import (
     WarehouseIntakeStatus,
 )
 from app.models.warehouse_intake_item import WarehouseIntakeItem
+from app.services.configuration_runtime_service import (
+    get_configuration_float,
+)
+
 
 def classify_warehouse_intake(
     db: Session,
@@ -269,13 +275,39 @@ def receive_warehouse_intake(
     intake.notes = notes
     intake.discrepancy_reason = discrepancy_reason
 
-    if abs(
+    facility_tolerance = get_configuration_float(
+        db,
+        "weight.facility_tolerance",
+    )
+
+    weight_difference = abs(
         received_weight_kg
         - float(intake.expected_weight_kg)
-    ) > 0.01:
+    )
+
+    if weight_difference > facility_tolerance:
         intake.status = (
             WarehouseIntakeStatus.DISCREPANCY
         )
+
+        create_operational_exception(
+            db,
+            exception_type=(
+                OperationalExceptionType
+                .WAREHOUSE_INTAKE_DISCREPANCY
+            ),
+            source_type="WAREHOUSE_INTAKE",
+            source_id=intake.id,
+            reason=(
+                f"Expected weight: "
+                f"{float(intake.expected_weight_kg):.2f} kg; "
+                f"received weight: "
+                f"{received_weight_kg:.2f} kg; "
+                f"difference: "
+                f"{weight_difference:.2f} kg"
+            ),
+        )
+
     else:
         intake.status = (
             WarehouseIntakeStatus.RECEIVED

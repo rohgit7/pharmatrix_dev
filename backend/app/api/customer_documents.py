@@ -1,5 +1,4 @@
 import uuid
-from pathlib import Path
 
 from fastapi import (
     APIRouter,
@@ -10,7 +9,9 @@ from fastapi import (
     UploadFile,
 )
 from sqlalchemy.orm import Session
-
+from app.core.file_validation import (
+    validate_file_signature,
+)
 from app.core.auth import require_role
 from app.core.config import settings
 from app.core.database import get_db
@@ -34,6 +35,13 @@ ALLOWED_TYPES = {
     "image/png",
     "application/pdf",
 }
+
+CONTENT_TYPE_EXTENSIONS = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "application/pdf": ".pdf",
+}
+
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 
@@ -84,6 +92,11 @@ async def upload_customer_document(
 
     contents = await file.read()
 
+    validate_file_signature(
+        contents,
+        file.content_type,
+    )
+
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=400,
@@ -94,9 +107,9 @@ async def upload_customer_document(
     # Generate safe storage path
     # ---------------------------------------------------------
 
-    extension = Path(
-        file.filename or ""
-    ).suffix.lower()
+    extension = CONTENT_TYPE_EXTENSIONS[
+        file.content_type
+    ]
 
     unique_name = (
         f"{uuid.uuid4().hex}{extension}"

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, time as dt_time, timedelta, timezone
 from uuid import uuid4
-
+from app.services.configuration_runtime_service import get_active_version
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
@@ -18,6 +18,9 @@ from app.models.warehouse import Warehouse
 from app.optimizer import Config, HaversineProvider, OSRMProvider, Store, solve
 from app.services.notification_events import (
     notify_driver_assigned,
+)
+from app.services.configuration_runtime_service import (
+    get_configuration_float,
 )
 
 def _route_code(route_date: datetime) -> str:
@@ -94,6 +97,20 @@ def optimize_and_dispatch(
             detail="No scheduled pickups for this date",
         )
 
+    max_route_distance_km = get_configuration_float(
+        db,
+        "logistics.max_route_distance_km",
+    )
+
+    max_route_duration_minutes = get_configuration_float(
+        db,
+        "logistics.max_route_duration_minutes",
+    )
+
+    max_pickup_weight_kg = get_configuration_float(
+        db,
+        "operations.max_pickup_weight_kg",
+    )
     stores: list[Store] = []
     pickup_by_optimizer_id: dict[int, Pickup] = {}
 
@@ -109,8 +126,22 @@ def optimize_and_dispatch(
             continue
 
         weight = getattr(pickup, "estimated_weight_kg", None)
+
         if weight is None:
             weight = 1.0
+
+        weight = float(weight)
+
+        if weight > max_pickup_weight_kg:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Pickup exceeds the configured maximum pickup weight",
+                    "pickup_id": pickup.id,
+                    "estimated_weight_kg": weight,
+                    "max_pickup_weight_kg": max_pickup_weight_kg,
+                },
+            )
 
         store = Store(
             id=str(pickup.id),
@@ -130,13 +161,48 @@ def optimize_and_dispatch(
         )
 
     capacities = [float(a.vehicle.capacity_kg) for a in fleet]
+
+    max_distance_config = get_active_version(
+        "logistics.max_route_distance_km"
+    )
+
+    if max_distance_config is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Maximum route distance configuration is not available",
+        )
+
+    max_duration_config = get_active_version(
+        "logistics.max_route_duration_minutes"
+    )
+
+    if max_duration_config is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Maximum route duration configuration is not available",
+        )
+
+    max_route_distance_km = float(max_distance_config.value)
+    max_route_duration_minutes = float(max_duration_config.value)
+
+    optimizer_time_limit_seconds = get_configuration_float(
+        db,
+        "logistics.optimizer_time_limit_seconds",
+    )
+
+    if optimizer_time_limit_seconds is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Optimizer time limit configuration is not available",
+        )
+
     config = Config(
         n_vehicles=len(fleet),
         vehicle_capacities=capacities,
-        max_dist_m=80_000.0,
-        max_time_s=5 * 3600.0,
+        max_dist_m=max_route_distance_km * 1000.0,
+        max_time_s=max_route_duration_minutes * 60.0,
         restarts=25,
-        time_limit_s=30.0,
+        time_limit_s=float(optimizer_time_limit_seconds),
     )
 
     warehouse_point = (

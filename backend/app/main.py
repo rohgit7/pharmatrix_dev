@@ -1,6 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+import asyncio
+from contextlib import asynccontextmanager
+from app.api.admin_exceptions import (
+    router as admin_exceptions_router,
+)
+from app.services.configuration_runtime_service import (
+    get_configuration_bool,
+)
+from app.services.notification_worker import (
+    process_pending_notifications,
+)
 from app.api.auth import router as auth_router
 from app.core.config import settings
 from app.core.database import test_database_connection
@@ -39,6 +49,9 @@ from app.api.facility_disposal_shipments import router as facility_disposal_ship
 from app.api.facility_disposal_certificates import (
     router as facility_disposal_certificates_router,
 )
+from app.services.operational_exception_service import (
+    process_exception_escalations,
+)
 from app.api.customer_disposal import (
     router as customer_disposal_router,
 )
@@ -60,10 +73,127 @@ from app.api.admin_configuration import (
     router as admin_configuration_router,
 )
 
+from app.services.pickup_reminder_service import (
+    process_pickup_reminders,
+)
+
+async def notification_worker_loop(
+    stop_event: asyncio.Event,
+):
+    reminder_check_interval = 60
+    exception_check_interval = 60
+
+    seconds_since_reminder_check = reminder_check_interval
+    seconds_since_exception_check = exception_check_interval
+
+    while not stop_event.is_set():
+
+        # -----------------------------------------
+        # Notification delivery
+        # -----------------------------------------
+
+        try:
+            from app.core.database import SessionLocal
+
+            db = SessionLocal()
+
+            try:
+                worker_enabled = get_configuration_bool(
+                    db,
+                    "notifications.worker_enabled",
+                )
+            finally:
+                db.close()
+
+            if worker_enabled:
+                await asyncio.to_thread(
+                    process_pending_notifications,
+                    batch_size=10,
+                )
+
+        except Exception as exc:
+            print(
+                f"[notification-worker] {exc}"
+            )
+
+        # -----------------------------------------
+        # Pickup reminders
+        # -----------------------------------------
+
+        if seconds_since_reminder_check >= reminder_check_interval:
+
+            try:
+                await asyncio.to_thread(
+                    process_pickup_reminders,
+                )
+
+            except Exception as exc:
+                print(
+                    f"[pickup-reminder] {exc}"
+                )
+
+            finally:
+                seconds_since_reminder_check = 0
+
+        # -----------------------------------------
+        # Exception escalation
+        # -----------------------------------------
+
+        if seconds_since_exception_check >= exception_check_interval:
+
+            try:
+                await asyncio.to_thread(
+                    process_exception_escalations,
+                )
+
+            except Exception as exc:
+                print(
+                    f"[exception-escalation] {exc}"
+                )
+
+            finally:
+                seconds_since_exception_check = 0
+
+        # -----------------------------------------
+        # Wait
+        # -----------------------------------------
+
+        try:
+            await asyncio.wait_for(
+                stop_event.wait(),
+                timeout=10,
+            )
+        except asyncio.TimeoutError:
+            pass
+
+        seconds_since_reminder_check += 10
+        seconds_since_exception_check += 10
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    stop_event = asyncio.Event()
+
+    worker_task = asyncio.create_task(
+        notification_worker_loop(stop_event)
+    )
+
+    try:
+        yield
+
+    finally:
+        stop_event.set()
+
+        try:
+            await worker_task
+        except asyncio.CancelledError:
+            pass
+
 
 app = FastAPI(
     title=settings.APP_NAME,
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 
@@ -124,9 +254,9 @@ app.include_router(
     admin_configuration_audit_router
 )
 app.include_router(
-    admin_configuration_changes_router
+    admin_configuration_router
 )
-
+app.include_router(admin_exceptions_router)
 @app.get("/health")
 def health():
     return {

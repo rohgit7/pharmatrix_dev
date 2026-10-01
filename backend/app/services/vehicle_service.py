@@ -1,13 +1,15 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
+from decimal import Decimal
 from fastapi import HTTPException, status
-
+from app.services.configuration_runtime_service import get_active_version
 from app.models.driver_vehicle_assignment import DriverVehicleAssignment
 from app.models.enums import VehicleStatus
 from app.models.vehicle import Vehicle
 from app.schemas.vehicle import VehicleCreate, VehicleUpdate
-
+from app.services.configuration_runtime_service import (
+    get_configuration_float,
+)
 
 def create_vehicle(
     db: Session,
@@ -29,10 +31,20 @@ def create_vehicle(
             detail="Vehicle registration number already exists",
         )
 
+    effective_capacity = data.capacity_kg
+
+    if effective_capacity is None:
+        default_capacity = get_configuration_float(
+            db,
+            "logistics.default_vehicle_capacity_kg",
+        )
+
+        effective_capacity = Decimal(str(default_capacity))
+
     vehicle = Vehicle(
         registration_number=data.registration_number,
         vehicle_type=data.vehicle_type,
-        capacity_kg=data.capacity_kg,
+        capacity_kg=effective_capacity,
         status=VehicleStatus.AVAILABLE,
     )
 

@@ -7,6 +7,9 @@ from app.models.configuration import (
     Configuration,
     ConfigurationVersion,
 )
+from app.services.configuration_value_validator import (
+    validate_configuration_value,
+)
 
 def list_configurations(
     db: Session,
@@ -188,10 +191,15 @@ def create_configuration(
     db.add(configuration)
     db.flush()
 
+    validated_value = validate_configuration_value(
+        data_type,
+        value,
+    )
+
     version = ConfigurationVersion(
         configuration_id=configuration.id,
         version=1,
-        value=value,
+        value=validated_value,
         status="ACTIVE",
         effective_from=(
             effective_from

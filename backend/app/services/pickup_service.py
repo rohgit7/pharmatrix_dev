@@ -2,7 +2,7 @@ from uuid import uuid4
 import secrets
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-
+from app.services.configuration_runtime_service import get_active_version
 from app.models.customer import Customer
 from app.models.customer_location import CustomerLocation
 from app.models.enums import PickupStatus
@@ -84,7 +84,26 @@ def create_pickup(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Pickup is disabled for this location",
         )
+    max_weight_config = get_active_version(
+        "operations.max_pickup_weight_kg"
+    )
 
+    if max_weight_config is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Maximum pickup weight configuration is not available",
+        )
+
+    max_pickup_weight = float(max_weight_config.value)
+
+    if estimated_weight_kg > max_pickup_weight:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Estimated pickup weight exceeds the configured "
+                f"maximum of {max_pickup_weight} kg"
+            ),
+        )
     pickup = Pickup(
         pickup_code=generate_pickup_code(),
         verification_token=secrets.token_urlsafe(32),

@@ -21,7 +21,7 @@ class NotificationResponse(BaseModel):
     sent_at: datetime | None = None
     created_at: datetime
     provider_status: str | None = None
-    provider_status_at: datetime | None = 
+    provider_status_at: datetime | None = None
     
     model_config = {
         "from_attributes": True

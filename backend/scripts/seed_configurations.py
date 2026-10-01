@@ -41,6 +41,13 @@ DEFAULT_CONFIGURATIONS = [
         "value": 24,
     },
     {
+        "key": "notifications.worker_enabled",
+        "description": "Enable worker notification delivery",
+        "data_type": "BOOLEAN",
+        "scope": "GLOBAL",
+        "value": False,
+    },
+    {
         "key": "logistics.default_vehicle_capacity_kg",
         "description": "Default operational vehicle capacity in kilograms",
         "data_type": "DECIMAL",
@@ -60,6 +67,13 @@ DEFAULT_CONFIGURATIONS = [
         "data_type": "INTEGER",
         "scope": "GLOBAL",
         "value": 480,
+    },
+        {
+        "key": "logistics.optimizer_time_limit_seconds",
+        "description": "Maximum time allowed for route optimizer search",
+        "data_type": "INTEGER",
+        "scope": "GLOBAL",
+        "value": 30,
     },
     {
         "key": "operations.max_pickup_weight_kg",

@@ -4,9 +4,11 @@ import secrets
 from fastapi import HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
+from app.core.file_validation import (
+    validate_file_signature,
+)
 from app.core.config import settings
-from app.core.supabase import create_client
+from app.core.supabase import supabase_admin
 from app.models.disposal_certificate import DisposalCertificate
 from app.models.disposal_shipment import DisposalShipment
 from app.models.enums import DisposalShipmentStatus
@@ -34,7 +36,21 @@ ALLOWED_CONTENT_TYPES = {
 def generate_certificate_code() -> str:
     return f"DC-{secrets.token_hex(4).upper()}"
 
-
+def delete_certificate_file(
+    storage_path: str,
+) -> None:
+    try:
+        supabase_admin.storage.from_(
+            settings.SUPABASE_DISPOSAL_CERTIFICATE_BUCKET
+        ).remove(
+            [storage_path]
+        )
+    except Exception as exc:
+        print(
+            f"[disposal-certificate] "
+            f"Failed to delete orphaned storage file "
+            f"{storage_path}: {exc}"
+        )
 async def upload_disposal_certificate(
     db: Session,
     shipment_id: int,
@@ -88,6 +104,37 @@ async def upload_disposal_certificate(
 
     contents = await file.read()
 
+    validate_file_signature(
+        contents,
+        content_type,
+    )
+
+    def validate_certificate_signature(
+        contents: bytes,
+        content_type: str,
+    ) -> bool:
+        if content_type == "application/pdf":
+            return contents.startswith(b"%PDF-")
+
+        if content_type == "image/jpeg":
+            return contents.startswith(b"\xFF\xD8\xFF")
+
+        if content_type == "image/png":
+            return contents.startswith(
+                b"\x89PNG\r\n\x1a\n"
+            )
+
+        return False
+
+    if not validate_certificate_signature(
+        contents,
+        content_type,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="File content does not match the declared file type",
+        )
+
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=400,
@@ -120,69 +167,79 @@ async def upload_disposal_certificate(
             detail=f"Failed to upload certificate: {str(exc)}",
         )
 
-    certificate = DisposalCertificate(
-        certificate_code=certificate_code,
-        shipment_id=shipment.id,
-        certificate_number=certificate_number,
-        storage_path=storage_path,
-        file_name=file.filename or f"certificate{extension}",
-        content_type=content_type,
-        issued_at=issued_at,
-        uploaded_at=datetime.now(timezone.utc),
-        notes=notes,
-    )
-
-    db.add(certificate)
-
-    shipment.status = DisposalShipmentStatus.DISPOSED
-
-    db.flush()
-
-    route = db.scalar(
-        select(Route)
-        .join(
-            WarehouseIntake,
-            WarehouseIntake.route_id == Route.id,
+    try:
+        certificate = DisposalCertificate(
+            certificate_code=certificate_code,
+            shipment_id=shipment.id,
+            certificate_number=certificate_number,
+            storage_path=storage_path,
+            file_name=file.filename or f"certificate{extension}",
+            content_type=content_type,
+            issued_at=issued_at,
+            uploaded_at=datetime.now(timezone.utc),
+            notes=notes,
         )
-        .where(
-            WarehouseIntake.id == shipment.intake_id
-        )
-    )
 
-    if route:
-        pickups = db.scalars(
-            select(Pickup)
+        db.add(certificate)
+
+        shipment.status = DisposalShipmentStatus.DISPOSED
+
+        db.flush()
+
+        route = db.scalar(
+            select(Route)
             .join(
-                RouteStop,
-                RouteStop.pickup_id == Pickup.id,
+                WarehouseIntake,
+                WarehouseIntake.route_id == Route.id,
             )
             .where(
-                RouteStop.route_id == route.id,
-                RouteStop.stop_type == RouteStopType.PICKUP,
+                WarehouseIntake.id == shipment.intake_id
             )
-        ).all()
+        )
 
-        notified_user_ids = set()
+        if route:
+            pickups = db.scalars(
+                select(Pickup)
+                .join(
+                    RouteStop,
+                    RouteStop.pickup_id == Pickup.id,
+                )
+                .where(
+                    RouteStop.route_id == route.id,
+                    RouteStop.stop_type == RouteStopType.PICKUP,
+                )
+            ).all()
 
-        for pickup in pickups:
-            customer = db.get(
-                Customer,
-                pickup.customer_id,
-            )
+            notified_user_ids = set()
 
-            if not customer:
-                continue
+            for pickup in pickups:
+                customer = db.get(
+                    Customer,
+                    pickup.customer_id,
+                )
 
-            if customer.user_id in notified_user_ids:
-                continue
+                if not customer:
+                    continue
 
-            notify_disposal_completed(
-                db,
-                customer_user_id=customer.user_id,
-                shipment_id=shipment.id,
-                shipment_code=shipment.shipment_code,
-            )
+                if customer.user_id in notified_user_ids:
+                    continue
 
-            notified_user_ids.add(customer.user_id)
+                notify_disposal_completed(
+                    db,
+                    customer_user_id=customer.user_id,
+                    shipment_id=shipment.id,
+                    shipment_code=shipment.shipment_code,
+                )
 
-    return certificate
+                notified_user_ids.add(customer.user_id)
+
+        return certificate
+
+    except Exception:
+        db.rollback()
+
+        delete_certificate_file(
+            storage_path
+        )
+
+        raise

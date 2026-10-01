@@ -137,7 +137,24 @@ async def upload_certificate(
         notes=notes,
     )
 
-    db.commit()
+    storage_path = certificate.storage_path
+
+    try:
+        db.commit()
+
+    except Exception:
+        db.rollback()
+
+        from app.services.disposal_certificate_service import (
+            delete_certificate_file,
+        )
+
+        delete_certificate_file(
+            storage_path
+        )
+
+        raise
+
     db.refresh(certificate)
 
     return certificate

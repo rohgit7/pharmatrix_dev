@@ -59,6 +59,9 @@ def hash_otp(otp: str) -> str:
         otp.encode("utf-8")
     ).hexdigest()
 
+OTP_REQUEST_COOLDOWN_SECONDS = 60
+OTP_REQUEST_WINDOW_MINUTES = 60
+OTP_REQUESTS_PER_WINDOW = 5
 
 def request_otp(
     db: Session,
@@ -80,12 +83,54 @@ def request_otp(
             detail="OTP cannot be generated for this pickup",
         )
 
+    now = datetime.now(timezone.utc)
+
+    if (
+        pickup.otp_last_requested_at is not None
+        and (
+            now - pickup.otp_last_requested_at
+        ).total_seconds()
+        < OTP_REQUEST_COOLDOWN_SECONDS
+    ):
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Please wait before requesting "
+                "another OTP"
+            ),
+        )
+
+    if (
+        pickup.otp_request_window_started_at is None
+        or (
+            now - pickup.otp_request_window_started_at
+        ).total_seconds()
+        >= OTP_REQUEST_WINDOW_MINUTES * 60
+    ):
+        pickup.otp_request_window_started_at = now
+        pickup.otp_request_count = 0
+
+    if (
+        pickup.otp_request_count
+        >= OTP_REQUESTS_PER_WINDOW
+    ):
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Maximum OTP requests exceeded. "
+                "Please try again later."
+            ),
+        )
+
     otp = generate_otp()
 
     expires_at = (
-        datetime.now(timezone.utc)
+        now
         + timedelta(minutes=10)
     )
+
+    pickup.otp_last_requested_at = now
+    pickup.otp_request_count += 1
 
     pickup.otp_hash = hash_otp(otp)
     pickup.otp_expires_at = expires_at

@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 import secrets
-
+from app.services.operational_exception_service import (
+    create_operational_exception,
+)
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
@@ -17,6 +19,9 @@ from app.models.enums import (
 from app.models.facility import Facility
 from app.models.warehouse_intake import (
     WarehouseIntake,
+)
+from app.services.configuration_runtime_service import (
+    get_configuration_float,
 )
 from app.models.warehouse_intake_item import WarehouseIntakeItem
 from app.models.customer import Customer
@@ -152,10 +157,36 @@ def receive_disposal_shipment(
     shipment.received_at = datetime.now(timezone.utc)
     shipment.notes = notes
 
-    if abs(
-        total_received - Decimal(str(shipment.expected_weight_kg))
-    ) > Decimal("0.01"):
+    weight_difference = abs(
+        total_received
+        - Decimal(str(shipment.expected_weight_kg))
+    )
+    facility_tolerance = get_configuration_float(
+        db,
+        "weight.facility_tolerance",
+    )
+
+    if weight_difference > Decimal(str(facility_tolerance)):
         shipment.status = DisposalShipmentStatus.DISCREPANCY
+
+        create_operational_exception(
+            db,
+            exception_type=(
+                OperationalExceptionType
+                .DISPOSAL_SHIPMENT_DISCREPANCY
+            ),
+            source_type="DISPOSAL_SHIPMENT",
+            source_id=shipment.id,
+            reason=(
+                f"Expected weight: "
+                f"{Decimal(str(shipment.expected_weight_kg)):.2f} kg; "
+                f"received weight: "
+                f"{total_received:.2f} kg; "
+                f"difference: "
+                f"{weight_difference:.2f} kg"
+            ),
+        )
+
     else:
         shipment.status = DisposalShipmentStatus.RECEIVED
 

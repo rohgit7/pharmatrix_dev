@@ -2,13 +2,19 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, selectinload
-
+from app.services.configuration_runtime_service import get_active_version
 from app.models.driver import Driver
 from app.models.enums import (
     PickupStatus,
     RouteStatus,
     RouteStopStatus,
     RouteStopType,
+)
+from app.models.enums import (
+    OperationalExceptionType,
+)
+from app.services.operational_exception_service import (
+    create_operational_exception,
 )
 from app.models.pickup import Pickup
 from app.models.route import Route
@@ -236,6 +242,18 @@ def complete_stop(
                 detail="Pickup stop has no pickup",
             )
 
+        collection_tolerance_config = get_active_version(
+            "weight.collection_tolerance"
+        )
+
+        if collection_tolerance_config is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Collection weight tolerance configuration is not available",
+            )
+
+        collection_tolerance = float(collection_tolerance_config.value)
+
         if collected_weight_kg is None:
             raise HTTPException(
                 status_code=400,
@@ -435,6 +453,14 @@ def fail_stop(
     if stop.pickup:
         stop.pickup.status = PickupStatus.FAILED
         stop.pickup.failure_reason = reason
+
+        create_operational_exception(
+            db,
+            exception_type=OperationalExceptionType.PICKUP_FAILED,
+            source_type="PICKUP",
+            source_id=stop.pickup.id,
+            reason=reason,
+        )
 
     db.commit()
     db.refresh(stop)

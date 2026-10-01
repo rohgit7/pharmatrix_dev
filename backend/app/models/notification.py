@@ -43,6 +43,21 @@ class Notification(Base):
         default=NotificationStatus.PENDING,
     )
 
+    attempt_count: Mapped[int] = mapped_column(
+        nullable=False,
+        default=0,
+    )
+
+    processing_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    last_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     title: Mapped[str] = mapped_column(
         String(200),
         nullable=False,

@@ -4,7 +4,9 @@ from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
-
+from app.core.file_validation import (
+    validate_file_signature,
+)
 from app.core.config import settings
 from app.core.supabase_admin import get_supabase_admin
 from app.models.enums import (
@@ -163,6 +165,32 @@ async def upload_collection_proof(
         )
 
     contents = await file.read()
+    validate_file_signature(
+        contents,
+        file.content_type,
+    )
+    def validate_image_signature(
+        contents: bytes,
+        content_type: str,
+    ) -> bool:
+        if content_type == "image/jpeg":
+            return contents.startswith(b"\xFF\xD8\xFF")
+
+        if content_type == "image/png":
+            return contents.startswith(
+                b"\x89PNG\r\n\x1a\n"
+            )
+
+        return False
+
+    if not validate_image_signature(
+        contents,
+        file.content_type,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="File content does not match the declared image type",
+        )
 
     if len(contents) > MAX_FILE_SIZE:
         raise HTTPException(

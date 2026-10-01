@@ -37,3 +37,4 @@ from app.models.configuration import (
 )
 from app.models.configuration_change import ConfigurationChange
 from app.models.configuration_audit import ConfigurationAudit
+from app.models.operational_exception import OperationalException

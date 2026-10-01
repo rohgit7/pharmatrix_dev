@@ -11,7 +11,39 @@ from app.models.configuration_change import ConfigurationChange
 from app.services.configuration_audit_service import (
     record_configuration_audit,
 )
+from app.services.configuration_value_validator import (
+    validate_configuration_constraints,
+    validate_configuration_value,
+)
 
+def _ensure_no_future_scheduled_version(
+    db: Session,
+    configuration_id: int,
+) -> None:
+    now = datetime.now(timezone.utc)
+
+    existing_scheduled = db.scalar(
+        select(ConfigurationVersion)
+        .where(
+            ConfigurationVersion.configuration_id
+            == configuration_id,
+            ConfigurationVersion.status == "SCHEDULED",
+            ConfigurationVersion.effective_from.is_not(None),
+            ConfigurationVersion.effective_from > now,
+        )
+        .order_by(
+            ConfigurationVersion.effective_from.asc()
+        )
+    )
+
+    if existing_scheduled:
+        raise ValueError(
+            "A future scheduled version already exists "
+            f"for this configuration "
+            f"(version {existing_scheduled.version}, "
+            f"effective from "
+            f"{existing_scheduled.effective_from})"
+        )
 
 def create_change_request(
     db: Session,
@@ -40,6 +72,11 @@ def create_change_request(
             "Configuration is inactive"
         )
 
+    validated_value = validate_configuration_value(
+        configuration.data_type,
+        proposed_value,
+    )
+
     current_version = None
 
     if configuration.current_version_id:
@@ -64,16 +101,26 @@ def create_change_request(
         )
     now = datetime.now(timezone.utc)
 
-        if effective_from is not None:
-            if effective_from.tzinfo is None:
-                raise ValueError(
-                    "effective_from must include timezone information"
-                )
-        if effective_from is not None:
-            if effective_from < now:
-                raise ValueError(
-                    "effective_from cannot be in the past"
-                )
+    if effective_from is not None:
+        if effective_from.tzinfo is None:
+            raise ValueError(
+                "effective_from must include timezone information"
+            )
+    if effective_from is not None:
+        if effective_from < now:
+            raise ValueError(
+                "effective_from cannot be in the past"
+            )
+    if effective_from is not None and effective_from > now:
+        _ensure_no_future_scheduled_version(
+            db,
+            configuration_id,
+        )
+
+    validate_configuration_constraints(
+        configuration.key,
+        validated_value,
+    )
 
     change = ConfigurationChange(
         configuration_id=configuration_id,
@@ -156,7 +203,14 @@ def approve_change_request(
         )
         .with_for_update()
     )
-
+    validated_value = validate_configuration_value(
+        configuration.data_type,
+        change.proposed_value,
+    )
+    validate_configuration_constraints(
+        configuration.key,
+        validated_value,
+    )
     if not configuration:
         raise ValueError(
             "Configuration not found"
@@ -189,11 +243,15 @@ def approve_change_request(
     is_future_effective = (
         effective_from > now
     )
-
+    if is_future_effective:
+        _ensure_no_future_scheduled_version(
+            db,
+            configuration.id,
+        )
     new_version = ConfigurationVersion(
         configuration_id=configuration.id,
         version=next_version_number,
-        value=change.proposed_value,
+        value=validated_value,
         status=(
             "SCHEDULED"
             if is_future_effective
@@ -297,6 +355,11 @@ def create_rollback_request(
         raise ValueError(
             "Rollback target version not found"
         )
+    
+    validated_value = validate_configuration_value(
+        configuration.data_type,
+        target_version.value,
+    )
 
     if (
         configuration.current_version_id
@@ -321,11 +384,27 @@ def create_rollback_request(
             "A pending change already exists for this configuration"
         )
 
+    if effective_from is not None:
+        if effective_from.tzinfo is None:
+            raise ValueError(
+                "effective_from must include timezone information"
+            )
+
+        if effective_from < datetime.now(timezone.utc):
+            raise ValueError(
+                "effective_from cannot be in the past"
+            )
+
+        _ensure_no_future_scheduled_version(
+            db,
+            configuration_id,
+        )
+    
     change = ConfigurationChange(
         configuration_id=configuration_id,
         base_version_id=configuration.current_version_id,
         rollback_of_version_id=target_version.id,
-        proposed_value=target_version.value,
+        proposed_value=validated_value,
         status="PENDING_APPROVAL",
         risk_level="HIGH",
         reason=reason,

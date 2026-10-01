@@ -9,7 +9,12 @@ from app.models.enums import VehicleStatus, VehicleType
 class VehicleCreate(BaseModel):
     registration_number: str = Field(min_length=1, max_length=50)
     vehicle_type: VehicleType
-    capacity_kg: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
+    capacity_kg: Decimal | None = Field(
+        default=None,
+        gt=0,
+        max_digits=10,
+        decimal_places=2,
+    )
 
 
 class VehicleUpdate(BaseModel):

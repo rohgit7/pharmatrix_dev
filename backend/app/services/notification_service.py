@@ -42,7 +42,7 @@ def create_notification(
         title=title,
         body=body,
         event_key=event_key,
-        metadata=metadata,
+        notification_metadata=metadata,
     )
 
     db.add(notification)
