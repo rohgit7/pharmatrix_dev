@@ -85,6 +85,7 @@ def get_today_route(
                     proof_uploaded=(
                         stop.proof_storage_path is not None
                     ),
+                    execution_status=stop.execution_status,
                 )
             )
 
@@ -92,29 +93,31 @@ def get_today_route(
             warehouse = stop.warehouse
 
             stops.append(
-            DriverRouteStopResponse(
-                sequence_number=stop.sequence_number,
-                stop_type=stop.stop_type,
+                DriverRouteStopResponse(
+                    sequence_number=stop.sequence_number,
+                    stop_type=stop.stop_type,
 
-                warehouse_id=warehouse.id,
-                warehouse_name=warehouse.name,
+                    warehouse_id=warehouse.id,
+                    warehouse_name=warehouse.name,
 
-                latitude=float(
-                    warehouse.latitude
-                ),
-                longitude=float(
-                    warehouse.longitude
-                ),
-        
+                    latitude=float(
+                        warehouse.latitude
+                    ),
+                    longitude=float(
+                        warehouse.longitude
+                    ),
 
-                address=warehouse.address,
-                city=warehouse.city,
-                state=warehouse.state,
-                postal_code=warehouse.postal_code,
+                    address=warehouse.address,
+                    city=warehouse.city,
+                    state=warehouse.state,
+                    postal_code=warehouse.postal_code,
 
-                arrival_time=stop.arrival_time,
-                departure_time=stop.departure_time,
-            )
+                    arrival_time=stop.arrival_time,
+                    departure_time=stop.departure_time,
+
+                    proof_uploaded=False,
+                    execution_status=stop.execution_status,
+                )
         )
 
     return DriverRouteResponse(

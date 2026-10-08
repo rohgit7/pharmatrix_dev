@@ -1,8 +1,6 @@
-import os
-
 import pytest
 from dotenv import dotenv_values
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 
@@ -33,7 +31,34 @@ def db():
     session = TestingSessionLocal()
 
     try:
+        # Start every test with a completely clean database.
+        session.execute(
+            text(
+                """
+                DO $$
+                DECLARE
+                    r RECORD;
+                BEGIN
+                    FOR r IN
+                        SELECT tablename
+                        FROM pg_tables
+                        WHERE schemaname = 'public'
+                          AND tablename <> 'alembic_version'
+                    LOOP
+                        EXECUTE
+                            'TRUNCATE TABLE public.'
+                            || quote_ident(r.tablename)
+                            || ' RESTART IDENTITY CASCADE';
+                    END LOOP;
+                END
+                $$;
+                """
+            )
+        )
+        session.commit()
+
         yield session
+
     finally:
         session.rollback()
         session.close()

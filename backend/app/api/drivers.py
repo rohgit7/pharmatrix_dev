@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.auth import require_role
@@ -59,6 +59,38 @@ def list_driver_endpoint(
 ):
     return list_drivers(db, skip, limit)
 
+@router.get("/me", response_model=DriverMeResponse)
+def get_my_driver_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.role != UserRole.DRIVER:
+        raise HTTPException(
+            status_code=403,
+            detail="Driver access required",
+        )
+
+    driver = get_driver_by_user_id(db, current_user.id)
+
+    if not driver:
+        raise HTTPException(
+            status_code=404,
+            detail="Driver profile not found",
+        )
+
+    return DriverMeResponse(
+        id=driver.id,
+        user_id=current_user.id,
+        employee_id=driver.employee_id,
+        name=current_user.name,
+        email=current_user.email,
+        phone=driver.phone,
+        license_number=driver.license_number,
+        license_expiry=driver.license_expiry,
+        status=driver.status.value,
+        is_available=driver.is_available,
+        created_at=driver.created_at,
+    )
 
 @router.get(
     "/{driver_id}",
@@ -106,35 +138,3 @@ def onboard_driver_endpoint(
         message="Driver onboarded successfully. An invitation has been sent to the driver's email.",
     )
 
-@router.get("/me", response_model=DriverMeResponse)
-def get_my_driver_profile(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    if current_user.role != UserRole.DRIVER:
-        raise HTTPException(
-            status_code=403,
-            detail="Driver access required",
-        )
-
-    driver = get_driver_by_user_id(db, current_user.id)
-
-    if not driver:
-        raise HTTPException(
-            status_code=404,
-            detail="Driver profile not found",
-        )
-
-    return DriverMeResponse(
-        id=driver.id,
-        user_id=current_user.id,
-        employee_id=driver.employee_id,
-        name=current_user.name,
-        email=current_user.email,
-        phone=driver.phone,
-        license_number=driver.license_number,
-        license_expiry=driver.license_expiry,
-        status=driver.status.value,
-        is_available=driver.is_available,
-        created_at=driver.created_at,
-    )

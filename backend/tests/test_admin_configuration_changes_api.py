@@ -282,3 +282,163 @@ def test_approve_endpoint_returns_400_for_service_error(
     assert response.json()["detail"] == (
         "The maker cannot approve their own change"
     )
+
+# ---------------------------------------------------------
+# Change request creation endpoint
+# ---------------------------------------------------------
+
+@patch(
+    "app.api.admin_configuration_changes.create_change_request"
+)
+def test_create_change_request_endpoint(
+    create_change_mock,
+):
+    change = make_change()
+
+    create_change_mock.return_value = change
+
+    effective_from = (
+        datetime.now(timezone.utc)
+        + timedelta(hours=2)
+    )
+
+    response = client.post(
+        "/api/admin/configuration/change-request",
+        json={
+            "configuration_id": 10,
+            "proposed_value": "new-value",
+            "risk_level": "HIGH",
+            "reason": "Test configuration change",
+            "change_reference": "CHG-001",
+            "effective_from": effective_from.isoformat(),
+        },
+    )
+
+    assert response.status_code == 201
+
+    body = response.json()
+
+    assert body["id"] == 1
+    assert body["configuration_id"] == 10
+    assert body["status"] == "PENDING_APPROVAL"
+    assert body["risk_level"] == "HIGH"
+
+    create_change_mock.assert_called_once()
+
+    call_kwargs = create_change_mock.call_args.kwargs
+
+    assert call_kwargs["configuration_id"] == 10
+    assert call_kwargs["proposed_value"] == "new-value"
+    assert call_kwargs["risk_level"] == "HIGH"
+    assert call_kwargs["reason"] == "Test configuration change"
+    assert call_kwargs["created_by"] == 100
+    assert call_kwargs["change_reference"] == "CHG-001"
+    assert call_kwargs["effective_from"] is not None
+
+
+@patch(
+    "app.api.admin_configuration_changes.create_change_request"
+)
+def test_create_change_request_endpoint_returns_400_for_service_error(
+    create_change_mock,
+):
+    create_change_mock.side_effect = ValueError(
+        "A pending change already exists for this configuration"
+    )
+
+    response = client.post(
+        "/api/admin/configuration/change-request",
+        json={
+            "configuration_id": 10,
+            "proposed_value": "new-value",
+            "reason": "Duplicate change",
+        },
+    )
+
+    assert response.status_code == 400
+
+    assert response.json()["detail"] == (
+        "A pending change already exists for this configuration"
+    )
+
+
+# ---------------------------------------------------------
+# Rejection endpoint
+# ---------------------------------------------------------
+
+@patch(
+    "app.api.admin_configuration_changes.reject_change_request"
+)
+def test_reject_change_request_endpoint(
+    reject_mock,
+):
+    change = make_change()
+
+    db = DummyDB(change=change)
+
+    def override_test_db():
+        return db
+
+    test_app.dependency_overrides[get_db] = override_test_db
+
+    response = client.post(
+        "/api/admin/configuration/change-requests/1/reject",
+        json={
+            "comment": "Rejected by admin",
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["id"] == 1
+    assert body["configuration_id"] == 10
+    assert body["rollback_of_version_id"] == 4
+
+    reject_mock.assert_called_once()
+
+    call_kwargs = reject_mock.call_args.kwargs
+
+    assert call_kwargs["change_id"] == 1
+    assert call_kwargs["approver_id"] == 100
+    assert call_kwargs["comment"] == "Rejected by admin"
+
+    test_app.dependency_overrides[get_db] = override_db
+
+
+def test_reject_change_request_requires_comment():
+    response = client.post(
+        "/api/admin/configuration/change-requests/1/reject",
+        json={},
+    )
+
+    assert response.status_code == 400
+
+    assert response.json()["detail"] == (
+        "A rejection comment is required"
+    )
+
+
+@patch(
+    "app.api.admin_configuration_changes.reject_change_request"
+)
+def test_reject_change_request_endpoint_returns_400_for_service_error(
+    reject_mock,
+):
+    reject_mock.side_effect = ValueError(
+        "The change request is already approved"
+    )
+
+    response = client.post(
+        "/api/admin/configuration/change-requests/1/reject",
+        json={
+            "comment": "Reject",
+        },
+    )
+
+    assert response.status_code == 400
+
+    assert response.json()["detail"] == (
+        "The change request is already approved"
+    )

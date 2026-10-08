@@ -243,6 +243,7 @@ def complete_stop(
             )
 
         collection_tolerance_config = get_active_version(
+            db,
             "weight.collection_tolerance"
         )
 

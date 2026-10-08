@@ -163,6 +163,7 @@ def optimize_and_dispatch(
     capacities = [float(a.vehicle.capacity_kg) for a in fleet]
 
     max_distance_config = get_active_version(
+        db,
         "logistics.max_route_distance_km"
     )
 
@@ -173,6 +174,7 @@ def optimize_and_dispatch(
         )
 
     max_duration_config = get_active_version(
+        db,
         "logistics.max_route_duration_minutes"
     )
 

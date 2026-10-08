@@ -2,6 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from contextlib import asynccontextmanager
+from app.api.admin_dashboard import (
+    router as admin_dashboard_router,
+)
+from app.core.logging import setup_logging
+
+setup_logging()
 from app.api.admin_exceptions import (
     router as admin_exceptions_router,
 )
@@ -259,7 +265,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+app.include_router(admin_dashboard_router)
 app.include_router(auth_router)
 app.include_router(customers_router)
 app.include_router(customer_documents_router)

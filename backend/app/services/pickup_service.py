@@ -73,7 +73,7 @@ def create_pickup(
             detail="Customer location not found",
         )
 
-    if not location.active:
+    if not location.is_active: 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Customer location is inactive",
@@ -85,7 +85,8 @@ def create_pickup(
             detail="Pickup is disabled for this location",
         )
     max_weight_config = get_active_version(
-        "operations.max_pickup_weight_kg"
+        db,
+        "operations.max_pickup_weight_kg",
     )
 
     if max_weight_config is None:

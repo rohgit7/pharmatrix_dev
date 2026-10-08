@@ -6,7 +6,7 @@ from app.services.operational_exception_service import (
 )
 from fastapi import HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.disposal_shipment import (
     DisposalShipment,
@@ -22,6 +22,11 @@ from app.models.warehouse_intake import (
 )
 from app.services.configuration_runtime_service import (
     get_configuration_float,
+)
+from app.models.enums import (
+    DisposalShipmentStatus,
+    RouteStopType,
+    OperationalExceptionType,
 )
 from app.models.warehouse_intake_item import WarehouseIntakeItem
 from app.models.customer import Customer
@@ -88,7 +93,7 @@ def receive_disposal_shipment(
 
     shipment = db.scalar(
         select(DisposalShipment)
-        .options(joinedload(DisposalShipment.items))
+        .options(selectinload(DisposalShipment.items))
         .where(DisposalShipment.id == shipment_id)
         .with_for_update()
     )

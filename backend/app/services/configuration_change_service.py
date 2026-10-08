@@ -57,9 +57,12 @@ def create_change_request(
     effective_from=None,
 ) -> ConfigurationChange:
 
-    configuration = db.get(
-        Configuration,
-        configuration_id,
+    configuration = db.scalar(
+        select(Configuration)
+        .where(
+            Configuration.id == configuration_id,
+        )
+        .with_for_update()
     )
 
     if not configuration:
@@ -332,6 +335,7 @@ def create_rollback_request(
         .where(
             Configuration.id == configuration_id
         )
+        .with_for_update()
     )
 
     if not configuration:
