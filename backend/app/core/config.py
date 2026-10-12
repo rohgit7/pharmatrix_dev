@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "Pharmatrix"
     SMTP_USE_TLS: bool = True
 
+    RAZORPAY_KEY_ID: str | None = None
+    RAZORPAY_KEY_SECRET: str | None = None
+    RAZORPAY_WEBHOOK_SECRET: str | None = None
+    RAZORPAY_CURRENCY: str = "INR"
+
     WHATSAPP_PROVIDER: str | None = None
     WHATSAPP_API_URL: str | None = None
     WHATSAPP_ACCESS_TOKEN: str | None = None

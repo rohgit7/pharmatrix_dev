@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from contextlib import asynccontextmanager
 from app.api.payments import router as admin_payments_router
+from app.api.razorpay_webhooks import router as razorpay_webhooks_router
+from app.api.razorpay import router as razorpay_router
 from app.api.admin_dashboard import (
     router as admin_dashboard_router,
 )
@@ -269,6 +271,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(admin_payments_router)
+app.include_router(razorpay_router)
+app.include_router(razorpay_webhooks_router)
 app.include_router(admin_dashboard_router)
 app.include_router(auth_router)
 app.include_router(customers_router)
