@@ -1,5 +1,10 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 
+from app.services.invoice_service import (
+    InvoiceError,
+    create_pickup_invoice,
+)
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, selectinload
 from app.services.configuration_runtime_service import get_active_version
@@ -287,6 +292,22 @@ def complete_stop(
 
         stop.pickup.status = PickupStatus.COLLECTED
         stop.pickup.collected_at = now
+        
+        # Create the invoice within the pickup transaction.
+        try:
+            create_pickup_invoice(
+                db=db,
+                pickup_id=stop.pickup.id,
+                actual_weight_kg=Decimal(
+                    str(collected_weight_kg)
+                ),
+            )
+        except InvoiceError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail=f"Pickup completed but invoicing failed: {exc}",
+            ) from exc
 
         stop.execution_status = (
             RouteStopStatus.COMPLETED

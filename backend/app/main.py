@@ -1,7 +1,9 @@
+from app.api.invoices import router as admin_invoices_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from contextlib import asynccontextmanager
+from app.api.payments import router as admin_payments_router
 from app.api.admin_dashboard import (
     router as admin_dashboard_router,
 )
@@ -85,6 +87,7 @@ from app.api.admin_configuration import (
 from app.services.pickup_reminder_service import (
     process_pickup_reminders,
 )
+from app.core.logging import log_request, setup_logging
 
 async def notification_worker_loop(
     stop_event: asyncio.Event,
@@ -250,6 +253,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.middleware("http")(log_request)
 
 origins = [
     origin.strip()
@@ -264,7 +268,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+app.include_router(admin_payments_router)
 app.include_router(admin_dashboard_router)
 app.include_router(auth_router)
 app.include_router(customers_router)
@@ -326,3 +330,5 @@ def database_health():
     return {
         "database": "connected" if connected else "failed"
     }
+app.include_router(admin_invoices_router)
+

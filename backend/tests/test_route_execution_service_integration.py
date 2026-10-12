@@ -1,13 +1,19 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-
 import pytest
 from fastapi import HTTPException
-
+from app.models.invoice import Invoice
 from app.models.configuration import (
     Configuration,
     ConfigurationVersion,
 )
+from decimal import Decimal
+from app.models.pricing import (
+    CustomerPricingAssignment,
+    PricingPlan,
+    PricingPlanVersion,
+)
+from app.models.invoice import InvoiceLineItem
 from app.models.customer import Customer
 from app.models.customer_location import CustomerLocation
 from app.models.driver import Driver
@@ -35,15 +41,11 @@ from app.services.route_execution_service import (
     complete_stop,
     start_route,
 )
-
-
 # ---------------------------------------------------------
 # Setup
 # ---------------------------------------------------------
-
 def make_route_setup(db):
     suffix = uuid.uuid4().hex
-
     driver_user = User(
         auth_user_id=uuid.uuid4(),
         name=f"Route Driver {suffix}",
@@ -53,7 +55,6 @@ def make_route_setup(db):
     )
     db.add(driver_user)
     db.flush()
-
     customer_user = User(
         auth_user_id=uuid.uuid4(),
         name=f"Route Customer {suffix}",
@@ -63,7 +64,6 @@ def make_route_setup(db):
     )
     db.add(customer_user)
     db.flush()
-
     customer = Customer(
         user_id=customer_user.id,
         customer_type=CustomerType.PHARMACY,
@@ -75,7 +75,48 @@ def make_route_setup(db):
     )
     db.add(customer)
     db.flush()
+    # Create pricing records for this fixture's actual customer.
+    pricing_now = datetime.now(timezone.utc)
 
+    pricing_plan = PricingPlan(
+        code=f"ROUTE-TEST-{suffix[:12]}",
+        name="Route Test Pricing Plan",
+        is_active=True,
+        created_by=driver_user.id,
+    )
+    db.add(pricing_plan)
+    db.flush()
+
+    pricing_version = PricingPlanVersion(
+        pricing_plan_id=pricing_plan.id,
+        version=1,
+        status="ACTIVE",
+        currency="INR",
+        per_kg_rate=Decimal("20.00"),
+        pickup_fee=Decimal("50.00"),
+        subscription_fee=Decimal("100.00"),
+        minimum_pickup_charge=Decimal("75.00"),
+        included_weight_kg=Decimal("2.000"),
+        fee_rules={},
+        effective_from=pricing_now - timedelta(days=1),
+        effective_until=None,
+        created_by=driver_user.id,
+        approved_by=driver_user.id,
+        approved_at=pricing_now,
+    )
+    db.add(pricing_version)
+    db.flush()
+
+    pricing_assignment = CustomerPricingAssignment(
+        customer_id=customer.id,
+        pricing_plan_id=pricing_plan.id,
+        effective_from=pricing_now - timedelta(days=1),
+        effective_until=None,
+        assigned_by=driver_user.id,
+        reason="Route execution integration test",
+    )
+    db.add(pricing_assignment)
+    db.flush()
     location = CustomerLocation(
         customer_id=customer.id,
         location_code=f"RT-{suffix[:10]}",
@@ -92,7 +133,6 @@ def make_route_setup(db):
     )
     db.add(location)
     db.flush()
-
     pickup = Pickup(
         pickup_code=f"PK-{suffix[:10]}",
         customer_id=customer.id,
@@ -105,7 +145,6 @@ def make_route_setup(db):
     )
     db.add(pickup)
     db.flush()
-
     driver = Driver(
         user_id=driver_user.id,
         employee_id=f"EMP-{suffix[:10]}",
@@ -115,7 +154,6 @@ def make_route_setup(db):
     )
     db.add(driver)
     db.flush()
-
     vehicle = Vehicle(
         registration_number=f"KA-{suffix[:10]}",
         vehicle_type=list(VehicleType)[0],
@@ -123,7 +161,6 @@ def make_route_setup(db):
     )
     db.add(vehicle)
     db.flush()
-
     warehouse = Warehouse(
         code=f"WH-{suffix[:10]}",
         name="Route Test Warehouse",
@@ -137,7 +174,6 @@ def make_route_setup(db):
     )
     db.add(warehouse)
     db.flush()
-
     route = Route(
         route_code=f"ROUTE-{suffix[:10]}",
         route_date=datetime.now(timezone.utc),
@@ -150,7 +186,6 @@ def make_route_setup(db):
     )
     db.add(route)
     db.flush()
-
     pickup_stop = RouteStop(
         route_id=route.id,
         sequence_number=1,
@@ -158,7 +193,6 @@ def make_route_setup(db):
         pickup_id=pickup.id,
         execution_status=RouteStopStatus.PENDING,
     )
-
     warehouse_stop = RouteStop(
         route_id=route.id,
         sequence_number=2,
@@ -166,16 +200,13 @@ def make_route_setup(db):
         warehouse_id=warehouse.id,
         execution_status=RouteStopStatus.PENDING,
     )
-
     db.add_all([
         pickup_stop,
         warehouse_stop,
     ])
-
     # -----------------------------------------------------
     # Ensure collection tolerance configuration exists
     # -----------------------------------------------------
-
     config = (
         db.query(Configuration)
         .filter(
@@ -184,9 +215,7 @@ def make_route_setup(db):
         )
         .first()
     )
-
     created_config = False
-
     if config is None:
         config = Configuration(
             key="weight.collection_tolerance",
@@ -197,7 +226,6 @@ def make_route_setup(db):
         )
         db.add(config)
         db.flush()
-
         version = ConfigurationVersion(
             configuration_id=config.id,
             version=1,
@@ -212,12 +240,9 @@ def make_route_setup(db):
         )
         db.add(version)
         db.flush()
-
         config.current_version_id = version.id
         created_config = True
-
     db.commit()
-
     db.refresh(driver_user)
     db.refresh(customer_user)
     db.refresh(customer)
@@ -227,10 +252,8 @@ def make_route_setup(db):
     db.refresh(vehicle)
     db.refresh(warehouse)
     db.refresh(route)
-
     db.refresh(pickup_stop)
     db.refresh(warehouse_stop)
-
     return {
         "suffix": suffix,
         "driver_user": driver_user,
@@ -245,32 +268,50 @@ def make_route_setup(db):
         "pickup_stop": pickup_stop,
         "warehouse_stop": warehouse_stop,
         "config": config if created_config else None,
+        "pricing_plan": pricing_plan,
+        "pricing_version": pricing_version,
+        "pricing_assignment": pricing_assignment,
     }
 
 
 def cleanup_route_setup(db, setup):
     warehouse_intake = (
         db.query(WarehouseIntake)
-        .filter(
-            WarehouseIntake.route_id
-            == setup["route"].id
-        )
+        .filter(WarehouseIntake.route_id == setup["route"].id)
         .first()
     )
-
     if warehouse_intake is not None:
         db.delete(warehouse_intake)
 
     db.query(Notification).filter(
-        Notification.user_id
-        == setup["customer_user"].id
-    ).delete(
-        synchronize_session=False
+        Notification.user_id == setup["customer_user"].id
+    ).delete(synchronize_session=False)
+
+    # Invoice records reference the pickup, so remove them first.
+    invoice = (
+        db.query(Invoice)
+        .filter(Invoice.pickup_id == setup["pickup"].id)
+        .one_or_none()
     )
+    if invoice is not None:
+        db.query(InvoiceLineItem).filter(
+            InvoiceLineItem.invoice_id == invoice.id
+        ).delete(synchronize_session=False)
+        db.delete(invoice)
+        db.flush()
 
     db.delete(setup["route"])
     db.delete(setup["pickup"])
     db.delete(setup["location"])
+
+    # Remove pricing references before deleting the customer or plan.
+    db.delete(setup["pricing_assignment"])
+    db.flush()
+    db.delete(setup["pricing_version"])
+    db.flush()
+    db.delete(setup["pricing_plan"])
+    db.flush()
+
     db.delete(setup["customer"])
     db.delete(setup["vehicle"])
     db.delete(setup["driver"])
@@ -281,53 +322,41 @@ def cleanup_route_setup(db, setup):
     db.delete(setup["warehouse"])
     db.delete(setup["customer_user"])
     db.delete(setup["driver_user"])
-
     db.commit()
 
 
 # ---------------------------------------------------------
 # Start route
 # ---------------------------------------------------------
-
 def test_start_route_persists_route_and_driver_state(db):
     setup = make_route_setup(db)
-
     try:
         route = start_route(
             db=db,
             user=setup["driver_user"],
             route_id=setup["route"].id,
         )
-
         assert route.status == RouteStatus.IN_PROGRESS
-
         db.refresh(setup["route"])
         db.refresh(setup["driver"])
-
         assert (
             setup["route"].status
             == RouteStatus.IN_PROGRESS
         )
         assert setup["driver"].is_available is False
-
     finally:
         cleanup_route_setup(db, setup)
-
-
 # ---------------------------------------------------------
 # Stop ordering
 # ---------------------------------------------------------
-
 def test_arrive_rejects_incomplete_previous_stop(db):
     setup = make_route_setup(db)
-
     try:
         start_route(
             db=db,
             user=setup["driver_user"],
             route_id=setup["route"].id,
         )
-
         with pytest.raises(HTTPException) as exc_info:
             arrive_at_stop(
                 db=db,
@@ -335,25 +364,19 @@ def test_arrive_rejects_incomplete_previous_stop(db):
                 route_id=setup["route"].id,
                 stop_id=setup["warehouse_stop"].id,
             )
-
         assert exc_info.value.status_code == 409
         assert exc_info.value.detail == (
             "Previous route stop must be completed first"
         )
-
     finally:
         cleanup_route_setup(db, setup)
-
-
 # ---------------------------------------------------------
 # Full route lifecycle
 # ---------------------------------------------------------
-
 def test_full_route_lifecycle_to_warehouse(
     db,
 ):
     setup = make_route_setup(db)
-
     try:
         # 1. Start route
         started_route = start_route(
@@ -361,12 +384,10 @@ def test_full_route_lifecycle_to_warehouse(
             user=setup["driver_user"],
             route_id=setup["route"].id,
         )
-
         assert (
             started_route.status
             == RouteStatus.IN_PROGRESS
         )
-
         # 2. Arrive at pickup
         pickup_stop = arrive_at_stop(
             db=db,
@@ -374,24 +395,20 @@ def test_full_route_lifecycle_to_warehouse(
             route_id=setup["route"].id,
             stop_id=setup["pickup_stop"].id,
         )
-
         assert (
             pickup_stop.execution_status
             == RouteStopStatus.ARRIVED
         )
         assert pickup_stop.arrived_at is not None
-
         # Simulate successful QR verification,
         # OTP verification and proof upload.
         now = datetime.now(timezone.utc)
-
         setup["pickup"].qr_verified_at = now
         setup["pickup"].otp_verified_at = now
         pickup_stop.proof_storage_path = (
             "routes/test/proof.jpg"
         )
         db.commit()
-
         # 3. Complete pickup
         completed_pickup = complete_stop(
             db=db,
@@ -400,23 +417,30 @@ def test_full_route_lifecycle_to_warehouse(
             stop_id=setup["pickup_stop"].id,
             collected_weight_kg=10.0,
         )
-
         assert (
             completed_pickup.execution_status
             == RouteStopStatus.COMPLETED
         )
         assert completed_pickup.completed_at is not None
-
         db.refresh(setup["pickup"])
-
         assert (
             setup["pickup"].status
             == PickupStatus.COLLECTED
         )
+        invoice = (
+            db.query(Invoice)
+            .filter(
+                Invoice.pickup_id == setup["pickup"].id
+            )
+            .one_or_none()
+        )
+        assert invoice is not None
+        assert invoice.customer_id == (
+            setup["pickup"].customer_id
+        )
         assert (
             setup["pickup"].collected_at is not None
         )
-
         # 4. Arrive at warehouse
         warehouse_stop = arrive_at_stop(
             db=db,
@@ -424,12 +448,10 @@ def test_full_route_lifecycle_to_warehouse(
             route_id=setup["route"].id,
             stop_id=setup["warehouse_stop"].id,
         )
-
         assert (
             warehouse_stop.execution_status
             == RouteStopStatus.ARRIVED
         )
-
         # 5. Complete warehouse handover
         completed_warehouse = complete_stop(
             db=db,
@@ -437,7 +459,6 @@ def test_full_route_lifecycle_to_warehouse(
             route_id=setup["route"].id,
             stop_id=setup["warehouse_stop"].id,
         )
-
         assert (
             completed_warehouse.execution_status
             == RouteStopStatus.COMPLETED
@@ -446,16 +467,13 @@ def test_full_route_lifecycle_to_warehouse(
             completed_warehouse.completed_at
             is not None
         )
-
         db.refresh(setup["route"])
         db.refresh(setup["driver"])
-
         assert (
             setup["route"].status
             == RouteStatus.COMPLETED
         )
         assert setup["driver"].is_available is True
-
         intake = (
             db.query(WarehouseIntake)
             .filter(
@@ -464,7 +482,6 @@ def test_full_route_lifecycle_to_warehouse(
             )
             .first()
         )
-
         assert intake is not None
         assert intake.status == (
             WarehouseIntakeStatus.PENDING
@@ -472,7 +489,6 @@ def test_full_route_lifecycle_to_warehouse(
         assert float(
             intake.expected_weight_kg
         ) == pytest.approx(10.0)
-
         notification = (
             db.query(Notification)
             .filter(
@@ -486,36 +502,28 @@ def test_full_route_lifecycle_to_warehouse(
             )
             .first()
         )
-
         assert notification is not None
-
     finally:
         cleanup_route_setup(db, setup)
-
-
 # ---------------------------------------------------------
 # Pickup completion guards
 # ---------------------------------------------------------
-
 def test_complete_pickup_requires_qr_verification(
     db,
 ):
     setup = make_route_setup(db)
-
     try:
         start_route(
             db=db,
             user=setup["driver_user"],
             route_id=setup["route"].id,
         )
-
         arrive_at_stop(
             db=db,
             user=setup["driver_user"],
             route_id=setup["route"].id,
             stop_id=setup["pickup_stop"].id,
         )
-
         setup["pickup"].otp_verified_at = (
             datetime.now(timezone.utc)
         )
@@ -523,7 +531,6 @@ def test_complete_pickup_requires_qr_verification(
             "routes/test/proof.jpg"
         )
         db.commit()
-
         with pytest.raises(HTTPException) as exc_info:
             complete_stop(
                 db=db,
@@ -532,42 +539,32 @@ def test_complete_pickup_requires_qr_verification(
                 stop_id=setup["pickup_stop"].id,
                 collected_weight_kg=10.0,
             )
-
         assert exc_info.value.status_code == 409
         assert exc_info.value.detail == (
             "Pickup QR has not been verified"
         )
-
     finally:
         cleanup_route_setup(db, setup)
-
-
 def test_complete_pickup_requires_proof(
     db,
 ):
     setup = make_route_setup(db)
-
     try:
         start_route(
             db=db,
             user=setup["driver_user"],
             route_id=setup["route"].id,
         )
-
         arrive_at_stop(
             db=db,
             user=setup["driver_user"],
             route_id=setup["route"].id,
             stop_id=setup["pickup_stop"].id,
         )
-
         now = datetime.now(timezone.utc)
-
         setup["pickup"].qr_verified_at = now
         setup["pickup"].otp_verified_at = now
-
         db.commit()
-
         with pytest.raises(HTTPException) as exc_info:
             complete_stop(
                 db=db,
@@ -576,11 +573,60 @@ def test_complete_pickup_requires_proof(
                 stop_id=setup["pickup_stop"].id,
                 collected_weight_kg=10.0,
             )
-
         assert exc_info.value.status_code == 409
         assert exc_info.value.detail == (
             "Collection proof has not been uploaded"
         )
-
+    finally:
+        cleanup_route_setup(db, setup)
+def test_pickup_completion_rolls_back_when_invoicing_fails(
+    db, monkeypatch
+):
+    from fastapi import HTTPException
+    from app.services.invoice_service import InvoiceError
+    from app.services import route_execution_service
+    setup = make_route_setup(db)
+    try:
+        start_route(
+            db=db,
+            user=setup["driver_user"],
+            route_id=setup["route"].id,
+        )
+        arrive_at_stop(
+            db=db,
+            user=setup["driver_user"],
+            route_id=setup["route"].id,
+            stop_id=setup["pickup_stop"].id,
+        )
+        now = datetime.now(timezone.utc)
+        setup["pickup"].qr_verified_at = now
+        setup["pickup"].otp_verified_at = now
+        setup["pickup_stop"].proof_storage_path = (
+            "routes/test/proof.jpg"
+        )
+        db.commit()
+        def fail_invoice(**kwargs):
+            raise InvoiceError("Simulated invoicing failure")
+        monkeypatch.setattr(
+            route_execution_service,
+            "create_pickup_invoice",
+            fail_invoice,
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            complete_stop(
+                db=db,
+                user=setup["driver_user"],
+                route_id=setup["route"].id,
+                stop_id=setup["pickup_stop"].id,
+                collected_weight_kg=10.0,
+            )
+        assert exc_info.value.status_code == 409
+        db.refresh(setup["pickup"])
+        db.refresh(setup["pickup_stop"])
+        assert setup["pickup"].status != PickupStatus.COLLECTED
+        assert (
+            setup["pickup_stop"].execution_status
+            != RouteStopStatus.COMPLETED
+        )
     finally:
         cleanup_route_setup(db, setup)
