@@ -1,4 +1,3 @@
-```markdown
 # Pharmatrix Backend
 
 Backend API for Pharmatrix, built with FastAPI and PostgreSQL.
@@ -40,7 +39,7 @@ backend/
 ├── alembic.ini
 ├── requirements.txt
 └── README.md
-```
+
 
 ## Local Setup
 
