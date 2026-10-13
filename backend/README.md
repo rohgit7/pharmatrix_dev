@@ -1,32 +1,3 @@
-No README exists, so we'll create it.
-
-### Step 37 — README
-
-Since your backend is already substantially built, the README should document:
-
-- Project overview
-- Architecture
-- Tech stack
-- Project structure
-- Setup
-- Environment variables
-- Database/migrations
-- Running locally
-- Docker
-- Testing
-- API documentation
-- Deployment
-- Background workers
-- Main API modules
-
-Create it:
-
-```powershell
-notepad README.md
-```
-
-Paste:
-
 ```markdown
 # Pharmatrix Backend
 
