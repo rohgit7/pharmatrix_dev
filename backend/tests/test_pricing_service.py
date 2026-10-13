@@ -54,14 +54,17 @@ def create_pricing_setup(
     db.add(customer_user)
     db.flush()
 
+
     customer = Customer(
         user_id=customer_user.id,
         customer_type=CustomerType.PHARMACY,
         legal_name="Pricing Test Pharmacy",
+        customer_code=f"PMP-{uuid.uuid4().hex[:12].upper()}",
         display_name="Pricing Test Pharmacy",
         phone="9876543210",
         is_active=True,
     )
+
     db.add(customer)
     db.flush()
 

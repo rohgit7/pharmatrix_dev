@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-
+from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.enums import DisposalShipmentStatus
@@ -30,6 +30,7 @@ class DisposalShipmentItemResponse(BaseModel):
 
 class DisposalShipmentResponse(BaseModel):
     id: int
+    public_id: UUID
     shipment_code: str
     intake_id: int
     facility_id: int

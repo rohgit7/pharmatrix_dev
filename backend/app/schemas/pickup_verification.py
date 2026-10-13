@@ -1,10 +1,10 @@
 from datetime import datetime
-
+from uuid import UUID
 from pydantic import BaseModel, Field
 
 
 class PickupVerificationResponse(BaseModel):
-    pickup_id: int
+    pickup_id: UUID
     pickup_code: str
 
     verification_token: str
@@ -19,7 +19,7 @@ class PickupVerificationResponse(BaseModel):
 
 
 class RequestOTPResponse(BaseModel):
-    pickup_id: int
+    pickup_id: UUID
     otp: str
     expires_at: datetime
     message: str

@@ -49,7 +49,7 @@ def dispatch_disposal_shipment(
 
     shipment = db.scalar(
         select(DisposalShipment)
-        .where(DisposalShipment.id == shipment_id)
+        .where(DisposalShipment.public_id == shipment_id)
         .with_for_update()
     )
 

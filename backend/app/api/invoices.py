@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, status, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
-
+from uuid import UUID
 from app.core.auth import require_role
 from app.core.database import get_db
 from app.models.invoice import Invoice
@@ -43,19 +43,18 @@ def list_invoices(
 
     return list(db.scalars(statement).all())
 
-
 @router.get(
     "/{invoice_id}",
     response_model=InvoiceResponse,
 )
 def get_invoice(
-    invoice_id: int = Path(gt=0),
+    invoice_id: UUID,
     db: Session = Depends(get_db),
 ):
     invoice = db.scalar(
         select(Invoice)
         .options(selectinload(Invoice.line_items))
-        .where(Invoice.id == invoice_id)
+        .where(Invoice.public_id == invoice_id)
     )
 
     if invoice is None:

@@ -254,6 +254,8 @@ def make_customer(db):
 
         customer_type=CustomerType.PHARMACY,
 
+        customer_code=f"PMP-{suffix[:12].upper()}",
+
         legal_name=f"Customer {suffix}",
 
         display_name=f"Customer {suffix}",
@@ -368,29 +370,83 @@ def make_intake_setup(db):
 
     customer, _, pickup = make_customer(db)
 
-    facility_tolerance_config = Configuration(
-        key="weight.facility_tolerance",
-        description="Allowed facility receiving weight tolerance",
-        data_type="DECIMAL",
-        scope="GLOBAL",
-        is_active=True,
-)
-    db.add(facility_tolerance_config)
-    db.flush()
+    facility_tolerance_config = (
 
-    facility_tolerance_version = ConfigurationVersion(
-        configuration_id=facility_tolerance_config.id,
-        version=1,
-        value=5,
-        status="ACTIVE",
-        effective_from=datetime.now(timezone.utc),
-        created_by=facility_user.id,
-        reason="Disposal shipment integration test",
-)
-    db.add(facility_tolerance_version)
-    db.flush()
+        db.query(Configuration)
 
-    facility_tolerance_config.current_version_id = facility_tolerance_version.id
+        .filter(
+
+            Configuration.key == "weight.facility_tolerance"
+
+        )
+
+        .first()
+
+    )
+
+    if facility_tolerance_config is None:
+
+        facility_tolerance_config = Configuration(
+
+            key="weight.facility_tolerance",
+
+            description="Allowed facility receiving weight tolerance",
+
+            data_type="DECIMAL",
+
+            scope="GLOBAL",
+
+            is_active=True,
+
+        )
+
+        db.add(facility_tolerance_config)
+
+        db.flush()
+
+    facility_tolerance_version = (
+
+        db.query(ConfigurationVersion)
+
+        .filter(
+
+            ConfigurationVersion.configuration_id
+
+            == facility_tolerance_config.id,
+
+            ConfigurationVersion.version == 1,
+
+        )
+
+        .first()
+
+    )
+
+    if facility_tolerance_version is None:
+
+
+        facility_tolerance_version = ConfigurationVersion(
+            configuration_id=facility_tolerance_config.id,
+            version=1,
+            value=5,
+            status="ACTIVE",
+            effective_from=datetime.now(timezone.utc),
+            effective_until=None,
+            created_by=facility_user.id,
+            reason="Disposal shipment integration test",
+        )
+
+
+        db.add(facility_tolerance_version)
+
+        db.flush()
+
+    facility_tolerance_config.current_version_id = (
+
+        facility_tolerance_version.id
+
+    )
+
     db.flush()
 
     route = make_route(db=db, warehouse=warehouse, driver=driver, vehicle=vehicle)
@@ -799,7 +855,7 @@ def test_dispatch_disposal_shipment_changes_status_to_in_transit(db):
 
     shipment = create_shipment(db, setup)
 
-    result = dispatch_disposal_shipment(db=db, shipment_id=shipment.id)
+    result = dispatch_disposal_shipment(db=db, shipment_id=shipment.public_id)
 
     assert result.id == shipment.id
 
@@ -811,7 +867,7 @@ def test_dispatch_disposal_shipment_rejects_missing_shipment(db):
 
     with pytest.raises(HTTPException) as exc:
 
-        dispatch_disposal_shipment(db=db, shipment_id=999999999)
+        dispatch_disposal_shipment(db=db, shipment_id=uuid.uuid4())
 
     assert exc.value.status_code == 404
 
@@ -821,11 +877,11 @@ def test_dispatch_disposal_shipment_rejects_already_dispatched(db):
 
     shipment = create_shipment(db, setup)
 
-    dispatch_disposal_shipment(db=db, shipment_id=shipment.id)
+    dispatch_disposal_shipment(db=db, shipment_id=shipment.public_id)
 
     with pytest.raises(HTTPException) as exc:
 
-        dispatch_disposal_shipment(db=db, shipment_id=shipment.id)
+        dispatch_disposal_shipment(db=db, shipment_id=shipment.public_id)
 
     assert exc.value.status_code == 409
 
@@ -841,7 +897,7 @@ def test_receive_disposal_shipment_changes_status_to_received(db):
 
     shipment = create_shipment(db, setup)
 
-    dispatch_disposal_shipment(db=db, shipment_id=shipment.id)
+    dispatch_disposal_shipment(db=db, shipment_id=shipment.public_id)
 
     result = receive_disposal_shipment(
 
@@ -899,7 +955,7 @@ def test_receive_disposal_shipment_rejects_missing_item(db):
 
     shipment = create_shipment(db, setup)
 
-    dispatch_disposal_shipment(db=db, shipment_id=shipment.id)
+    dispatch_disposal_shipment(db=db, shipment_id=shipment.public_id)
 
     with pytest.raises(HTTPException) as exc:
 
@@ -925,7 +981,7 @@ def test_receive_disposal_shipment_rejects_unknown_item(db):
 
     shipment = create_shipment(db, setup)
 
-    dispatch_disposal_shipment(db=db, shipment_id=shipment.id)
+    dispatch_disposal_shipment(db=db, shipment_id=shipment.public_id)
 
     items = received_items(shipment)
 
@@ -943,7 +999,7 @@ def test_receive_disposal_shipment_rejects_duplicate_received_item(db):
 
     shipment = create_shipment(db, setup)
 
-    dispatch_disposal_shipment(db=db, shipment_id=shipment.id)
+    dispatch_disposal_shipment(db=db, shipment_id=shipment.public_id)
 
     with pytest.raises(HTTPException) as exc:
 
@@ -975,9 +1031,9 @@ def test_receive_disposal_shipment_rejects_item_from_another_shipment(db):
 
     shipment_b = create_shipment(db, setup_b)
 
-    dispatch_disposal_shipment(db=db, shipment_id=shipment_a.id)
+    dispatch_disposal_shipment(db=db, shipment_id=shipment_a.public_id)
 
-    dispatch_disposal_shipment(db=db, shipment_id=shipment_b.id)
+    dispatch_disposal_shipment(db=db, shipment_id=shipment_b.public_id)
 
     with pytest.raises(HTTPException) as exc:
 
@@ -1011,7 +1067,7 @@ def test_receive_disposal_shipment_creates_discrepancy_when_outside_tolerance(db
 
     shipment = create_shipment(db, setup)
 
-    dispatch_disposal_shipment(db=db, shipment_id=shipment.id)
+    dispatch_disposal_shipment(db=db, shipment_id=shipment.public_id)
 
     monkeypatch.setattr(
 

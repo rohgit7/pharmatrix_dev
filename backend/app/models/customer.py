@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
@@ -7,6 +8,8 @@ from sqlalchemy import (
     ForeignKey,
     String,
     UniqueConstraint,
+    Uuid,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,6 +24,14 @@ class Customer(Base):
         UniqueConstraint(
             "user_id",
             name="uq_customers_user_id",
+        ),
+        UniqueConstraint(
+            "customer_code",
+            name="uq_customers_customer_code",
+        ),
+        UniqueConstraint(
+            "public_id",
+            name="uq_customers_public_id",
         ),
     )
 
@@ -50,7 +61,17 @@ class Customer(Base):
         String(200),
         nullable=False,
     )
+    customer_code: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+    )
 
+    public_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=False,
+        server_default=text("gen_random_uuid()"),
+    )
+    
     display_name: Mapped[str] = mapped_column(
         String(200),
         nullable=False,

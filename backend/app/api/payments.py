@@ -1,7 +1,7 @@
 ﻿
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, status
 from sqlalchemy.orm import Session
-
+from uuid import UUID
 from app.core.auth import require_role
 from app.core.database import get_db
 from app.models.user import UserRole
@@ -11,6 +11,7 @@ from app.services.payment_service import (
     get_invoice_payments,
     record_payment,
 )
+from app.models.invoice import Invoice
 
 
 router = APIRouter(
@@ -34,10 +35,20 @@ def create_payment_endpoint(
         max_length=100,
     ),
 ):
+    invoice = db.query(Invoice).filter(
+        Invoice.public_id == data.invoice_id
+    ).first()
+
+    if invoice is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice not found",
+        )
+
     try:
         payment = record_payment(
             db=db,
-            invoice_id=data.invoice_id,
+            invoice_id=invoice.id,
             amount=data.amount,
             payment_method=data.payment_method,
             payment_reference=data.payment_reference,
@@ -47,7 +58,19 @@ def create_payment_endpoint(
 
         db.commit()
         db.refresh(payment)
-        return payment
+
+        return {
+            "id": payment.id,
+            "invoice_id": invoice.public_id,
+            "amount": payment.amount,
+            "payment_method": payment.payment_method,
+            "status": payment.status,
+            "payment_reference": payment.payment_reference,
+            "idempotency_key": payment.idempotency_key,
+            "notes": payment.notes,
+            "paid_at": payment.paid_at,
+            "created_at": payment.created_at,
+        }
 
     except PaymentError as exc:
         db.rollback()
@@ -74,19 +97,47 @@ def create_payment_endpoint(
         ) from exc
 
 
+
 @router.get(
     "/invoice/{invoice_id}",
     response_model=list[PaymentResponse],
 )
 def get_invoice_payments_endpoint(
-    invoice_id: int = Path(gt=0),
+    invoice_id: UUID,
     db: Session = Depends(get_db),
 ):
-    try:
-        return get_invoice_payments(
-            db=db,
-            invoice_id=invoice_id,
+    invoice = db.query(Invoice).filter(
+        Invoice.public_id == invoice_id
+    ).first()
+
+    if invoice is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice not found",
         )
+
+    try:
+        payments = get_invoice_payments(
+            db=db,
+            invoice_id=invoice.id,
+        )
+
+        return [
+            {
+                "id": payment.id,
+                "invoice_id": invoice.public_id,
+                "amount": payment.amount,
+                "payment_method": payment.payment_method,
+                "status": payment.status,
+                "payment_reference": payment.payment_reference,
+                "idempotency_key": payment.idempotency_key,
+                "notes": payment.notes,
+                "paid_at": payment.paid_at,
+                "created_at": payment.created_at,
+            }
+            for payment in payments
+        ]
+
     except PaymentError as exc:
         db.rollback()
         raise HTTPException(

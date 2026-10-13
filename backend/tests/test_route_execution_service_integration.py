@@ -67,6 +67,7 @@ def make_route_setup(db):
     customer = Customer(
         user_id=customer_user.id,
         customer_type=CustomerType.PHARMACY,
+        customer_code=f"PMP-{uuid.uuid4().hex[:12].upper()}",
         legal_name="Route Test Pharmacy",
         display_name="Route Test Pharmacy",
         phone="9876543210",

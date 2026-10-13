@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.models.enums import PickupPriority, PickupStatus
@@ -18,6 +18,7 @@ class PickupCreate(BaseModel):
 
 class PickupResponse(BaseModel):
     id: int
+    public_id: UUID
     pickup_code: str
     customer_id: int
     location_id: int
@@ -35,6 +36,7 @@ class PickupResponse(BaseModel):
         "from_attributes": True
     }
 
+
 class PickupScheduleRequest(BaseModel):
     scheduled_date: datetime
 
@@ -42,8 +44,10 @@ class PickupScheduleRequest(BaseModel):
 class PickupCancelRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=1000)
 
+
 class PickupAdminResponse(BaseModel):
     id: int
+    public_id: UUID
     pickup_code: str
     customer_id: int
     location_id: int

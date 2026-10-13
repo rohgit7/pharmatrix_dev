@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
-
+from uuid import UUID   
 from app.core.auth import require_role
 from app.core.database import get_db
 
@@ -67,7 +67,7 @@ def list_incoming_shipments(
     response_model=DisposalShipmentResponse,
 )
 def receive_shipment(
-    shipment_id: int,
+    shipment_id: UUID,
     payload: DisposalShipmentReceiveRequest,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.FACILITY)),

@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-
+from sqlalchemy import text
 from app.models.customer import Customer
 from app.models.customer_location import CustomerLocation
 from app.models.enums import CustomerType
@@ -11,6 +11,23 @@ from app.models.clinic_profile import ClinicProfile
 from app.models.user import User
 from app.schemas.customer import CustomerOnboardRequest
 
+CUSTOMER_CODE_PREFIXES = {
+    CustomerType.PHARMACY: "PMP",
+    CustomerType.DISTRIBUTOR: "PMD",
+    CustomerType.HOSPITAL: "PMH",
+    CustomerType.CLINIC: "PMC",
+}
+
+
+def generate_customer_code(db: Session, customer_type: CustomerType) -> str:
+    prefix = CUSTOMER_CODE_PREFIXES[customer_type]
+
+    result = db.execute(
+        text("SELECT nextval('customer_code_seq')")
+    )
+    sequence_number = result.scalar_one()
+
+    return f"{prefix}{sequence_number:06d}"
 
 def create_customer(
     db: Session,
@@ -34,6 +51,7 @@ def create_customer(
     customer = Customer(
         user_id=user.id,
         customer_type=data.customer_type,
+        customer_code=generate_customer_code(db, data.customer_type),
         legal_name=data.legal_name,
         display_name=data.display_name,
         phone=data.phone,

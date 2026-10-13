@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -13,6 +14,8 @@ from app.models.enums import (
     RouteStopType,
     UserRole,
 )
+
+PICKUP_PUBLIC_ID = UUID("1f818c3d-d8d5-45e7-9079-f99180d9634f")
 
 
 # ---------------------------------------------------------
@@ -63,6 +66,7 @@ def make_pickup_stop():
         stop_type=RouteStopType.PICKUP,
         pickup=SimpleNamespace(
             id=501,
+            public_id=PICKUP_PUBLIC_ID,
             pickup_code="PK-DRIVER001",
             location=SimpleNamespace(
                 id=601,
@@ -173,7 +177,7 @@ def test_get_today_route_endpoint(
 
     assert pickup_stop["sequence_number"] == 1
     assert pickup_stop["stop_type"] == "PICKUP"
-    assert pickup_stop["pickup_id"] == 501
+    assert pickup_stop["pickup_id"] == str(PICKUP_PUBLIC_ID)
     assert pickup_stop["pickup_code"] == "PK-DRIVER001"
     assert pickup_stop["location_id"] == 601
     assert pickup_stop["location_name"] == "Customer Branch"

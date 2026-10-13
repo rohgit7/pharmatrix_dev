@@ -11,11 +11,11 @@ from app.services.configuration_runtime_service import (
     get_configuration_float,
 )
 
+
 def create_vehicle(
     db: Session,
     data: VehicleCreate,
 ) -> Vehicle:
-
     existing = (
         db.execute(
             select(Vehicle).where(
@@ -38,7 +38,6 @@ def create_vehicle(
             db,
             "logistics.default_vehicle_capacity_kg",
         )
-
         effective_capacity = Decimal(str(default_capacity))
 
     vehicle = Vehicle(
@@ -49,10 +48,22 @@ def create_vehicle(
     )
 
     db.add(vehicle)
-    db.commit()
-    db.refresh(vehicle)
+
+    try:
+        db.commit()
+
+        saved_vehicle = db.execute(
+            select(Vehicle).where(Vehicle.id == vehicle.id)
+        ).scalar_one_or_none()
+
+        db.refresh(vehicle)
+
+    except Exception:
+        db.rollback()
+        raise
 
     return vehicle
+
 
 
 def get_vehicle(

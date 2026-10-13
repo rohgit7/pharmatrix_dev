@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
-
+from sqlalchemy import Uuid, text
+from uuid import UUID
 from sqlalchemy import (
     DateTime,
     ForeignKey,
@@ -20,6 +21,12 @@ class DisposalShipment(Base):
     __tablename__ = "disposal_shipments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+
+    public_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=False,
+        server_default=text("gen_random_uuid()"),
+    )
 
     shipment_code: Mapped[str] = mapped_column(
         String(50),
@@ -119,6 +126,10 @@ class DisposalShipment(Base):
         CheckConstraint(
             "received_weight_kg IS NULL OR received_weight_kg >= 0",
             name="ck_disposal_shipments_received_weight_nonnegative",
+        ),
+        UniqueConstraint(
+            "public_id",
+            name="uq_disposal_shipments_public_id",
         ),
     )
 

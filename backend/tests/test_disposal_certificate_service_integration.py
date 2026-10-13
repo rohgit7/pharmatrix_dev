@@ -183,16 +183,19 @@ def make_vehicle(db):
 
 
 def make_customer(db):
+    suffix = uuid.uuid4().hex[:12].upper()
+
     user = make_user(
         db,
         role=UserRole.CUSTOMER,
         name="Certificate Customer",
-        email=f"customer-{uuid.uuid4().hex[:8]}@test.local",
+        email=f"customer-{suffix.lower()}@test.local",
     )
 
     customer = Customer(
         user_id=user.id,
         customer_type=CustomerType.PHARMACY,
+        customer_code=f"PMP-{suffix}",
         legal_name="Certificate Test Pharmacy",
         display_name="Certificate Test Pharmacy",
         phone="9876543212",

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-
+from uuid import UUID
 from app.core.auth import get_current_user, require_role
 from app.core.database import get_db
 from app.models.user import User, UserRole
@@ -70,7 +70,7 @@ def list_my_pickups(
     dependencies=[Depends(require_role(UserRole.CUSTOMER))],
 )
 def get_my_pickup(
-    pickup_id: int,
+    pickup_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -85,7 +85,7 @@ def get_my_pickup(
     response_model=PickupVerificationResponse,
 )
 def get_pickup_verification(
-    pickup_id: int,
+    pickup_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -96,7 +96,7 @@ def get_pickup_verification(
     )
 
     return PickupVerificationResponse(
-        pickup_id=pickup.id,
+        pickup_id=pickup.public_id,
         pickup_code=pickup.pickup_code,
         verification_token=pickup.verification_token,
         qr_verified=pickup.qr_verified_at is not None,
@@ -111,7 +111,7 @@ def get_pickup_verification(
     response_model=RequestOTPResponse,
 )
 def request_pickup_otp(
-    pickup_id: int,
+    pickup_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -122,7 +122,7 @@ def request_pickup_otp(
     )
 
     return RequestOTPResponse(
-        pickup_id=pickup.id,
+        pickup_id=pickup.public_id,
         otp=otp,
         expires_at=pickup.otp_expires_at,
         message=(

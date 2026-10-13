@@ -65,6 +65,10 @@ class CustomerOnboardRequest(BaseModel):
 class CustomerResponse(BaseModel):
     id: int
     user_id: int
+
+    public_id: str
+    customer_code: str
+
     customer_type: CustomerType
 
     legal_name: str

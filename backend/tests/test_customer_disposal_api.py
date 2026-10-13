@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -13,6 +14,9 @@ from app.models.enums import (
     DisposalShipmentStatus,
     UserRole,
 )
+
+PICKUP_PUBLIC_ID = UUID("1f818c3d-d8d5-45e7-9079-f99180d9634f")
+SHIPMENT_PUBLIC_ID = UUID("fd4505a7-8e02-4be8-a56a-475455220bc8")
 
 
 # ---------------------------------------------------------
@@ -96,9 +100,9 @@ def override_db_without_customer():
 
 def make_disposal_record():
     return {
-        "pickup_id": 101,
+        "pickup_id": PICKUP_PUBLIC_ID,
         "pickup_code": "PU-001",
-        "shipment_id": 501,
+        "shipment_id": SHIPMENT_PUBLIC_ID,
         "shipment_code": "SHIP-001",
         "facility_name": "Green Disposal Facility",
         "expected_weight_kg": Decimal("12.50"),
@@ -159,9 +163,9 @@ def test_get_my_disposal_records_returns_records(
 
     record = body[0]
 
-    assert record["pickup_id"] == 101
+    assert record["pickup_id"] == str(PICKUP_PUBLIC_ID)
     assert record["pickup_code"] == "PU-001"
-    assert record["shipment_id"] == 501
+    assert record["shipment_id"] == str(SHIPMENT_PUBLIC_ID)
     assert record["shipment_code"] == "SHIP-001"
     assert record["facility_name"] == (
         "Green Disposal Facility"

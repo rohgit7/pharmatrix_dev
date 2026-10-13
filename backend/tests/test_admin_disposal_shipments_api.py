@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import UUID
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -13,6 +14,8 @@ from app.models.enums import (
     DisposalShipmentStatus,
     UserRole,
 )
+
+SHIPMENT_PUBLIC_ID = UUID("fd4505a7-8e02-4be8-a56a-475455220bc8")
 
 
 # ---------------------------------------------------------
@@ -92,6 +95,7 @@ def make_shipment(
 ):
     return SimpleNamespace(
         id=shipment_id,
+        public_id=SHIPMENT_PUBLIC_ID,
         shipment_code="DS-ABCD1234",
         intake_id=10,
         facility_id=20,
@@ -195,7 +199,7 @@ def test_dispatch_disposal_shipment_endpoint(
     dispatch_shipment_mock.return_value = shipment
 
     response = client.post(
-        "/api/admin/disposal-shipments/1/dispatch"
+        f"/api/admin/disposal-shipments/{SHIPMENT_PUBLIC_ID}/dispatch"
     )
 
     assert response.status_code == 200
@@ -212,7 +216,7 @@ def test_dispatch_disposal_shipment_endpoint(
     kwargs = dispatch_shipment_mock.call_args.kwargs
 
     assert kwargs["db"] is dummy_db
-    assert kwargs["shipment_id"] == 1
+    assert kwargs["shipment_id"] == SHIPMENT_PUBLIC_ID
 
 
 # ---------------------------------------------------------
@@ -275,7 +279,7 @@ def test_disposal_shipment_admin_endpoints_reject_customer():
     ] = override_customer_user
 
     response = client.post(
-        "/api/admin/disposal-shipments/1/dispatch"
+        f"/api/admin/disposal-shipments/{SHIPMENT_PUBLIC_ID}/dispatch"
     )
 
     assert response.status_code == 403

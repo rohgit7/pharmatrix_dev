@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -13,6 +14,8 @@ from app.models.enums import (
     PickupStatus,
     UserRole,
 )
+
+PICKUP_PUBLIC_ID = UUID("1f818c3d-d8d5-45e7-9079-f99180d9634f")
 
 
 # ---------------------------------------------------------
@@ -62,6 +65,7 @@ def make_pickup():
 
     return SimpleNamespace(
         id=1,
+        public_id=str(PICKUP_PUBLIC_ID),
         pickup_code="PK-ABC123",
         customer_id=10,
         location_id=50,
@@ -249,7 +253,7 @@ def test_get_my_pickup_endpoint(
     get_pickup_mock.return_value = pickup
 
     response = client.get(
-        "/api/pickups/1"
+        f"/api/pickups/{PICKUP_PUBLIC_ID}"
     )
 
     assert response.status_code == 200
@@ -265,7 +269,7 @@ def test_get_my_pickup_endpoint(
 
     call_kwargs = get_pickup_mock.call_args.kwargs
 
-    assert call_kwargs["pickup_id"] == 1
+    assert call_kwargs["pickup_id"] == PICKUP_PUBLIC_ID
     assert call_kwargs["current_user"] is customer_user
     assert call_kwargs["db"] is not None
 
@@ -282,7 +286,7 @@ def test_get_my_pickup_returns_404(
     )
 
     response = client.get(
-        "/api/pickups/999"
+        f"/api/pickups/{UUID('cfc3b1c4-5077-4d6a-8c77-093658d73062')}"
     )
 
     assert response.status_code == 404
@@ -346,7 +350,7 @@ def test_get_pickup_rejects_non_customer():
     ] = override_admin_user
 
     response = client.get(
-        "/api/pickups/1"
+        f"/api/pickups/{PICKUP_PUBLIC_ID}"
     )
 
     assert response.status_code == 403

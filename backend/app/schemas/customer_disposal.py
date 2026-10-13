@@ -1,16 +1,16 @@
 from datetime import datetime
 from decimal import Decimal
-
+from uuid import UUID
 from pydantic import BaseModel
 
 from app.models.enums import DisposalShipmentStatus
 
 
 class CustomerDisposalRecordResponse(BaseModel):
-    pickup_id: int
+    pickup_id: UUID
     pickup_code: str
 
-    shipment_id: int | None = None
+    shipment_id: UUID | None = None
     shipment_code: str | None = None
 
     facility_name: str | None = None

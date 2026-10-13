@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-
+from uuid import UUID
 from app.core.auth import require_role
 from app.core.database import get_db
 from app.models.enums import PickupStatus
@@ -44,7 +44,7 @@ def admin_list_pickups(
     response_model=PickupAdminResponse,
 )
 def admin_get_pickup(
-    pickup_id: int,
+    pickup_id: UUID,
     db: Session = Depends(get_db),
 ):
     return get_pickup_by_id(
@@ -58,7 +58,7 @@ def admin_get_pickup(
     response_model=PickupAdminResponse,
 )
 def admin_schedule_pickup(
-    pickup_id: int,
+    pickup_id: UUID,
     data: PickupScheduleRequest,
     db: Session = Depends(get_db),
 ):
@@ -74,7 +74,7 @@ def admin_schedule_pickup(
     response_model=PickupAdminResponse,
 )
 def admin_cancel_pickup(
-    pickup_id: int,
+    pickup_id: UUID,
     data: PickupCancelRequest,
     db: Session = Depends(get_db),
 ):

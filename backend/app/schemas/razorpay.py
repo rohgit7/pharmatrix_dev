@@ -1,9 +1,9 @@
 
 from pydantic import BaseModel, Field
-
+from uuid import UUID
 
 class RazorpayOrderCreateRequest(BaseModel):
-    invoice_id: int = Field(gt=0)
+    invoice_id: UUID
 
 
 class RazorpayOrderResponse(BaseModel):

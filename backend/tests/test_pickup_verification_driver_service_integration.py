@@ -58,6 +58,7 @@ def make_driver_route_setup(db):
 
     customer = Customer(
         user_id=customer_user.id,
+        customer_code=f"PMP-{uuid.uuid4().hex[:12].upper()}",
         customer_type=CustomerType.PHARMACY,
         legal_name="Driver Verification Pharmacy",
         display_name="Driver Verification Pharmacy",

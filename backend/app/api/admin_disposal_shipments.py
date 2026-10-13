@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from uuid import UUID
+from fastapi import HTTPException
+from sqlalchemy import select
 
+from app.models.disposal_shipment import DisposalShipment
 from app.core.auth import require_role
 from app.core.database import get_db
 from app.models.user import UserRole
@@ -53,7 +57,7 @@ def create_shipment(
     response_model=DisposalShipmentResponse,
 )
 def dispatch_shipment(
-    shipment_id: int,
+    shipment_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.ADMIN)),
 ):

@@ -39,6 +39,7 @@ def make_pickup_setup(db, suffix):
         user_id=user.id,
         customer_type=CustomerType.PHARMACY,
         legal_name="Admin Pickup Pharmacy",
+        customer_code=f"PMP-{suffix[:12]}",
         display_name="Admin Pickup Pharmacy",
         phone="9876543210",
         email=user.email,
@@ -123,7 +124,7 @@ def test_schedule_pickup_persists_status_and_notification(
 
         updated_pickup = schedule_pickup(
             db=db,
-            pickup_id=pickup.id,
+            pickup_id=pickup.public_id,
             scheduled_date=scheduled_date,
         )
 
@@ -202,7 +203,7 @@ def test_schedule_pickup_rejects_non_requested_status(
         with pytest.raises(HTTPException) as exc_info:
             schedule_pickup(
                 db=db,
-                pickup_id=pickup.id,
+                pickup_id=pickup.public_id,
                 scheduled_date=(
                     datetime.now(timezone.utc)
                     + timedelta(days=1)
@@ -232,7 +233,7 @@ def test_schedule_pickup_rejects_missing_pickup(db):
     with pytest.raises(HTTPException) as exc_info:
         schedule_pickup(
             db=db,
-            pickup_id=999999999,
+            pickup_id=uuid.uuid4(),
             scheduled_date=(
                 datetime.now(timezone.utc)
                 + timedelta(days=1)
@@ -253,7 +254,7 @@ def test_cancel_requested_pickup(db):
     try:
         updated_pickup = cancel_pickup(
             db=db,
-            pickup_id=pickup.id,
+            pickup_id=pickup.public_id,
             reason="Customer requested cancellation",
         )
 
@@ -298,7 +299,7 @@ def test_cancel_scheduled_pickup(db):
     try:
         updated_pickup = cancel_pickup(
             db=db,
-            pickup_id=pickup.id,
+            pickup_id=pickup.public_id,
             reason="Customer no longer available",
         )
 
@@ -333,7 +334,7 @@ def test_cancel_collected_pickup_is_rejected(db):
         with pytest.raises(HTTPException) as exc_info:
             cancel_pickup(
                 db=db,
-                pickup_id=pickup.id,
+                pickup_id=pickup.public_id,
                 reason="Too late",
             )
 
@@ -373,7 +374,7 @@ def test_cancel_already_cancelled_pickup_is_rejected(
         with pytest.raises(HTTPException) as exc_info:
             cancel_pickup(
                 db=db,
-                pickup_id=pickup.id,
+                pickup_id=pickup.public_id,
                 reason="Cancel again",
             )
 

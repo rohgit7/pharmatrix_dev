@@ -121,16 +121,26 @@ def make_default_capacity_config(
 
     return config, version
 
-
 def cleanup(
     db,
+    assignment=None,
+    driver=None,
     vehicle=None,
     user=None,
     config=None,
     version=None,
 ):
+    if assignment is not None:
+        db.delete(assignment)
+        db.flush()
+
     if vehicle is not None:
         db.delete(vehicle)
+        db.flush()
+
+    if driver is not None:
+        db.delete(driver)
+        db.flush()
 
     if version is not None:
         db.delete(version)
@@ -142,6 +152,7 @@ def cleanup(
 
     if user is not None:
         db.delete(user)
+        db.flush()
 
     db.commit()
 

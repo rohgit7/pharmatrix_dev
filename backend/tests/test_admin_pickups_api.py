@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -8,6 +9,8 @@ from fastapi.testclient import TestClient
 from app.api.admin_pickups import router
 from app.core.auth import get_current_user
 from app.models.enums import PickupPriority, PickupStatus, UserRole
+
+PICKUP_PUBLIC_ID = UUID("1f818c3d-d8d5-45e7-9079-f99180d9634f")
 
 
 # ---------------------------------------------------------
@@ -60,6 +63,7 @@ def make_pickup(
 
     return SimpleNamespace(
         id=1,
+        public_id=str(PICKUP_PUBLIC_ID),
         pickup_code="PK-ADMIN001",
         customer_id=10,
         location_id=20,
@@ -156,7 +160,7 @@ def test_admin_get_pickup(
     get_pickup_mock.return_value = pickup
 
     response = client.get(
-        "/api/admin/pickups/1"
+        f"/api/admin/pickups/{PICKUP_PUBLIC_ID}"
     )
 
     assert response.status_code == 200
@@ -169,7 +173,7 @@ def test_admin_get_pickup(
 
     get_pickup_mock.assert_called_once_with(
         db=get_pickup_mock.call_args.kwargs["db"],
-        pickup_id=1,
+        pickup_id=PICKUP_PUBLIC_ID,
     )
 
 
@@ -185,7 +189,7 @@ def test_admin_get_pickup_not_found(
     )
 
     response = client.get(
-        "/api/admin/pickups/999"
+        f"/api/admin/pickups/{UUID('cfc3b1c4-5077-4d6a-8c77-093658d73062')}"
     )
 
     assert response.status_code == 404
@@ -217,7 +221,7 @@ def test_admin_schedule_pickup(
     schedule_pickup_mock.return_value = pickup
 
     response = client.post(
-        "/api/admin/pickups/1/schedule",
+        f"/api/admin/pickups/{PICKUP_PUBLIC_ID}/schedule",
         json={
             "scheduled_date": scheduled_date.isoformat(),
         },
@@ -235,7 +239,7 @@ def test_admin_schedule_pickup(
 
     call_kwargs = schedule_pickup_mock.call_args.kwargs
 
-    assert call_kwargs["pickup_id"] == 1
+    assert call_kwargs["pickup_id"] == PICKUP_PUBLIC_ID
     assert call_kwargs["scheduled_date"] is not None
     assert call_kwargs["db"] is not None
 
@@ -254,7 +258,7 @@ def test_admin_schedule_pickup_propagates_service_error(
     )
 
     response = client.post(
-        "/api/admin/pickups/1/schedule",
+        f"/api/admin/pickups/{PICKUP_PUBLIC_ID}/schedule",
         json={
             "scheduled_date": (
                 datetime.now(timezone.utc)
@@ -272,7 +276,7 @@ def test_admin_schedule_pickup_propagates_service_error(
 
 def test_admin_schedule_requires_date():
     response = client.post(
-        "/api/admin/pickups/1/schedule",
+        f"/api/admin/pickups/{PICKUP_PUBLIC_ID}/schedule",
         json={},
     )
 
@@ -297,7 +301,7 @@ def test_admin_cancel_pickup(
     cancel_pickup_mock.return_value = pickup
 
     response = client.post(
-        "/api/admin/pickups/1/cancel",
+        f"/api/admin/pickups/{PICKUP_PUBLIC_ID}/cancel",
         json={
             "reason": "Customer requested cancellation",
         },
@@ -317,7 +321,7 @@ def test_admin_cancel_pickup(
 
     call_kwargs = cancel_pickup_mock.call_args.kwargs
 
-    assert call_kwargs["pickup_id"] == 1
+    assert call_kwargs["pickup_id"] == PICKUP_PUBLIC_ID
     assert call_kwargs["reason"] == (
         "Customer requested cancellation"
     )
@@ -338,7 +342,7 @@ def test_admin_cancel_pickup_propagates_service_error(
     )
 
     response = client.post(
-        "/api/admin/pickups/1/cancel",
+        f"/api/admin/pickups/{PICKUP_PUBLIC_ID}/cancel",
         json={
             "reason": "Cancel test",
         },
@@ -353,7 +357,7 @@ def test_admin_cancel_pickup_propagates_service_error(
 
 def test_admin_cancel_requires_reason():
     response = client.post(
-        "/api/admin/pickups/1/cancel",
+        f"/api/admin/pickups/{PICKUP_PUBLIC_ID}/cancel",
         json={},
     )
 
@@ -362,7 +366,7 @@ def test_admin_cancel_requires_reason():
 
 def test_admin_cancel_rejects_empty_reason():
     response = client.post(
-        "/api/admin/pickups/1/cancel",
+        f"/api/admin/pickups/{PICKUP_PUBLIC_ID}/cancel",
         json={
             "reason": "",
         },
@@ -400,7 +404,7 @@ def test_admin_pickup_schedule_rejects_non_admin():
     ] = override_customer_user
 
     response = client.post(
-        "/api/admin/pickups/1/schedule",
+        f"/api/admin/pickups/{PICKUP_PUBLIC_ID}/schedule",
         json={
             "scheduled_date": (
                 datetime.now(timezone.utc)

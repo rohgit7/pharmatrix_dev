@@ -39,7 +39,7 @@ def get_customer_disposal_records(
         if not route:
             records.append(
                 {
-                    "pickup_id": pickup.id,
+                    "pickup_id": pickup.public_id,
                     "pickup_code": pickup.pickup_code,
                     "shipment_id": None,
                     "shipment_code": None,
@@ -64,7 +64,7 @@ def get_customer_disposal_records(
         if not intake:
             records.append(
                 {
-                    "pickup_id": pickup.id,
+                    "pickup_id": pickup.public_id,
                     "pickup_code": pickup.pickup_code,
                     "shipment_id": None,
                     "shipment_code": None,
@@ -89,7 +89,7 @@ def get_customer_disposal_records(
         if not shipment:
             records.append(
                 {
-                    "pickup_id": pickup.id,
+                    "pickup_id": pickup.public_id,
                     "pickup_code": pickup.pickup_code,
                     "shipment_id": None,
                     "shipment_code": None,
@@ -113,9 +113,9 @@ def get_customer_disposal_records(
 
         records.append(
             {
-                "pickup_id": pickup.id,
+                "pickup_id": pickup.public_id,
                 "pickup_code": pickup.pickup_code,
-                "shipment_id": shipment.id,
+                "shipment_id": shipment.public_id,
                 "shipment_code": shipment.shipment_code,
                 "facility_name": (
                     shipment.facility.legal_name

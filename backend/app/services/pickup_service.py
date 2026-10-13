@@ -1,4 +1,5 @@
 from uuid import uuid4
+from uuid import UUID
 import secrets
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -148,12 +149,12 @@ def list_customer_pickups(
     )
 
 
+
 def get_customer_pickup(
     db: Session,
     current_user: User,
-    pickup_id: int,
+    pickup_id: UUID,
 ) -> Pickup:
-
     customer = get_customer_for_user(
         db,
         current_user.id,
@@ -162,7 +163,7 @@ def get_customer_pickup(
     pickup = (
         db.query(Pickup)
         .filter(
-            Pickup.id == pickup_id,
+            Pickup.public_id == pickup_id,
             Pickup.customer_id == customer.id,
         )
         .first()
@@ -175,6 +176,7 @@ def get_customer_pickup(
         )
 
     return pickup
+
 
 def list_all_pickups(
     db: Session,
@@ -198,18 +200,18 @@ def list_all_pickups(
     )
 
 
+
 def get_pickup_by_id(
     db: Session,
-    pickup_id: int,
+    pickup_id: UUID,
 ) -> Pickup:
-
     pickup = (
         db.query(Pickup)
         .options(
             joinedload(Pickup.customer),
             joinedload(Pickup.location),
         )
-        .filter(Pickup.id == pickup_id)
+        .filter(Pickup.public_id == pickup_id)
         .first()
     )
 
@@ -222,15 +224,16 @@ def get_pickup_by_id(
     return pickup
 
 
+
+
 def schedule_pickup(
     db: Session,
-    pickup_id: int,
+    pickup_id: UUID,
     scheduled_date,
 ) -> Pickup:
-
     pickup = (
         db.query(Pickup)
-        .filter(Pickup.id == pickup_id)
+        .filter(Pickup.public_id == pickup_id)
         .with_for_update()
         .first()
     )
@@ -252,7 +255,10 @@ def schedule_pickup(
     if pickup.status != PickupStatus.REQUESTED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Pickup cannot be scheduled from status {pickup.status.value}",
+            detail=(
+                f"Pickup cannot be scheduled from status "
+                f"{pickup.status.value}"
+            ),
         )
 
     pickup.scheduled_date = scheduled_date
@@ -272,15 +278,16 @@ def schedule_pickup(
     return pickup
 
 
+
+
 def cancel_pickup(
     db: Session,
-    pickup_id: int,
+    pickup_id: UUID,
     reason: str,
 ) -> Pickup:
-
     pickup = (
         db.query(Pickup)
-        .filter(Pickup.id == pickup_id)
+        .filter(Pickup.public_id == pickup_id)
         .with_for_update()
         .first()
     )
@@ -299,7 +306,10 @@ def cancel_pickup(
     if pickup.status not in allowed_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Pickup cannot be cancelled from status {pickup.status.value}",
+            detail=(
+                f"Pickup cannot be cancelled from status "
+                f"{pickup.status.value}"
+            ),
         )
 
     pickup.status = PickupStatus.CANCELLED

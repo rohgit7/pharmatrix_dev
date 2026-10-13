@@ -17,9 +17,23 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+import os
+from dotenv import dotenv_values
+
+if os.getenv("ALEMBIC_USE_TEST_DATABASE") == "1":
+    test_settings = dotenv_values(".env.test")
+    database_url = test_settings.get("TEST_DATABASE_URL")
+
+    if not database_url:
+        raise RuntimeError(
+            "TEST_DATABASE_URL is missing from .env.test"
+        )
+else:
+    database_url = settings.DATABASE_URL
+
 config.set_main_option(
     "sqlalchemy.url",
-    settings.DATABASE_URL,
+    database_url.replace("%", "%%"),
 )
 
 target_metadata = Base.metadata

@@ -1,12 +1,14 @@
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel
 
 
 class DisposalCertificateResponse(BaseModel):
     id: int
+    public_id: UUID
     certificate_code: str
-    shipment_id: int
+    shipment_id: UUID
     certificate_number: str
     storage_path: str
     file_name: str
@@ -15,9 +17,7 @@ class DisposalCertificateResponse(BaseModel):
     uploaded_at: datetime
     notes: str | None = None
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = {"from_attributes": True}
 
 
 class DisposalCertificateUrlResponse(BaseModel):

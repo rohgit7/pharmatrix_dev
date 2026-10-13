@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -21,9 +21,11 @@ class InvoiceLineItemResponse(BaseModel):
 class InvoiceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: int 
+    public_id: UUID
     invoice_number: str
     customer_id: int
+    customer_public_id: UUID
     pickup_id: int
     pricing_plan_id: int
     pricing_plan_version_id: int

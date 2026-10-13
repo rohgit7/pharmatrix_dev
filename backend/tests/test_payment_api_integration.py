@@ -2,6 +2,7 @@
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import UUID
 
 import pytest
 from fastapi import FastAPI
@@ -13,19 +14,49 @@ from app.core.database import get_db
 from app.models.user import UserRole
 from app.services.payment_service import PaymentError
 
+INVOICE_PUBLIC_ID = UUID("32efdc3b-a8af-4e81-877f-e6702caaf2d5")
 
 app = FastAPI()
 app.include_router(router)
 
 
+class DummyQuery:
+    def __init__(self, invoices):
+        self.invoices = invoices
+        self.invoice = None
+
+    def filter(self, expression):
+        invoice_public_id = expression.right.value
+        self.invoice = next(
+            (
+                invoice
+                for invoice in self.invoices
+                if invoice.public_id == invoice_public_id
+            ),
+            None,
+        )
+        return self
+
+    def first(self):
+        return self.invoice
+
+
 class DummyDB:
-    def __init__(self):
+    def __init__(self, invoices=None):
         self.committed = False
         self.rolled_back = False
         self.refreshed = None
+        self.invoices = (
+            [SimpleNamespace(id=10, public_id=INVOICE_PUBLIC_ID)]
+            if invoices is None
+            else invoices
+        )
 
     def commit(self):
         self.committed = True
+
+    def query(self, model):
+        return DummyQuery(self.invoices)
 
     def rollback(self):
         self.rolled_back = True
@@ -47,6 +78,7 @@ def make_payment(payment_id=1, invoice_id=10, amount="110.00"):
     return SimpleNamespace(
         id=payment_id,
         invoice_id=invoice_id,
+        idempotency_key=None,
         amount=Decimal(amount),
         payment_method="UPI",
         status="COMPLETED",
@@ -59,7 +91,7 @@ def make_payment(payment_id=1, invoice_id=10, amount="110.00"):
 
 def valid_payload():
     return {
-        "invoice_id": 10,
+        "invoice_id": str(INVOICE_PUBLIC_ID),
         "amount": "110.00",
         "payment_method": "UPI",
         "payment_reference": "PAY-001",
@@ -93,7 +125,7 @@ def test_create_payment_success(record_payment_mock, client):
     assert response.status_code == 201
     body = response.json()
     assert body["id"] == 1
-    assert body["invoice_id"] == 10
+    assert body["invoice_id"] == str(INVOICE_PUBLIC_ID)
     assert body["amount"] == "110.00"
     assert body["payment_method"] == "UPI"
     assert body["status"] == "COMPLETED"
@@ -109,15 +141,15 @@ def test_create_payment_success(record_payment_mock, client):
 def test_create_payment_missing_invoice_returns_404(
     record_payment_mock, client
 ):
-    record_payment_mock.side_effect = PaymentError("Invoice not found")
-    db = DummyDB()
+    db = DummyDB(invoices=[])
     app.dependency_overrides[get_db] = lambda: db
 
     response = client.post("/api/admin/payments/", json=valid_payload())
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Invoice not found"
-    assert db.rolled_back
+    record_payment_mock.assert_not_called()
+    assert not db.rolled_back
     assert not db.committed
 
 
@@ -150,12 +182,12 @@ def test_payment_service_errors_return_400(
     "payload",
     [
         {"amount": "110.00", "payment_method": "UPI"},
-        {"invoice_id": 10, "amount": "0", "payment_method": "UPI"},
-        {"invoice_id": 10, "amount": "-5.00", "payment_method": "UPI"},
-        {"invoice_id": 10, "amount": "110.00", "payment_method": "INVALID"},
+        {"invoice_id": str(INVOICE_PUBLIC_ID), "amount": "0", "payment_method": "UPI"},
+        {"invoice_id": str(INVOICE_PUBLIC_ID), "amount": "-5.00", "payment_method": "UPI"},
+        {"invoice_id": str(INVOICE_PUBLIC_ID), "amount": "110.00", "payment_method": "INVALID"},
         {"invoice_id": 0, "amount": "110.00", "payment_method": "UPI"},
         {"invoice_id": -1, "amount": "110.00", "payment_method": "UPI"},
-        {"invoice_id": 10, "amount": "110.00"},
+        {"invoice_id": str(INVOICE_PUBLIC_ID), "amount": "110.00"},
     ],
 )
 @patch("app.api.payments.record_payment")
@@ -180,7 +212,9 @@ def test_non_admin_cannot_create_payment(client):
 def test_non_admin_cannot_view_payment_history(client):
     app.dependency_overrides[get_current_user] = lambda: customer_user
 
-    response = client.get("/api/admin/payments/invoice/10")
+    response = client.get(
+        f"/api/admin/payments/invoice/{INVOICE_PUBLIC_ID}"
+    )
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Insufficient permissions"
@@ -197,7 +231,9 @@ def test_unauthenticated_user_cannot_create_payment(client):
 def test_unauthenticated_user_cannot_view_payment_history(client):
     app.dependency_overrides.pop(get_current_user, None)
 
-    response = client.get("/api/admin/payments/invoice/10")
+    response = client.get(
+        f"/api/admin/payments/invoice/{INVOICE_PUBLIC_ID}"
+    )
 
     assert response.status_code in (401, 403)
 
@@ -209,7 +245,9 @@ def test_payment_history_returns_payments(history_mock, client):
         make_payment(1, 10, "60.00"),
     ]
 
-    response = client.get("/api/admin/payments/invoice/10")
+    response = client.get(
+        f"/api/admin/payments/invoice/{INVOICE_PUBLIC_ID}"
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -223,19 +261,24 @@ def test_payment_history_returns_payments(history_mock, client):
 def test_payment_history_missing_invoice_returns_404(
     history_mock, client
 ):
-    history_mock.side_effect = PaymentError("Invoice not found")
-    db = DummyDB()
+    db = DummyDB(invoices=[])
     app.dependency_overrides[get_db] = lambda: db
 
-    response = client.get("/api/admin/payments/invoice/999")
+    missing_invoice_id = UUID("88be5aae-651b-4c07-b144-8cb11123f1cc")
+    response = client.get(
+        f"/api/admin/payments/invoice/{missing_invoice_id}"
+    )
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Invoice not found"
-    assert db.rolled_back
+    history_mock.assert_not_called()
+    assert not db.rolled_back
 
 
 def test_payment_history_rejects_invalid_invoice_id(client):
-    response = client.get("/api/admin/payments/invoice/0")
+    response = client.get(
+        "/api/admin/payments/invoice/not-a-uuid"
+    )
 
     assert response.status_code == 422
 

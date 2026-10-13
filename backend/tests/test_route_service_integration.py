@@ -53,6 +53,7 @@ def make_customer(db, user):
     customer = Customer(
         user_id=user.id,
         customer_type=CustomerType.PHARMACY,
+        customer_code=f"PMP-{uuid.uuid4().hex[:12].upper()}",
         legal_name=f"Route Test Pharmacy {uuid.uuid4().hex[:8]}",
         display_name="Route Test Pharmacy",
         phone="9876543210",

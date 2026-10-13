@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-
+from uuid import UUID
 from sqlalchemy import (
     DateTime,
     Enum as SAEnum,
@@ -8,6 +8,9 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
+    Uuid,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,10 +21,23 @@ from app.models.enums import PickupPriority, PickupStatus
 class Pickup(Base):
     __tablename__ = "pickups"
 
+    __table_args__ = (
+        UniqueConstraint(
+            "public_id",
+            name="uq_pickups_public_id",
+        ),
+    )
+
     id: Mapped[int] = mapped_column(
         Integer,
         primary_key=True,
         index=True,
+    )
+
+    public_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=False,
+        server_default=text("gen_random_uuid()"),
     )
 
     pickup_code: Mapped[str] = mapped_column(

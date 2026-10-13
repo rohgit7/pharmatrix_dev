@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 from app.core.config import settings
+import uuid
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
+from uuid import UUID
 from app.api.admin_disposal_shipments import (
     router as disposal_shipment_router,
 )
@@ -43,6 +44,14 @@ from app.models.route import Route
 from app.models.user import User
 from app.models.vehicle import Vehicle
 from app.models.warehouse import Warehouse
+from decimal import Decimal
+from datetime import datetime, timedelta, timezone
+
+from app.models.pricing import (
+    CustomerPricingAssignment,
+    PricingPlan,
+    PricingPlanVersion,
+)
 
 from app.services.configuration_service import create_configuration
 
@@ -169,6 +178,7 @@ def test_complete_operational_workflow(db):
     customer = Customer(
         user_id=customer_user.id,
         customer_type=CustomerType.PHARMACY,
+        customer_code=f"PMP-{uuid4().hex[:12].upper()}",
         legal_name="E2E Pharmacy Pvt Ltd",
         display_name="E2E Pharmacy",
         phone="9000000001",
@@ -178,6 +188,49 @@ def test_complete_operational_workflow(db):
 
     db.add(customer)
     db.flush()
+
+    pricing_now = datetime.now(timezone.utc)
+
+    pricing_plan = PricingPlan(
+        code=f"E2E-{uuid4().hex[:12].upper()}",
+        name="E2E Test Pricing Plan",
+        is_active=True,
+        created_by=admin_user.id,
+    )
+    db.add(pricing_plan)
+    db.flush()
+
+    pricing_version = PricingPlanVersion(
+        pricing_plan_id=pricing_plan.id,
+        version=1,
+        status="ACTIVE",
+        currency="INR",
+        per_kg_rate=Decimal("20.00"),
+        pickup_fee=Decimal("50.00"),
+        subscription_fee=Decimal("100.00"),
+        minimum_pickup_charge=Decimal("75.00"),
+        included_weight_kg=Decimal("2.000"),
+        fee_rules={},
+        effective_from=pricing_now - timedelta(days=1),
+        effective_until=None,
+        created_by=admin_user.id,
+        approved_by=admin_user.id,
+        approved_at=pricing_now,
+    )
+    db.add(pricing_version)
+    db.flush()
+
+    pricing_assignment = CustomerPricingAssignment(
+        customer_id=customer.id,
+        pricing_plan_id=pricing_plan.id,
+        effective_from=pricing_now - timedelta(days=1),
+        effective_until=None,
+        assigned_by=admin_user.id,
+        reason="E2E workflow test",
+    )
+    db.add(pricing_assignment)
+    db.flush()
+
 
     # ---------------------------------------------------------
     # 3. Create customer pickup location
@@ -363,6 +416,7 @@ def test_complete_operational_workflow(db):
 
     pickup_data = pickup_response.json()
     pickup_id = pickup_data["id"]
+    pickup_public_id = pickup_data["public_id"]
 
     # ---------------------------------------------------------
     # 11. Admin schedules pickup
@@ -371,7 +425,7 @@ def test_complete_operational_workflow(db):
     set_role(admin_user)
 
     schedule_response = client.post(
-        f"/api/admin/pickups/{pickup_id}/schedule",
+        f"/api/admin/pickups/{pickup_public_id}/schedule",
         json={
             "scheduled_date": route_date.isoformat(),
         },

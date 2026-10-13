@@ -60,6 +60,7 @@ def make_proof_setup(db):
         user_id=customer_user.id,
         customer_type=CustomerType.PHARMACY,
         legal_name="Proof Test Pharmacy",
+        customer_code=f"PMP-{suffix[:12].upper()}",
         display_name="Proof Test Pharmacy",
         phone="9876543210",
         email=customer_user.email,

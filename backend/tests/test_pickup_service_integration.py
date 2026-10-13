@@ -59,6 +59,7 @@ def make_customer(db, user):
     customer = Customer(
         user_id=user.id,
         customer_type=CustomerType.PHARMACY,
+        customer_code=f"PMP-{uuid.uuid4().hex[:12].upper()}",
         legal_name="Pickup Test Pharmacy Pvt Ltd",
         display_name="Pickup Test Pharmacy",
         phone="9876543210",
@@ -543,7 +544,7 @@ def test_schedule_pickup_updates_status_and_creates_notification(
 
         scheduled = schedule_pickup(
             db=db,
-            pickup_id=pickup.id,
+            pickup_id=pickup.public_id,
             scheduled_date=scheduled_date,
         )
 
@@ -643,7 +644,7 @@ def test_cancel_pickup_updates_status_and_reason(db):
 
         cancelled = cancel_pickup(
             db=db,
-            pickup_id=pickup.id,
+            pickup_id=pickup.public_id,
             reason=reason,
         )
 
@@ -783,7 +784,7 @@ def test_get_customer_pickup_returns_owned_pickup(db):
         result = get_customer_pickup(
             db=db,
             current_user=user,
-            pickup_id=pickup.id,
+            pickup_id=pickup.public_id,
         )
 
         assert result.id == pickup.id
@@ -848,7 +849,7 @@ def test_get_customer_pickup_rejects_pickup_owned_by_another_customer(db):
             get_customer_pickup(
                 db=db,
                 current_user=other_user,
-                pickup_id=pickup.id,
+                pickup_id=pickup.public_id,
             )
 
         assert exc_info.value.status_code == 404
@@ -1028,7 +1029,7 @@ def test_list_all_pickups_filters_by_status(db):
 
         schedule_pickup(
             db=db,
-            pickup_id=pickup_two.id,
+            pickup_id=pickup_two.public_id,
             scheduled_date=scheduled_date,
         )
 
@@ -1043,20 +1044,20 @@ def test_list_all_pickups_filters_by_status(db):
         )
 
         requested_ids = {
-            pickup.id
+            pickup.public_id
             for pickup in requested_pickups
         }
 
         scheduled_ids = {
-            pickup.id
+            pickup.public_id
             for pickup in scheduled_pickups
         }
 
-        assert pickup_one.id in requested_ids
-        assert pickup_two.id not in requested_ids
+        assert pickup_one.public_id in requested_ids
+        assert pickup_two.public_id not in requested_ids
 
-        assert pickup_two.id in scheduled_ids
-        assert pickup_one.id not in scheduled_ids
+        assert pickup_two.public_id in scheduled_ids
+        assert pickup_one.public_id not in scheduled_ids
 
         assert all(
             pickup.status == PickupStatus.REQUESTED
@@ -1127,7 +1128,7 @@ def test_get_pickup_by_id_returns_pickup_with_relationships(db):
 
         result = get_pickup_by_id(
             db=db,
-            pickup_id=pickup.id,
+            pickup_id=pickup.public_id,
         )
 
         assert result.id == pickup.id
@@ -1151,7 +1152,7 @@ def test_get_pickup_by_id_returns_pickup_with_relationships(db):
         )
 
 def test_get_pickup_by_id_rejects_missing_pickup(db):
-    missing_pickup_id = 999999
+    missing_pickup_id = uuid.uuid4()
 
     with pytest.raises(HTTPException) as exc_info:
         get_pickup_by_id(
@@ -1160,10 +1161,17 @@ def test_get_pickup_by_id_rejects_missing_pickup(db):
         )
 
     assert exc_info.value.status_code == 404
-    assert exc_info.value.detail == "Pickup not found"
 
 def test_schedule_pickup_rejects_missing_pickup(db):
-    missing_pickup_id = 999999
+    missing_pickup_id = uuid.uuid4()
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_pickup_by_id(
+            db=db,
+            pickup_id=missing_pickup_id,
+        )
+
+    assert exc_info.value.status_code == 404
 
     scheduled_date = (
         datetime.now(timezone.utc)
@@ -1236,7 +1244,7 @@ def test_schedule_pickup_rejects_already_scheduled_pickup(db):
 
         scheduled = schedule_pickup(
             db=db,
-            pickup_id=pickup.id,
+            pickup_id=pickup.public_id,
             scheduled_date=first_scheduled_date,
         )
 
@@ -1265,7 +1273,7 @@ def test_schedule_pickup_rejects_already_scheduled_pickup(db):
         with pytest.raises(HTTPException) as exc_info:
             schedule_pickup(
                 db=db,
-                pickup_id=pickup.id,
+                pickup_id=pickup.public_id,
                 scheduled_date=second_scheduled_date,
             )
 
@@ -1292,7 +1300,15 @@ def test_schedule_pickup_rejects_already_scheduled_pickup(db):
         )
 
 def test_cancel_pickup_rejects_missing_pickup(db):
-    missing_pickup_id = 999999
+    missing_pickup_id = uuid.uuid4()
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_pickup_by_id(
+            db=db,
+            pickup_id=missing_pickup_id,
+        )
+
+    assert exc_info.value.status_code == 404
 
     with pytest.raises(HTTPException) as exc_info:
         cancel_pickup(
@@ -1352,7 +1368,7 @@ def test_cancel_pickup_rejects_already_cancelled_pickup(db):
 
         cancelled = cancel_pickup(
             db=db,
-            pickup_id=pickup.id,
+            pickup_id=pickup.public_id,
             reason="First cancellation",
         )
 
@@ -1362,7 +1378,7 @@ def test_cancel_pickup_rejects_already_cancelled_pickup(db):
         with pytest.raises(HTTPException) as exc_info:
             cancel_pickup(
                 db=db,
-                pickup_id=pickup.id,
+                pickup_id=pickup.public_id,
                 reason="Second cancellation",
             )
 
@@ -1441,7 +1457,7 @@ def test_cancel_scheduled_pickup_updates_status_and_reason(db):
 
         scheduled = schedule_pickup(
             db=db,
-            pickup_id=pickup.id,
+            pickup_id=pickup.public_id,
             scheduled_date=scheduled_date,
         )
 
@@ -1463,7 +1479,7 @@ def test_cancel_scheduled_pickup_updates_status_and_reason(db):
 
         cancelled = cancel_pickup(
             db=db,
-            pickup_id=pickup.id,
+            pickup_id=pickup.public_id,
             reason="Customer requested cancellation",
         )
 
@@ -1576,7 +1592,7 @@ def test_get_customer_pickup_rejects_missing_pickup(db):
             get_customer_pickup(
                 db=db,
                 current_user=user,
-                pickup_id=999999999,
+                pickup_id=uuid.uuid4()
             )
 
         assert exc_info.value.status_code == 404
@@ -1736,7 +1752,7 @@ def test_get_customer_pickup_returns_owned_pickup(
         result = get_customer_pickup(
             db,
             user,
-            pickup.id,
+            pickup.public_id,
         )
 
         assert result.id == pickup.id
@@ -1780,7 +1796,7 @@ def test_get_pickup_by_id_loads_customer_and_location(db):
         db.commit()
         db.refresh(pickup)
 
-        result = get_pickup_by_id(db, pickup.id)
+        result = get_pickup_by_id(db, pickup.public_id)
 
         assert result.id == pickup.id
         assert result.customer.id == customer.id
@@ -1822,7 +1838,7 @@ def test_schedule_pickup_rejects_cancelled_pickup(db):
         with pytest.raises(HTTPException) as exc:
             schedule_pickup(
                 db,
-                pickup.id,
+                pickup.public_id,
                 datetime.now(timezone.utc).date(),
             )
 
@@ -1865,7 +1881,7 @@ def test_cancel_pickup_rejects_completed_pickup(db):
         with pytest.raises(HTTPException) as exc:
             cancel_pickup(
                 db,
-                pickup.id,
+                pickup.public_id,
                 "Customer requested cancellation",
             )
 

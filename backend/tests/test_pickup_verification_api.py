@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -8,6 +9,8 @@ from fastapi.testclient import TestClient
 from app.api.pickups import router
 from app.core.auth import get_current_user
 from app.models.enums import UserRole
+
+PICKUP_PUBLIC_ID = UUID("1f818c3d-d8d5-45e7-9079-f99180d9634f")
 
 
 # ---------------------------------------------------------
@@ -43,6 +46,7 @@ def make_pickup():
 
     return SimpleNamespace(
         id=10,
+        public_id=PICKUP_PUBLIC_ID,
         pickup_code="PK-VERIFY001",
         verification_token="verification-token-123456",
         qr_verified_at=None,
@@ -66,14 +70,14 @@ def test_get_pickup_verification_endpoint(
     get_verification_mock.return_value = pickup
 
     response = client.get(
-        "/api/pickups/10/verification"
+        f"/api/pickups/{PICKUP_PUBLIC_ID}/verification"
     )
 
     assert response.status_code == 200
 
     body = response.json()
 
-    assert body["pickup_id"] == 10
+    assert body["pickup_id"] == str(PICKUP_PUBLIC_ID)
     assert body["pickup_code"] == "PK-VERIFY001"
     assert body["verification_token"] == (
         "verification-token-123456"
@@ -89,7 +93,7 @@ def test_get_pickup_verification_endpoint(
     call_kwargs = get_verification_mock.call_args.kwargs
 
     assert call_kwargs["user"] is customer_user
-    assert call_kwargs["pickup_id"] == 10
+    assert call_kwargs["pickup_id"] == PICKUP_PUBLIC_ID
     assert call_kwargs["db"] is not None
 
 
@@ -105,7 +109,7 @@ def test_get_pickup_verification_propagates_not_found(
     )
 
     response = client.get(
-        "/api/pickups/999/verification"
+        f"/api/pickups/{UUID('cfc3b1c4-5077-4d6a-8c77-093658d73062')}/verification"
     )
 
     assert response.status_code == 404
@@ -135,14 +139,14 @@ def test_request_pickup_otp_endpoint(
     )
 
     response = client.post(
-        "/api/pickups/10/verification/request-otp"
+        f"/api/pickups/{PICKUP_PUBLIC_ID}/verification/request-otp"
     )
 
     assert response.status_code == 200
 
     body = response.json()
 
-    assert body["pickup_id"] == 10
+    assert body["pickup_id"] == str(PICKUP_PUBLIC_ID)
     assert body["otp"] == "123456"
     assert body["expires_at"] is not None
     assert body["message"] == (
@@ -156,7 +160,7 @@ def test_request_pickup_otp_endpoint(
     call_kwargs = request_otp_mock.call_args.kwargs
 
     assert call_kwargs["user"] is customer_user
-    assert call_kwargs["pickup_id"] == 10
+    assert call_kwargs["pickup_id"] == PICKUP_PUBLIC_ID
     assert call_kwargs["db"] is not None
 
 
@@ -172,7 +176,7 @@ def test_request_otp_propagates_cancelled_pickup_error(
     )
 
     response = client.post(
-        "/api/pickups/10/verification/request-otp"
+        f"/api/pickups/{PICKUP_PUBLIC_ID}/verification/request-otp"
     )
 
     assert response.status_code == 400
@@ -194,7 +198,7 @@ def test_request_otp_propagates_cooldown_error(
     )
 
     response = client.post(
-        "/api/pickups/10/verification/request-otp"
+        f"/api/pickups/{PICKUP_PUBLIC_ID}/verification/request-otp"
     )
 
     assert response.status_code == 429
@@ -219,7 +223,7 @@ def test_request_otp_propagates_rate_limit_error(
     )
 
     response = client.post(
-        "/api/pickups/10/verification/request-otp"
+        f"/api/pickups/{PICKUP_PUBLIC_ID}/verification/request-otp"
     )
 
     assert response.status_code == 429
@@ -248,7 +252,7 @@ def test_request_otp_response_contains_six_digit_otp(
     )
 
     response = client.post(
-        "/api/pickups/10/verification/request-otp"
+        f"/api/pickups/{PICKUP_PUBLIC_ID}/verification/request-otp"
     )
 
     assert response.status_code == 200

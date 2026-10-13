@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
+
 from app.models.customer import Customer
-from app.core.auth import get_current_user, require_role
+from app.core.auth import require_role
 from app.core.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.customer import (
@@ -35,6 +36,7 @@ def onboard_customer(
         data=data,
     )
 
+
 @router.get("/me")
 def get_my_customer(
     current_user: User = Depends(
@@ -44,9 +46,7 @@ def get_my_customer(
 ):
     customer = (
         db.query(Customer)
-        .filter(
-            Customer.user_id == current_user.id
-        )
+        .filter(Customer.user_id == current_user.id)
         .first()
     )
 
@@ -57,7 +57,8 @@ def get_my_customer(
 
     return {
         "onboarded": True,
-        "customer_id": customer.id,
+        "public_id": str(customer.public_id),
+        "customer_code": customer.customer_code,
         "customer_type": customer.customer_type.value,
         "legal_name": customer.legal_name,
         "display_name": customer.display_name,

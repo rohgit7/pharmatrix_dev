@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -9,6 +10,8 @@ from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.models.enums import CustomerType
 from app.models.user import UserRole
+
+CUSTOMER_PUBLIC_ID = UUID("58a0e7ee-7c87-49c0-88ac-9fa10dc294f6")
 
 
 # ---------------------------------------------------------
@@ -61,6 +64,8 @@ def make_customer():
     return SimpleNamespace(
         id=1,
         user_id=100,
+        public_id=str(CUSTOMER_PUBLIC_ID),
+        customer_code="CUS-ABC123",
         customer_type=CustomerType.PHARMACY,
         legal_name="ABC Pharmacy Pvt Ltd",
         display_name="ABC Pharmacy",
@@ -125,6 +130,8 @@ def test_onboard_customer_endpoint(
 
     assert body["id"] == 1
     assert body["user_id"] == 100
+    assert body["public_id"] == str(CUSTOMER_PUBLIC_ID)
+    assert body["customer_code"] == "CUS-ABC123"
     assert body["customer_type"] == "PHARMACY"
     assert body["legal_name"] == "ABC Pharmacy Pvt Ltd"
     assert body["display_name"] == "ABC Pharmacy"
@@ -298,7 +305,8 @@ def test_get_my_customer_returns_onboarded_customer():
     body = response.json()
 
     assert body["onboarded"] is True
-    assert body["customer_id"] == 1
+    assert body["public_id"] == str(CUSTOMER_PUBLIC_ID)
+    assert body["customer_code"] == "CUS-ABC123"
     assert body["customer_type"] == "PHARMACY"
     assert body["legal_name"] == "ABC Pharmacy Pvt Ltd"
     assert body["display_name"] == "ABC Pharmacy"

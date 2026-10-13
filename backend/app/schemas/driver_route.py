@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from uuid import UUID
 from pydantic import BaseModel
 
 from app.models.enums import RouteStatus, RouteStopType, RouteStopStatus
@@ -10,7 +10,7 @@ class DriverRouteStopResponse(BaseModel):
     sequence_number: int
     stop_type: RouteStopType
 
-    pickup_id: int | None = None
+    pickup_id: UUID | None = None
     pickup_code: str | None = None
 
     location_id: int | None = None

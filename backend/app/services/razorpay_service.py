@@ -102,6 +102,7 @@ def create_razorpay_order(
                 "receipt": f"inv-{invoice.id}-{uuid4().hex[:12]}",
                 "notes": {
                     "invoice_id": str(invoice.id),
+                    "invoice_public_id": str(invoice.public_id),
                     "invoice_number": str(invoice.invoice_number),
                 },
             }

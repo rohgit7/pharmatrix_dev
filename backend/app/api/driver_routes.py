@@ -63,7 +63,7 @@ def get_today_route(
                     sequence_number=stop.sequence_number,
                     stop_type=stop.stop_type,
 
-                    pickup_id=pickup.id,
+                    pickup_id=pickup.public_id,
                     pickup_code=pickup.pickup_code,
 
                     location_id=location.id,

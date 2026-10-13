@@ -1,17 +1,19 @@
 
 from datetime import datetime, timezone
 from decimal import Decimal
-
+from uuid import UUID
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
+    Uuid,
     Integer,
     Numeric,
     String,
     Text,
     UniqueConstraint,
+    text
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -37,12 +39,22 @@ class Invoice(Base):
             name="ck_invoice_paid_not_above_total",
         ),
         UniqueConstraint("invoice_number", name="uq_invoice_number"),
+        UniqueConstraint(
+            "public_id",
+            name="uq_invoices_public_id",
+        ),
         UniqueConstraint("pickup_id", name="uq_invoice_pickup"),
         Index("ix_invoice_customer_status", "customer_id", "status"),
         Index("ix_invoice_due_date_status", "due_date", "status"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+
+    public_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        nullable=False,
+        server_default=text("gen_random_uuid()"),
+    )
 
     invoice_number: Mapped[str] = mapped_column(
         String(40), nullable=False
@@ -134,6 +146,15 @@ class Invoice(Base):
     @property
     def outstanding_amount(self) -> Decimal:
         return self.total_amount - self.amount_paid
+
+    @property
+    def customer_public_id(self) -> UUID:
+        return self.customer.public_id
+
+
+    @property
+    def pickup_public_id(self) -> UUID:
+        return self.pickup.public_id
 
 
 class InvoiceLineItem(Base):

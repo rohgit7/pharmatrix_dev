@@ -1,6 +1,7 @@
 ﻿from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 from fastapi import FastAPI
@@ -17,10 +18,13 @@ class DummyDB:
         self.invoices = invoices or []
 
     def scalar(self, statement):
-        # Used by GET /{invoice_id}.
-        invoice_id = statement.whereclause.right.value
+        invoice_public_id = statement.whereclause.right.value
         return next(
-            (invoice for invoice in self.invoices if invoice.id == invoice_id),
+            (
+                invoice
+                for invoice in self.invoices
+                if invoice.public_id == invoice_public_id
+            ),
             None,
         )
 
@@ -74,8 +78,10 @@ def make_invoice(
 
     return SimpleNamespace(
         id=invoice_id,
+        public_id=UUID(int=invoice_id),
         invoice_number=f"INV-{invoice_id:05d}",
         customer_id=customer_id,
+        customer_public_id=UUID(int=1000 + customer_id),
         pickup_id=invoice_id,
         pricing_plan_id=1,
         pricing_plan_version_id=1,
@@ -172,7 +178,7 @@ def test_list_invoices_returns_newest_first(setup_client):
 def test_get_invoice_returns_details(setup_client):
     client, _, _ = setup_client
 
-    response = client.get("/api/admin/invoices/1")
+    response = client.get(f"/api/admin/invoices/{UUID(int=1)}")
 
     assert response.status_code == 200
     invoice = response.json()
@@ -184,7 +190,7 @@ def test_get_invoice_returns_details(setup_client):
 def test_get_invoice_returns_404_for_missing_invoice(setup_client):
     client, _, _ = setup_client
 
-    response = client.get("/api/admin/invoices/999")
+    response = client.get(f"/api/admin/invoices/{UUID(int=999)}")
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Invoice not found"
@@ -212,7 +218,7 @@ def test_non_admin_cannot_get_invoice(setup_client):
         role=UserRole.CUSTOMER,
     )
 
-    response = client.get("/api/admin/invoices/1")
+    response = client.get(f"/api/admin/invoices/{UUID(int=1)}")
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Insufficient permissions"

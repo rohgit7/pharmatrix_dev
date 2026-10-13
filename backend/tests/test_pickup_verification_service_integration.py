@@ -38,6 +38,7 @@ def make_customer_setup(db, suffix):
     customer = Customer(
         user_id=user.id,
         customer_type=CustomerType.PHARMACY,
+        customer_code=f"PMP-{uuid.uuid4().hex[:12].upper()}",
         legal_name="OTP Test Pharmacy Pvt Ltd",
         display_name="OTP Test Pharmacy",
         phone="9876543210",

@@ -137,6 +137,7 @@ def make_customer_and_location(
     customer = Customer(
         user_id=user.id,
         customer_type="PHARMACY",
+        customer_code=f"PMP-{uuid.uuid4().hex[:12].upper()}",
         legal_name=f"Customer Legal {suffix}",
         display_name=f"Customer {suffix}",
         phone="9876500000",
@@ -222,12 +223,7 @@ def fake_problem_stats(route):
 
 
 def test_optimize_and_dispatch_creates_route_and_assigns_pickups(db):
-    route_date = datetime.now(timezone.utc).replace(
-        hour=0,
-        minute=0,
-        second=0,
-        microsecond=0,
-    )
+    route_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
     warehouse = make_warehouse(db, "basic")
     driver_user, driver, vehicle, assignment = make_assignment(db, "basic")
@@ -323,7 +319,9 @@ def test_optimize_and_dispatch_creates_route_and_assigns_pickups(db):
 
 
 def test_optimize_and_dispatch_raises_when_warehouse_missing(db):
-    route_date = datetime.now(timezone.utc)
+    route_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
 
     with pytest.raises(HTTPException) as exc:
         optimize_and_dispatch(
@@ -337,7 +335,9 @@ def test_optimize_and_dispatch_raises_when_warehouse_missing(db):
 
 
 def test_optimize_and_dispatch_raises_when_warehouse_inactive(db):
-    route_date = datetime.now(timezone.utc)
+    route_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
 
     warehouse = make_warehouse(
         db,
@@ -357,7 +357,9 @@ def test_optimize_and_dispatch_raises_when_warehouse_inactive(db):
 
 
 def test_optimize_and_dispatch_raises_when_no_available_fleet(db):
-    route_date = datetime.now(timezone.utc)
+    route_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
 
     warehouse = make_warehouse(db, "nofleet")
 
@@ -400,7 +402,9 @@ def test_optimize_and_dispatch_raises_when_no_available_fleet(db):
 
 
 def test_optimize_and_dispatch_raises_when_no_scheduled_pickups(db):
-    route_date = datetime.now(timezone.utc)
+    route_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
 
     warehouse = make_warehouse(db, "nopickups")
     make_assignment(db, "nopickups")
@@ -417,7 +421,9 @@ def test_optimize_and_dispatch_raises_when_no_scheduled_pickups(db):
 
 
 def test_optimize_and_dispatch_rejects_pickup_above_weight_limit(db):
-    route_date = datetime.now(timezone.utc)
+    route_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
 
     warehouse = make_warehouse(db, "weight")
     make_assignment(db, "weight")
@@ -447,7 +453,9 @@ def test_optimize_and_dispatch_rejects_pickup_above_weight_limit(db):
 
 
 def test_optimize_and_dispatch_rejects_uncovered_pickups(db):
-    route_date = datetime.now(timezone.utc)
+    route_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
 
     warehouse = make_warehouse(db, "uncovered")
     make_assignment(db, "uncovered")
@@ -492,7 +500,9 @@ def test_optimize_and_dispatch_rejects_uncovered_pickups(db):
 
 
 def test_optimize_and_dispatch_rejects_unreachable_pickups(db):
-    route_date = datetime.now(timezone.utc)
+    route_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
 
     warehouse = make_warehouse(db, "unreachable")
     make_assignment(db, "unreachable")
@@ -537,7 +547,9 @@ def test_optimize_and_dispatch_rejects_unreachable_pickups(db):
 
 
 def test_optimize_and_dispatch_raises_when_optimizer_returns_no_routes(db):
-    route_date = datetime.now(timezone.utc)
+    route_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
 
     warehouse = make_warehouse(db, "emptyroutes")
     make_assignment(db, "emptyroutes")
@@ -579,7 +591,9 @@ def test_optimize_and_dispatch_raises_when_optimizer_returns_no_routes(db):
 
 
 def test_optimize_and_dispatch_uses_osrm_when_configured(db):
-    route_date = datetime.now(timezone.utc)
+    route_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).replace(
+    hour=0, minute=0, second=0, microsecond=0
+)
 
     warehouse = make_warehouse(db, "osrm")
     make_assignment(db, "osrm")

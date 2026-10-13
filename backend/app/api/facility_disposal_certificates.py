@@ -1,5 +1,5 @@
 from datetime import datetime
-
+from uuid import UUID
 from fastapi import (
     APIRouter,
     Depends,
@@ -35,7 +35,7 @@ router = APIRouter(
     response_model=DisposalCertificateUrlResponse,
 )
 def get_certificate_url(
-    shipment_id: int,
+    shipment_id: UUID,
     db: Session = Depends(get_db),
     current_user=Depends(
         require_role(UserRole.FACILITY)
@@ -56,7 +56,7 @@ def get_certificate_url(
         select(DisposalCertificate)
         .join(DisposalCertificate.shipment)
         .where(
-            DisposalCertificate.shipment_id == shipment_id,
+            DisposalShipment.public_id == shipment_id,
             DisposalShipment.facility_id == facility.id,
         )
     )
@@ -83,7 +83,7 @@ def get_certificate_url(
     response_model=DisposalCertificateResponse,
 )
 async def upload_certificate(
-    shipment_id: int,
+    shipment_id: UUID,
 
     certificate_number: str = Form(...),
 
@@ -117,7 +117,7 @@ async def upload_certificate(
     shipment = db.scalar(
         select(DisposalShipment)
         .where(
-            DisposalShipment.id == shipment_id,
+            DisposalShipment.public_id == shipment_id,
             DisposalShipment.facility_id == facility.id,
         )
     )
@@ -130,7 +130,7 @@ async def upload_certificate(
 
     certificate = await upload_disposal_certificate(
         db=db,
-        shipment_id=shipment_id,
+        shipment_id=shipment.id,
         certificate_number=certificate_number,
         issued_at=issued_at,
         file=file,
@@ -157,4 +157,16 @@ async def upload_certificate(
 
     db.refresh(certificate)
 
-    return certificate
+    return DisposalCertificateResponse(
+        id=certificate.id,
+        public_id=certificate.public_id,
+        certificate_code=certificate.certificate_code,
+        shipment_id=shipment.public_id,
+        certificate_number=certificate.certificate_number,
+        storage_path=certificate.storage_path,
+        file_name=certificate.file_name,
+        content_type=certificate.content_type,
+        issued_at=certificate.issued_at,
+        uploaded_at=certificate.uploaded_at,
+        notes=certificate.notes,
+    )

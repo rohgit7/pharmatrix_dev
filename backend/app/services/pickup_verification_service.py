@@ -1,7 +1,7 @@
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
-
+from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -10,12 +10,12 @@ from app.models.pickup import Pickup
 from app.models.user import User
 
 
+
 def get_customer_pickup(
     db: Session,
     user: User,
-    pickup_id: int,
+    pickup_id: UUID,
 ) -> Pickup:
-
     pickup = (
         db.query(Pickup)
         .filter(
@@ -36,10 +36,11 @@ def get_customer_pickup(
     return pickup
 
 
+
 def get_verification_details(
     db: Session,
     user: User,
-    pickup_id: int,
+    pickup_id: UUID,
 ):
     pickup = get_customer_pickup(
         db,
@@ -66,7 +67,7 @@ OTP_REQUESTS_PER_WINDOW = 5
 def request_otp(
     db: Session,
     user: User,
-    pickup_id: int,
+    pickup_id: UUID,
 ):
     pickup = get_customer_pickup(
         db,

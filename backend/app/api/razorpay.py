@@ -1,6 +1,6 @@
 
 from typing import Annotated
-
+from uuid import UUID
 from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
@@ -25,7 +25,6 @@ router = APIRouter(
     dependencies=[Depends(require_role(UserRole.ADMIN))],
 )
 
-
 @router.post(
     "/orders",
     response_model=RazorpayOrderResponse,
@@ -42,9 +41,25 @@ def create_order(
     ],
     db: Session = Depends(get_db),
 ):
+    from sqlalchemy import select
+    from fastapi import HTTPException
+    from app.models.invoice import Invoice
+
+    invoice = db.scalar(
+        select(Invoice).where(
+            Invoice.public_id == payload.invoice_id
+        )
+    )
+
+    if invoice is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Invoice not found",
+        )
+
     return create_razorpay_order(
         db=db,
-        invoice_id=payload.invoice_id,
+        invoice_id=invoice.id,
         idempotency_key=idempotency_key,
     )
 

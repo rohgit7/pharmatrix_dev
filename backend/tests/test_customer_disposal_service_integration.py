@@ -146,6 +146,7 @@ def test_customer_disposal_service_returns_complete_chain(
     customer = Customer(
         user_id=customer_user.id,
         customer_type="PHARMACY",
+        customer_code=f"PMP-{suffix[:12].upper()}",
         legal_name="Disposal Test Pharmacy",
         display_name="Disposal Pharmacy",
         phone="9876543210",
@@ -316,10 +317,10 @@ def test_customer_disposal_service_returns_complete_chain(
 
         record = records[0]
 
-        assert record["pickup_id"] == pickup.id
+        assert record["pickup_id"] == pickup.public_id
         assert record["pickup_code"] == pickup.pickup_code
 
-        assert record["shipment_id"] == shipment.id
+        assert record["shipment_id"] == shipment.public_id
         assert record["shipment_code"] == shipment.shipment_code
 
         assert record["facility_name"] == (
@@ -372,6 +373,7 @@ def test_customer_disposal_service_handles_pickup_without_route(
     customer = Customer(
         user_id=customer_user.id,
         customer_type="PHARMACY",
+        customer_code=f"PMP-{suffix[:12].upper()}",
         legal_name="Partial Disposal Pharmacy",
         display_name="Partial Pharmacy",
         phone="9876543210",
@@ -420,7 +422,7 @@ def test_customer_disposal_service_handles_pickup_without_route(
 
         record = records[0]
 
-        assert record["pickup_id"] == pickup.id
+        assert record["pickup_id"] == pickup.public_id
         assert record["pickup_code"] == pickup.pickup_code
 
         assert record["shipment_id"] is None
