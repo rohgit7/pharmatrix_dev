@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from app.core.rate_limiter import limiter
 from sqlalchemy.orm import Session
 from uuid import UUID
 from app.core.auth import get_current_user, require_role
@@ -110,7 +111,9 @@ def get_pickup_verification(
     "/{pickup_id}/verification/request-otp",
     response_model=RequestOTPResponse,
 )
+@limiter.limit("3/5minutes")
 def request_pickup_otp(
+    request: Request,
     pickup_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from fastapi import File, UploadFile
 from app.core.auth import get_current_user, require_role
+from app.core.rate_limiter import limiter
 from app.core.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.route_execution import (
@@ -174,7 +175,9 @@ def scan_pickup_qr(
 @router.post(
     "/{route_id}/stops/{stop_id}/verify-otp"
 )
+@limiter.limit("5/5minutes")
 def verify_pickup_otp(
+    request: Request,
     route_id: int,
     stop_id: int,
     data: VerifyOTPRequest,

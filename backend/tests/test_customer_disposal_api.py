@@ -277,3 +277,48 @@ def test_get_my_disposal_records_rejects_non_customer():
     test_app.dependency_overrides[
         get_current_user
     ] = override_customer_user
+
+
+@patch(
+    "app.api.customer_disposal.get_customer_disposal_records"
+)
+def test_disposal_records_use_authenticated_customer_id(
+    get_records_mock,
+):
+    authenticated_user = SimpleNamespace(
+        id=999,
+        role=UserRole.CUSTOMER,
+    )
+
+    customer = SimpleNamespace(
+        id=77,
+        user_id=999,
+    )
+
+    db = DummyDB(customer=customer)
+
+    test_app.dependency_overrides[
+        get_current_user
+    ] = lambda: authenticated_user
+
+    test_app.dependency_overrides[get_db] = lambda: db
+
+    get_records_mock.return_value = []
+
+    try:
+        response = client.get(
+            "/api/customer/disposal/?customer_id=10"
+        )
+
+        assert response.status_code == 200
+
+        get_records_mock.assert_called_once_with(
+            db=db,
+            customer_id=77,
+        )
+    finally:
+        get_records_mock.reset_mock()
+        test_app.dependency_overrides.pop(get_db, None)
+        test_app.dependency_overrides[
+            get_current_user
+        ] = override_customer_user

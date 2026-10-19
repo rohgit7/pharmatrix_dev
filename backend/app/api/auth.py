@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-
+from app.core.rate_limiter import limiter
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.core.supabase import supabase
@@ -20,7 +20,9 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/login")
+@limiter.limit("5/minute")
 def login(
+    request: Request,
     data: LoginRequest,
 ):
     try:

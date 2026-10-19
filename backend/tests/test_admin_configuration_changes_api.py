@@ -442,3 +442,67 @@ def test_reject_change_request_endpoint_returns_400_for_service_error(
     assert response.json()["detail"] == (
         "The change request is already approved"
     )
+
+    
+def test_create_change_request_rejects_non_admin():
+    test_app.dependency_overrides[
+        get_current_user
+    ] = override_customer_user
+
+    response = client.post(
+        "/api/admin/configuration/change-request",
+        json={
+            "configuration_id": 10,
+            "proposed_value": "new-value",
+            "risk_level": "HIGH",
+            "reason": "Unauthorized change",
+            "change_reference": "CHG-UNAUTH",
+            "effective_from": (
+                datetime.now(timezone.utc)
+                + timedelta(hours=2)
+            ).isoformat(),
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Admin access required"
+
+    test_app.dependency_overrides[
+        get_current_user
+    ] = override_admin_user
+
+
+def test_approve_change_request_rejects_non_admin():
+    test_app.dependency_overrides[
+        get_current_user
+    ] = override_customer_user
+
+    response = client.post(
+        "/api/admin/configuration/change-requests/1/approve",
+        json={"comment": "Unauthorized approval"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Admin access required"
+
+    test_app.dependency_overrides[
+        get_current_user
+    ] = override_admin_user
+
+
+def test_reject_change_request_rejects_non_admin():
+    test_app.dependency_overrides[
+        get_current_user
+    ] = override_customer_user
+
+    response = client.post(
+        "/api/admin/configuration/change-requests/1/reject",
+        json={"comment": "Unauthorized rejection"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Admin access required"
+
+    test_app.dependency_overrides[
+        get_current_user
+    ] = override_admin_user

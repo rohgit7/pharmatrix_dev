@@ -20,6 +20,7 @@ from app.services.pickup_verification_service import (
     OTP_REQUESTS_PER_WINDOW,
     hash_otp,
     request_otp,
+    get_verification_details,
 )
 
 
@@ -198,6 +199,52 @@ def test_request_otp_rejects_cancelled_pickup(db):
             user=user,
         )
 
+def test_get_verification_details_rejects_another_customer(db):
+    suffix_a = uuid.uuid4().hex
+    suffix_b = uuid.uuid4().hex
+
+    user_a, customer_a, location_a, pickup_a = make_customer_setup(
+        db, suffix_a
+    )
+    user_b, customer_b, location_b, pickup_b = make_customer_setup(
+        db, suffix_b
+    )
+
+    try:
+        # The owning customer can retrieve their pickup details.
+        result = get_verification_details(
+            db=db,
+            user=user_a,
+            pickup_id=pickup_a.id,
+        )
+        assert result.id == pickup_a.id
+
+        # Another customer must not access those details.
+        with pytest.raises(HTTPException) as exc_info:
+            get_verification_details(
+                db=db,
+                user=user_b,
+                pickup_id=pickup_a.id,
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "Pickup not found"
+
+    finally:
+        cleanup_setup(
+            db,
+            pickup=pickup_b,
+            location=location_b,
+            customer=customer_b,
+            user=user_b,
+        )
+        cleanup_setup(
+            db,
+            pickup=pickup_a,
+            location=location_a,
+            customer=customer_a,
+            user=user_a,
+        )
 
 def test_request_otp_rejects_collected_pickup(db):
     suffix = uuid.uuid4().hex

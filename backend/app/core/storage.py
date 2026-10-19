@@ -53,3 +53,37 @@ def create_disposal_certificate_signed_url(
         storage_path,
         expires_in,
     )
+
+
+def create_customer_document_signed_url(
+    storage_path: str,
+    expires_in: int = 300,
+):
+    supabase = get_supabase_admin()
+
+    response = (
+        supabase.storage
+        .from_(settings.SUPABASE_STORAGE_BUCKET)
+        .create_signed_url(
+            storage_path,
+            expires_in,
+        )
+    )
+
+    if not response:
+        raise RuntimeError(
+            "Unable to create customer document signed URL"
+        )
+
+    if isinstance(response, dict):
+        signed_url = (
+            response.get("signedURL")
+            or response.get("signedUrl")
+        )
+
+        if signed_url:
+            return signed_url
+
+    raise RuntimeError(
+        "Supabase did not return a signed URL"
+    )

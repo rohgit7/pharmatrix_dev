@@ -347,6 +347,108 @@ def test_start_route_persists_route_and_driver_state(db):
         assert setup["driver"].is_available is False
     finally:
         cleanup_route_setup(db, setup)
+
+
+def test_start_route_rejects_another_driver(db):
+    setup = make_route_setup(db)
+    other_user = None
+    other_driver = None
+
+    try:
+        other_user = User(
+            auth_user_id=uuid.uuid4(),
+            name=f"Other Driver {uuid.uuid4().hex}",
+            email=f"other-driver-{uuid.uuid4().hex}@test.local",
+            role=UserRole.DRIVER,
+            is_active=True,
+        )
+        db.add(other_user)
+        db.flush()
+
+        other_driver = Driver(
+            user_id=other_user.id,
+            employee_id=f"EMP-{uuid.uuid4().hex[:10]}",
+            phone="9876543211",
+            license_number=f"LIC-{uuid.uuid4().hex[:10]}",
+            is_available=True,
+        )
+        db.add(other_driver)
+        db.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            start_route(
+                db=db,
+                user=other_user,
+                route_id=setup["route"].id,
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "Route not found"
+
+        db.refresh(setup["route"])
+        assert setup["route"].status == RouteStatus.ASSIGNED
+
+    finally:
+        cleanup_route_setup(db, setup)
+        if other_driver is not None:
+            db.delete(other_driver)
+        if other_user is not None:
+            db.delete(other_user)
+        db.commit()
+
+
+def test_arrive_at_stop_rejects_another_driver(db):
+    setup = make_route_setup(db)
+    other_user = None
+    other_driver = None
+
+    try:
+        other_user = User(
+            auth_user_id=uuid.uuid4(),
+            name=f"Other Driver {uuid.uuid4().hex}",
+            email=f"other-driver-{uuid.uuid4().hex}@test.local",
+            role=UserRole.DRIVER,
+            is_active=True,
+        )
+        db.add(other_user)
+        db.flush()
+
+        other_driver = Driver(
+            user_id=other_user.id,
+            employee_id=f"EMP-{uuid.uuid4().hex[:10]}",
+            phone="9876543211",
+            license_number=f"LIC-{uuid.uuid4().hex[:10]}",
+            is_available=True,
+        )
+        db.add(other_driver)
+        db.commit()
+
+        # Start the route as its assigned driver.
+        start_route(
+            db=db,
+            user=setup["driver_user"],
+            route_id=setup["route"].id,
+        )
+
+        # A different driver must not access its stop.
+        with pytest.raises(HTTPException) as exc_info:
+            arrive_at_stop(
+                db=db,
+                user=other_user,
+                route_id=setup["route"].id,
+                stop_id=setup["pickup_stop"].id,
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "Route not found"
+
+    finally:
+        cleanup_route_setup(db, setup)
+        if other_driver is not None:
+            db.delete(other_driver)
+        if other_user is not None:
+            db.delete(other_user)
+        db.commit()
 # ---------------------------------------------------------
 # Stop ordering
 # ---------------------------------------------------------

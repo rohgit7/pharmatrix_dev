@@ -591,3 +591,46 @@ def test_verify_otp_rejects_invalid_otp(db):
         db.delete(setup["warehouse"])
         db.delete(driver)
         db.commit()
+
+def test_verify_otp_rejects_another_driver(db):
+    setup_a = make_driver_route_setup(db)
+    setup_b = make_driver_route_setup(db)
+
+    try:
+        with pytest.raises(HTTPException) as exc_info:
+            verify_otp(
+                db=db,
+                user=setup_b["driver_user"],
+                route_id=setup_a["route"].id,
+                stop_id=setup_a["stop"].id,
+                otp="123456",
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "Route not found"
+
+    finally:
+        cleanup_setup(db, setup_b)
+        cleanup_setup(db, setup_a)
+
+
+def test_verify_qr_rejects_another_driver(db):
+    setup_a = make_driver_route_setup(db)
+    setup_b = make_driver_route_setup(db)
+
+    try:
+        with pytest.raises(HTTPException) as exc_info:
+            verify_qr(
+                db=db,
+                user=setup_b["driver_user"],
+                route_id=setup_a["route"].id,
+                stop_id=setup_a["stop"].id,
+                qr_token=setup_a["pickup"].verification_token,
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == "Route not found"
+
+    finally:
+        cleanup_setup(db, setup_b)
+        cleanup_setup(db, setup_a)

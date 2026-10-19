@@ -2,11 +2,14 @@ import pytest
 from dotenv import dotenv_values
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-
+import os
 
 test_settings = dotenv_values(".env.test")
 
-TEST_DATABASE_URL = test_settings.get("TEST_DATABASE_URL")
+TEST_DATABASE_URL = (
+    os.environ.get("TEST_DATABASE_URL")
+    or test_settings.get("TEST_DATABASE_URL")
+)
 
 if not TEST_DATABASE_URL:
     raise RuntimeError(
@@ -14,6 +17,17 @@ if not TEST_DATABASE_URL:
         "Integration tests require a separate test database."
     )
 
+ALLOW_DESTRUCTIVE_TEST_DB = (
+    os.environ.get("ALLOW_DESTRUCTIVE_TEST_DB")
+    or test_settings.get("ALLOW_DESTRUCTIVE_TEST_DB", "")
+).lower() == "true"
+
+if not ALLOW_DESTRUCTIVE_TEST_DB:
+    raise RuntimeError(
+        "Database cleanup is destructive. Set "
+        "ALLOW_DESTRUCTIVE_TEST_DB=true only for a "
+        "dedicated, disposable test database."
+    )
 
 @pytest.fixture
 def db():

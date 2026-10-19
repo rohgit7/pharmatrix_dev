@@ -1,13 +1,19 @@
 from app.api.invoices import router as admin_invoices_router
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 from contextlib import asynccontextmanager
 from app.api.payments import router as admin_payments_router
 from app.api.razorpay_webhooks import router as razorpay_webhooks_router
 from app.api.razorpay import router as razorpay_router
 from app.api.admin_dashboard import (
     router as admin_dashboard_router,
+)
+from app.api.admin_customer_documents import (
+    router as admin_customer_documents_router,
 )
 from app.core.logging import setup_logging
 
@@ -36,6 +42,9 @@ from app.api.pickups import router as pickups_router
 from app.api.admin_pickups import router as admin_pickups_router
 from app.api.admin_routes import router as admin_routes_router
 from app.api.admin_warehouses import router as admin_warehouses_router
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.core.rate_limiter import limiter
 from app.api.admin_route_optimization import (
     router as admin_route_optimization_router,
 )
@@ -129,10 +138,8 @@ async def notification_worker_loop(
                     batch_size=10,
                 )
 
-        except Exception as exc:
-            print(
-                f"[notification-worker] {exc}"
-            )
+        except Exception:
+            logger.exception("Notification worker failed")
 
         # -----------------------------------------
         # Pickup reminders
@@ -145,10 +152,8 @@ async def notification_worker_loop(
                     process_pickup_reminders,
                 )
 
-            except Exception as exc:
-                print(
-                    f"[pickup-reminder] {exc}"
-                )
+            except Exception:
+                logger.exception("Pickup reminder processing failed")
 
             finally:
                 seconds_since_reminder_check = 0
@@ -164,10 +169,8 @@ async def notification_worker_loop(
                     process_exception_escalations,
                 )
 
-            except Exception as exc:
-                print(
-                    f"[exception-escalation] {exc}"
-                )
+            except Exception:
+                logger.exception("Exception escalation processing failed")
 
             finally:
                 seconds_since_exception_check = 0
@@ -196,19 +199,16 @@ async def notification_worker_loop(
                     if activated_count:
                         db.commit()
 
-                except Exception as exc:
+                except Exception:
                     db.rollback()
-                    print(
-                        f"[configuration-activation] {exc}"
-                    )
+                    logger.exception("Configuration activation failed")
 
                 finally:
                     db.close()
 
-            except Exception as exc:
-                print(
-                    f"[configuration-activation] {exc}"
-                )
+            except Exception:
+                db.rollback()
+                logger.exception("Configuration activation failed")
 
             finally:
                 seconds_since_configuration_activation = 0
@@ -227,6 +227,7 @@ async def notification_worker_loop(
 
         seconds_since_reminder_check += 10
         seconds_since_exception_check += 10
+        seconds_since_configuration_activation += 10
 
 
 @asynccontextmanager
@@ -253,6 +254,13 @@ app = FastAPI(
     title=settings.APP_NAME,
     version="0.1.0",
     lifespan=lifespan,
+)
+
+app.state.limiter = limiter
+
+app.add_exception_handler(
+    RateLimitExceeded,
+    _rate_limit_exceeded_handler,
 )
 
 app.middleware("http")(log_request)
@@ -286,13 +294,14 @@ app.include_router(admin_routes_router)
 app.include_router(admin_warehouses_router)
 app.include_router(admin_route_optimization_router)
 app.include_router(driver_routes_router)
+app.include_router(admin_customer_documents_router)
 app.include_router(driver_route_execution_router)
 app.include_router(admin_collection_proofs_router)
 app.include_router(admin_warehouse_intakes_router)
 app.include_router(
     admin_facilities_router
 )
-
+app.include_router(admin_invoices_router)
 app.include_router(
     facility_router
 )
@@ -329,10 +338,17 @@ def health():
 
 @app.get("/health/db")
 def database_health():
-    connected = test_database_connection()
+    try:
+        connected = test_database_connection()
+        if not connected:
+            raise RuntimeError("Database connection check failed")
+    except Exception:
+        logger.exception("Database health check failed")
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        )
 
-    return {
-        "database": "connected" if connected else "failed"
-    }
-app.include_router(admin_invoices_router)
+    return {"database": "connected"}
+
 

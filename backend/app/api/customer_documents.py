@@ -1,4 +1,8 @@
 import uuid
+from app.core.storage import (
+    supabase_storage,
+    create_customer_document_signed_url,
+)
 
 from fastapi import (
     APIRouter,
@@ -90,18 +94,18 @@ async def upload_customer_document(
     # Read file
     # ---------------------------------------------------------
 
-    contents = await file.read()
+    contents = await file.read(MAX_FILE_SIZE + 1)
+
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="File must not exceed 10 MB",
+        )
 
     validate_file_signature(
         contents,
         file.content_type,
     )
-
-    if len(contents) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=400,
-            detail="File must be smaller than 10 MB",
-        )
 
     # ---------------------------------------------------------
     # Generate safe storage path
@@ -138,16 +142,14 @@ async def upload_customer_document(
                 },
             )
 
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
             status_code=500,
-            detail=f"Document upload failed: {str(exc)}",
+            detail="Document upload failed",
         )
 
-    # ---------------------------------------------------------
-    # Save metadata to PostgreSQL
-    # ---------------------------------------------------------
 
+    # Save metadata to PostgreSQL
     document = CustomerDocument(
         customer_id=customer.id,
         document_type=document_type,
@@ -156,9 +158,27 @@ async def upload_customer_document(
         is_verified=False,
     )
 
-    db.add(document)
-    db.commit()
-    db.refresh(document)
+    try:
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+
+    except Exception:
+        db.rollback()
+
+        # Remove the uploaded file if the database save fails.
+        try:
+            supabase_storage.storage \
+                .from_(settings.SUPABASE_STORAGE_BUCKET) \
+                .remove([storage_path])
+        except Exception:
+            # Cleanup failure should not hide the database failure.
+            pass
+
+        raise HTTPException(
+            status_code=500,
+            detail="Document metadata could not be saved",
+        )
 
     return {
         "id": document.id,
@@ -167,3 +187,92 @@ async def upload_customer_document(
         "storage_path": storage_path,
         "is_verified": document.is_verified,
     }
+
+
+@router.get("/")
+def list_customer_documents(
+    current_user: User = Depends(
+        require_role(UserRole.CUSTOMER)
+    ),
+    db: Session = Depends(get_db),
+):
+    customer = (
+        db.query(Customer)
+        .filter(Customer.user_id == current_user.id)
+        .first()
+    )
+
+    if not customer:
+        raise HTTPException(
+            status_code=404,
+            detail="Customer profile not found",
+        )
+
+    documents = (
+        db.query(CustomerDocument)
+        .filter(
+            CustomerDocument.customer_id == customer.id
+        )
+        .order_by(CustomerDocument.created_at.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": document.id,
+            "document_type": document.document_type.value,
+            "document_number": document.document_number,
+            "is_verified": document.is_verified,
+            "created_at": document.created_at,
+        }
+        for document in documents
+    ]
+
+
+@router.get("/{document_id}/download")
+def download_customer_document(
+    document_id: int,
+    current_user: User = Depends(
+        require_role(UserRole.CUSTOMER)
+    ),
+    db: Session = Depends(get_db),
+):
+    customer = (
+        db.query(Customer)
+        .filter(Customer.user_id == current_user.id)
+        .first()
+    )
+
+    if not customer:
+        raise HTTPException(
+            status_code=404,
+            detail="Customer profile not found",
+        )
+
+    document = (
+        db.query(CustomerDocument)
+        .filter(
+            CustomerDocument.id == document_id,
+            CustomerDocument.customer_id == customer.id,
+        )
+        .first()
+    )
+
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail="Document not found",
+        )
+
+    try:
+        signed_url = create_customer_document_signed_url(
+            document.document_url,
+            expires_in=300,
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to generate document download link",
+        )
+
+    return {"download_url": signed_url}

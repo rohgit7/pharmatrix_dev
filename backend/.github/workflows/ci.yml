@@ -1,18 +1,42 @@
+
 name: CI
 
 on:
   push:
-    branches:
-      - main
-      - develop
+    branches: [main, develop]
   pull_request:
-    branches:
-      - main
-      - develop
+    branches: [main, develop]
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pharmatrix
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: pharmatrix_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pharmatrix -d pharmatrix_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      APP_NAME: Pharmatrix
+      APP_ENV: test
+      DEBUG: "False"
+      DATABASE_URL: postgresql+psycopg://pharmatrix:test_password@localhost:5432/pharmatrix_test
+      TEST_DATABASE_URL: postgresql+psycopg://pharmatrix:test_password@localhost:5432/pharmatrix_test
+      ALLOW_DESTRUCTIVE_TEST_DB: "true"
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      CORS_ORIGINS: http://localhost:3000
 
     steps:
       - name: Checkout
@@ -28,15 +52,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run database migrations
         env:
-          APP_NAME: Pharmatrix
-          APP_ENV: test
-          DEBUG: "False"
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          CORS_ORIGINS: http://localhost:3000
-        run: |
-          pytest -q
+          ALEMBIC_USE_TEST_DATABASE: "0"
+        run: alembic upgrade head
+
+      - name: Run tests
+        run: pytest -q
