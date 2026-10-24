@@ -190,3 +190,14 @@ class Pickup(Base):
     location = relationship(
         "CustomerLocation",
     )
+
+    route_stops = relationship(
+        "RouteStop",
+        back_populates="pickup",
+    )
+
+    optimization_run_pickups = relationship(
+        "OptimizationRunPickup",
+        back_populates="pickup",
+        cascade="all, delete-orphan",
+    )

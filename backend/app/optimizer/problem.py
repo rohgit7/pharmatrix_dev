@@ -108,7 +108,7 @@ class Problem:
         n = self.n
         self.C = [[0.0] * (n + 1) for _ in range(n + 1)]
 
-        for i in range(n):
+        for i in range(n + 1):
             for j in range(n + 1):
                 if i == j:
                     continue
@@ -122,9 +122,12 @@ class Problem:
                 )
 
     def stats(self, route: list[int]) -> tuple[float, float, float]:
-        distance = 0.0
-        duration = 0.0
-        for a, b in zip(route, route[1:]):
+        if len(route) <= 1:
+            return 0.0, 0.0, 0.0
+        # Include departure from warehouse to the first stop
+        distance = self.D[self.W][route[0]]
+        duration = self.T[self.W][route[0]]
+        for a, b in zip(route[:-1], route[1:]):
             distance += self.D[a][b]
             duration += self.T[a][b] + self.svc[a]
         demand = sum(self.dem[x] for x in route[:-1])
@@ -146,7 +149,9 @@ class Problem:
         )
 
     def rcost(self, route: list[int]) -> float:
-        cost = sum(self.C[a][b] for a, b in zip(route, route[1:]))
+        if len(route) <= 1:
+            return 0.0
+        cost = self.C[self.W][route[0]] + sum(self.C[a][b] for a, b in zip(route[:-1], route[1:]))
         if len(route) > 2 and self.cfg.corridor:
             mb = self.mean_bearing(route[:-1])
             cost += self.cfg.corridor * sum(
@@ -166,6 +171,6 @@ class Problem:
                 self.dem[x] <= self.cfg.capacity_for_vehicle(k)
                 for k in range(self.cfg.n_vehicles)
             )
-            and self.D[x][self.W] <= self.cfg.max_dist_m
-            and self.T[x][self.W] + self.svc[x] <= self.cfg.max_time_s
+            and (self.D[self.W][x] + self.D[x][self.W]) <= self.cfg.max_dist_m
+            and (self.T[self.W][x] + self.svc[x] + self.T[x][self.W]) <= self.cfg.max_time_s
         )

@@ -46,9 +46,33 @@ apiClient.interceptors.response.use(
 // Helper function to extract user-friendly error message
 export function getErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const detail = error.response?.data?.detail;
+    const data = error.response?.data;
+    const detail = data?.detail;
+
     if (typeof detail === 'string') {
       return detail;
+    }
+    if (typeof detail === 'object' && detail !== null) {
+      if (typeof detail.message === 'string') {
+        if (Array.isArray(detail.unassigned_pickups) && detail.unassigned_pickups.length > 0) {
+          const reasons = detail.unassigned_pickups
+            .map((u: any) => u.reason)
+            .filter((r: any, idx: number, arr: any[]) => r && arr.indexOf(r) === idx);
+          if (reasons.length > 0) {
+            return `${detail.message}: ${reasons.join('; ')}`;
+          }
+        }
+        return detail.message;
+      }
+      if (typeof detail.error === 'string') {
+        return detail.error;
+      }
+      if (typeof detail.reason === 'string') {
+        return detail.reason;
+      }
+    }
+    if (typeof data?.message === 'string') {
+      return data.message;
     }
     if (Array.isArray(detail) && detail.length > 0 && detail[0].msg) {
       return detail[0].msg;
@@ -60,7 +84,7 @@ export function getErrorMessage(error: unknown): string {
       return 'The requested resource was not found.';
     }
     if (error.response?.status === 409) {
-      return 'Operation conflict. A record with similar attributes already exists.';
+      return 'Operation conflict. The requested operation conflicts with the current system state or constraints.';
     }
     if (error.response?.status && error.response.status >= 500) {
       return 'Backend service error. Please try again or inspect server logs.';

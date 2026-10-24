@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.auth import require_role
@@ -9,8 +9,10 @@ from app.models.enums import (
 )
 from app.models.user import UserRole
 from app.schemas.operational_exception import (
+    OperationalExceptionCreate,
     OperationalExceptionResolveRequest,
     OperationalExceptionResponse,
+    OperationalExceptionUpdate,
 )
 from app.services.operational_exception_service import (
     get_operational_exception,
@@ -116,3 +118,98 @@ def admin_resolve_exception(
             status_code=400,
             detail=message,
         )
+
+
+@router.post(
+    "/",
+    response_model=OperationalExceptionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_create_exception(
+    data: OperationalExceptionCreate,
+    db: Session = Depends(get_db),
+):
+    from datetime import datetime, timezone
+    from app.models.operational_exception import OperationalException
+    exception = OperationalException(
+        exception_type=data.exception_type,
+        source_type=data.source_type,
+        source_id=data.source_id,
+        status=OperationalExceptionStatus.OPEN,
+        reason=data.reason,
+        opened_at=datetime.now(timezone.utc),
+    )
+    db.add(exception)
+    db.commit()
+    db.refresh(exception)
+    return exception
+
+
+@router.post(
+    "/{exception_id}/escalate",
+    response_model=OperationalExceptionResponse,
+)
+def admin_escalate_exception(
+    exception_id: int,
+    db: Session = Depends(get_db),
+):
+    from datetime import datetime, timezone
+    from app.models.operational_exception import OperationalException
+    exception = db.query(OperationalException).filter(OperationalException.id == exception_id).first()
+    if not exception:
+        raise HTTPException(
+            status_code=404,
+            detail="Operational exception not found",
+        )
+    exception.status = OperationalExceptionStatus.ESCALATED
+    exception.escalated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(exception)
+    return exception
+
+
+@router.patch(
+    "/{exception_id}",
+    response_model=OperationalExceptionResponse,
+)
+def admin_update_exception(
+    exception_id: int,
+    data: OperationalExceptionUpdate,
+    db: Session = Depends(get_db),
+):
+    from app.models.operational_exception import OperationalException
+    exception = db.query(OperationalException).filter(OperationalException.id == exception_id).first()
+    if not exception:
+        raise HTTPException(
+            status_code=404,
+            detail="Operational exception not found",
+        )
+
+    update_dict = data.model_dump(exclude_unset=True)
+    for field, value in update_dict.items():
+        setattr(exception, field, value)
+
+    db.commit()
+    db.refresh(exception)
+    return exception
+
+
+@router.delete(
+    "/{exception_id}",
+    status_code=status.HTTP_200_OK,
+)
+def admin_delete_exception(
+    exception_id: int,
+    db: Session = Depends(get_db),
+):
+    from app.models.operational_exception import OperationalException
+    exception = db.query(OperationalException).filter(OperationalException.id == exception_id).first()
+    if not exception:
+        raise HTTPException(
+            status_code=404,
+            detail="Operational exception not found",
+        )
+
+    db.delete(exception)
+    db.commit()
+    return {"message": "Operational exception removed successfully"}

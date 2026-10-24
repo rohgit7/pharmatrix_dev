@@ -1,4 +1,5 @@
-﻿
+
+from decimal import Decimal
 from fastapi import APIRouter, Depends, Header, HTTPException, Path, status
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -144,3 +145,32 @@ def get_invoice_payments_endpoint(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
+
+
+@router.delete(
+    "/{payment_id}",
+    status_code=status.HTTP_200_OK,
+)
+def delete_payment_endpoint(
+    payment_id: int,
+    db: Session = Depends(get_db),
+):
+    from app.models.payment import Payment
+    payment = db.query(Payment).filter(Payment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Payment not found",
+        )
+
+    # Revert invoice amount_paid
+    invoice = db.query(Invoice).filter(Invoice.id == payment.invoice_id).first()
+    if invoice:
+        invoice.amount_paid = max(Decimal("0.00"), invoice.amount_paid - payment.amount)
+        if invoice.amount_paid < invoice.total_amount:
+            invoice.status = "ISSUED"
+
+    db.delete(payment)
+    db.commit()
+    return {"message": "Payment removed successfully"}
+

@@ -1,277 +1,519 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { dashboardApi, pickupsApi, routesApi, exceptionsApi } from '../api/operations';
-import { StatCard } from '../components/common/StatCard';
-import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
-import { ErrorState } from '../components/common/ErrorState';
-import { StatusBadge } from '../components/common/StatusBadge';
-import { formatWeight, formatDate } from '../utils/formatters';
 import { Link } from 'react-router-dom';
 import {
+  AlertOctagon,
+  ArrowRight,
   CalendarCheck,
+  ClipboardList,
   MapPin,
   Warehouse,
-  AlertOctagon,
+  Truck,
+  Users,
+  CreditCard,
+  Sparkles,
   Scale,
-  Clock,
-  ArrowRight,
-  TrendingUp,
   ShieldAlert,
+  Clock,
+  CheckCircle2,
+  Navigation,
+  AlertTriangle,
+  Info,
+  Check,
 } from 'lucide-react';
+import {
+  dashboardApi,
+  exceptionsApi,
+  pickupsApi,
+  routesApi,
+  fleetApi,
+  invoicesApi,
+} from '../api/operations';
+import { ErrorState } from '../components/common/ErrorState';
+import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
+import { StatusBadge } from '../components/common/StatusBadge';
+import { formatDate, formatDateTime, formatCurrency, formatWeight } from '../utils/formatters';
+import { OperationalExceptionResponse, PickupAdminResponse, RouteResponse } from '../types/operations';
+
+interface OperationalMetricCardProps {
+  title: string;
+  count: number | string | undefined;
+  subtitle: string;
+  to: string;
+  icon: React.ElementType;
+  badge?: string;
+  badgeColor?: 'emerald' | 'amber' | 'rose' | 'blue';
+  isLoading: boolean;
+  isUnavailable?: boolean;
+}
+
+const OperationalMetricCard: React.FC<OperationalMetricCardProps> = ({
+  title,
+  count,
+  subtitle,
+  to,
+  icon: Icon,
+  badge,
+  badgeColor = 'blue',
+  isLoading,
+  isUnavailable,
+}) => {
+  const badgeClasses = {
+    emerald: 'bg-emerald-100 text-emerald-800',
+    amber: 'bg-amber-100 text-amber-800',
+    rose: 'bg-rose-100 text-rose-800',
+    blue: 'bg-blue-100 text-blue-800',
+  }[badgeColor];
+
+  return (
+    <Link
+      to={to}
+      className="p-5 bg-white rounded-xl border border-ivory-300 shadow-subtle hover:border-ivory-400 hover:shadow-card transition-all flex flex-col justify-between group"
+    >
+      <div className="flex items-start justify-between">
+        <span className="text-xs font-semibold text-charcoal-500 uppercase tracking-wider">
+          {title}
+        </span>
+        <div className="p-2 rounded-lg bg-ivory-100 text-charcoal-700 group-hover:bg-periwinkle-100 group-hover:text-periwinkle-900 transition-colors">
+          <Icon className="w-4 h-4" />
+        </div>
+      </div>
+
+      <div className="my-3">
+        {isLoading ? (
+          <div className="h-7 w-20 bg-ivory-200 rounded animate-pulse" />
+        ) : isUnavailable ? (
+          <span className="text-sm font-semibold text-charcoal-400">Unavailable</span>
+        ) : (
+          <div className="text-2xl font-bold text-charcoal-900 tracking-tight">
+            {count}
+          </div>
+        )}
+        <p className="text-xs text-charcoal-500 mt-1">{subtitle}</p>
+      </div>
+
+      <div className="pt-2 border-t border-ivory-100 flex items-center justify-between text-xs">
+        {badge ? (
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${badgeClasses}`}>
+            {badge}
+          </span>
+        ) : (
+          <span />
+        )}
+        <span className="inline-flex items-center gap-1 font-semibold text-periwinkle-800 group-hover:text-periwinkle-950">
+          <span>View queue</span>
+          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+        </span>
+      </div>
+    </Link>
+  );
+};
 
 export const Overview: React.FC = () => {
-  const {
-    data: summary,
-    isLoading: isSummaryLoading,
-    error: summaryError,
-    refetch: refetchSummary,
-  } = useQuery({
+  // Authoritative Next-Day Planning Readiness
+  const readinessQuery = useQuery({
+    queryKey: ['adminPlanningReadiness'],
+    queryFn: routesApi.getReadiness,
+    refetchInterval: 15000,
+  });
+
+  // Real-time Queries (polling every 15 seconds)
+  const summaryQuery = useQuery({
     queryKey: ['adminDashboardSummary'],
     queryFn: dashboardApi.getSummary,
     refetchInterval: 15000,
   });
 
-  const { data: recentPickups = [], isLoading: isPickupsLoading } = useQuery({
-    queryKey: ['recentPickups'],
-    queryFn: () => pickupsApi.list(),
+  const driversQuery = useQuery({
+    queryKey: ['adminDashboardDrivers'],
+    queryFn: () => fleetApi.listDrivers(0, 100),
+    refetchInterval: 15000,
   });
 
-  const { data: activeRoutes = [], isLoading: isRoutesLoading } = useQuery({
-    queryKey: ['activeRoutes'],
-    queryFn: () => routesApi.list(),
+  const vehiclesQuery = useQuery({
+    queryKey: ['adminDashboardVehicles'],
+    queryFn: () => fleetApi.listVehicles(0, 100),
+    refetchInterval: 15000,
   });
 
-  const { data: openExceptions = [], isLoading: isExceptionsLoading } = useQuery({
-    queryKey: ['openExceptions'],
-    queryFn: () => exceptionsApi.list({ status: 'OPEN' }),
+  const invoicesQuery = useQuery({
+    queryKey: ['adminDashboardInvoices'],
+    queryFn: () => invoicesApi.list({ limit: 100 }),
+    refetchInterval: 15000,
   });
 
-  if (summaryError) {
-    return (
-      <div className="space-y-6">
-        <ErrorState
-          title="Failed to connect to dashboard metrics"
-          message={(summaryError as Error).message}
-          onRetry={refetchSummary}
-        />
-      </div>
-    );
-  }
+  const exceptionsQuery = useQuery({
+    queryKey: ['adminDashboardExceptions'],
+    queryFn: () => exceptionsApi.list(),
+    refetchInterval: 15000,
+  });
+
+  const readiness = readinessQuery.data;
+  const drivers = driversQuery.data ?? [];
+  const vehicles = vehiclesQuery.data ?? [];
+  const invoices = invoicesQuery.data ?? [];
+  const exceptions = exceptionsQuery.data ?? [];
+
+  // Fleet availability
+  const availableDrivers = useMemo(() => {
+    return drivers.filter((d) => d.status === 'ACTIVE' && d.is_available);
+  }, [drivers]);
+
+  const availableVehicles = useMemo(() => {
+    return vehicles.filter((v) => v.status === 'AVAILABLE');
+  }, [vehicles]);
+
+  const openExceptions = useMemo(() => {
+    return exceptions.filter((e) => e.status !== 'RESOLVED');
+  }, [exceptions]);
+
+  const unpaidInvoices = useMemo(() => {
+    return invoices.filter((i) => i.status !== 'PAID');
+  }, [invoices]);
+
+  const totalOutstandingAmount = useMemo(() => {
+    return unpaidInvoices.reduce((sum, i) => sum + Number(i.outstanding_amount || 0), 0);
+  }, [unpaidInvoices]);
 
   return (
-    <div className="space-y-8">
-      {/* Welcome Banner */}
-      <div className="bg-charcoal-900 rounded-2xl p-6 text-white border border-charcoal-800 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6">
+      {/* 1. Header Banner */}
+      <header className="flex flex-col gap-4 rounded-2xl bg-charcoal-900 p-6 text-white shadow-card sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-charcoal-800 border border-charcoal-700 text-xs text-periwinkle-300 font-semibold mb-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-periwinkle animate-pulse" />
-            Live Operations Control
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-periwinkle">
+              Operations Control Center
+            </p>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           </div>
-          <h2 className="text-xl md:text-2xl font-bold tracking-tight">Pharmatrix Control Tower</h2>
-          <p className="text-xs md:text-sm text-charcoal-300 mt-1 max-w-xl">
-            Real-time tracking of pharmaceutical consignment chain of custody, route dispatch, warehouse intakes, and disposal certifications.
+          <h1 className="mt-1.5 text-xl font-bold tracking-tight md:text-2xl">
+            Next-Day Operational Command & Control
+          </h1>
+          <p className="mt-1 max-w-2xl text-xs text-charcoal-300">
+            Strict next-day operational planning cycle (Asia/Kolkata). Pickups progress linearly from work queue selection, optimization, and explicit approval to fleet assignment and dispatch.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            to="/routes"
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-periwinkle text-charcoal-900 hover:bg-periwinkle-400 transition-colors shadow-sm inline-flex items-center gap-1.5"
-          >
-            <MapPin className="w-3.5 h-3.5" />
-            <span>Dispatch Route</span>
-          </Link>
+
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             to="/pickups"
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-charcoal-800 text-white hover:bg-charcoal-700 border border-charcoal-700 transition-colors inline-flex items-center gap-1.5"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-periwinkle px-3.5 py-2 text-xs font-semibold text-charcoal-900 hover:bg-periwinkle-400 transition-colors shadow-sm"
           >
-            <CalendarCheck className="w-3.5 h-3.5" />
-            <span>Manage Pickups</span>
+            <CalendarCheck className="h-3.5 w-3.5" />
+            <span>Tomorrow's Pickups</span>
+          </Link>
+
+          <Link
+            to="/route-optimization"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-charcoal-700 bg-charcoal-800 px-3.5 py-2 text-xs font-semibold text-white hover:bg-charcoal-700 transition-colors shadow-sm"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-periwinkle" />
+            <span>Optimize Routes</span>
           </Link>
         </div>
-      </div>
+      </header>
 
-      {/* KPI Stats Grid */}
-      {isSummaryLoading ? (
-        <LoadingSkeleton type="stat-card" count={4} />
-      ) : summary ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title="Total Consignments"
-            value={summary.total_pickups}
-            subtitle={`${summary.today_scheduled_pickups} scheduled for collection today`}
-            icon={CalendarCheck}
-            variant="default"
-            badge={`${summary.pending_pickups} pending`}
-            badgeType="warning"
-          />
-          <StatCard
-            title="Active Dispatch Routes"
-            value={summary.active_routes}
-            subtitle="Vehicles executing collections"
-            icon={MapPin}
-            variant="primary"
-          />
-          <StatCard
-            title="Total Collected Weight"
-            value={formatWeight(summary.total_collected_weight_kg)}
-            subtitle="Verified at collection stops"
-            icon={Scale}
-            variant="default"
-          />
-          <StatCard
-            title="Pending Intakes / Exceptions"
-            value={summary.pending_warehouse_intakes + summary.open_exceptions}
-            subtitle={`${summary.open_exceptions} exceptions require investigation`}
-            icon={AlertOctagon}
-            variant={summary.open_exceptions > 0 ? 'warning' : 'default'}
-            badge={summary.open_exceptions > 0 ? 'Action Needed' : 'Normal'}
-            badgeType={summary.open_exceptions > 0 ? 'warning' : 'success'}
-          />
-        </div>
-      ) : null}
-
-      {/* Operations Split: Recent Pickups & Live Routes */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Recent Pickups */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-ivory-300 shadow-subtle overflow-hidden">
-          <div className="p-4 border-b border-ivory-200 flex items-center justify-between">
+      {/* 2. Planning Readiness Summary Indicator */}
+      <section className="rounded-2xl border border-periwinkle-200 bg-gradient-to-br from-periwinkle-50/60 via-white to-ivory-50 p-6 shadow-subtle">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-4 border-b border-ivory-200">
+          <div>
             <div className="flex items-center gap-2">
-              <CalendarCheck className="w-4 h-4 text-periwinkle-700" />
-              <h3 className="text-sm font-bold text-charcoal-900">Recent Collection Requests</h3>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-periwinkle-100 text-periwinkle-900">
+                Operating Date: {readiness?.planning_date || 'Tomorrow'}
+              </span>
+              <span className="text-[11px] text-charcoal-500">
+                Timezone: {readiness?.timezone || 'Asia/Kolkata'}
+              </span>
             </div>
-            <Link
-              to="/pickups"
-              className="text-xs font-semibold text-periwinkle-700 hover:text-periwinkle-900 inline-flex items-center gap-1"
-            >
-              View all <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            <h2 className="text-lg font-bold text-charcoal-900 mt-1">
+              Next-Day Planning Readiness Status
+            </h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-ivory-50 text-charcoal-500 uppercase tracking-wider font-semibold border-b border-ivory-200">
-                <tr>
-                  <th className="py-2.5 px-4">Pickup Code</th>
-                  <th className="py-2.5 px-4">Status</th>
-                  <th className="py-2.5 px-4">Priority</th>
-                  <th className="py-2.5 px-4">Scheduled Date</th>
-                  <th className="py-2.5 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ivory-200">
-                {isPickupsLoading ? (
-                  <LoadingSkeleton type="table-row" count={4} />
-                ) : recentPickups.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-charcoal-400">
-                      No pickups recorded in the system yet.
-                    </td>
-                  </tr>
-                ) : (
-                  recentPickups.slice(0, 5).map((pickup) => (
-                    <tr key={pickup.id} className="hover:bg-ivory-50/50">
-                      <td className="py-3 px-4 font-mono font-semibold text-charcoal-900">
-                        {pickup.pickup_code}
-                      </td>
-                      <td className="py-3 px-4">
-                        <StatusBadge status={pickup.status} />
-                      </td>
-                      <td className="py-3 px-4">
-                        <StatusBadge status={pickup.priority} />
-                      </td>
-                      <td className="py-3 px-4 text-charcoal-600">
-                        {formatDate(pickup.scheduled_date || pickup.requested_date)}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <Link
-                          to={`/pickups?id=${pickup.public_id}`}
-                          className="text-xs font-medium text-periwinkle-700 hover:underline"
-                        >
-                          Inspect
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+
+          <div className="flex items-center gap-3">
+            {readiness?.is_ready_for_dispatch ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Ready for Dispatch
+              </span>
+            ) : readiness && readiness.blockers.length > 0 ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 font-bold text-xs">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                {readiness.blockers.length} Action{readiness.blockers.length > 1 ? 's' : ''} Pending
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-100 text-blue-800 font-bold text-xs">
+                <Clock className="w-4 h-4 text-blue-600" />
+                Planning In Progress
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Right 1 Col: Open Exceptions & Routes Quick View */}
-        <div className="space-y-6">
-          {/* Open Exceptions Card */}
-          <div className="bg-white rounded-xl border border-ivory-300 shadow-subtle p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 text-amber-800">
-                <ShieldAlert className="w-4 h-4 text-amber-600" />
-                <h3 className="text-sm font-bold text-charcoal-900">Operational Exceptions</h3>
-              </div>
-              <Link
-                to="/exceptions"
-                className="text-xs font-semibold text-periwinkle-700 hover:text-periwinkle-900"
-              >
-                Review
-              </Link>
+        {/* Readiness Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4">
+          <div className="bg-white p-3.5 rounded-xl border border-ivory-200 shadow-xs">
+            <span className="text-[11px] font-semibold text-charcoal-500 uppercase">Tomorrow's Pickups</span>
+            <div className="text-xl font-bold text-charcoal-900 mt-1">
+              {readinessQuery.isLoading ? '…' : readiness?.total_pickups_requested_tomorrow ?? 0}
             </div>
-            {isExceptionsLoading ? (
-              <LoadingSkeleton type="text" count={2} />
-            ) : openExceptions.length === 0 ? (
-              <p className="text-xs text-charcoal-500 py-3">
-                All collections and receipts are reconciled with zero open exceptions.
-              </p>
+            <span className="text-[10px] text-charcoal-400">Total requested for D+1</span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-ivory-200 shadow-xs">
+            <span className="text-[11px] font-semibold text-charcoal-500 uppercase">Awaiting Selection</span>
+            <div className="text-xl font-bold text-amber-600 mt-1">
+              {readinessQuery.isLoading ? '…' : readiness?.eligible_pickups_awaiting_selection ?? 0}
+            </div>
+            <span className="text-[10px] text-charcoal-400">Eligible in work queue</span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-ivory-200 shadow-xs">
+            <span className="text-[11px] font-semibold text-charcoal-500 uppercase">Allocated to Routes</span>
+            <div className="text-xl font-bold text-emerald-600 mt-1">
+              {readinessQuery.isLoading ? '…' : readiness?.pickups_allocated_to_routes ?? 0}
+            </div>
+            <span className="text-[10px] text-charcoal-400">In draft / active routes</span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-ivory-200 shadow-xs">
+            <span className="text-[11px] font-semibold text-charcoal-500 uppercase">Routes Awaiting Review</span>
+            <div className="text-xl font-bold text-periwinkle-900 mt-1">
+              {readinessQuery.isLoading ? '…' : readiness?.routes_awaiting_review ?? 0}
+            </div>
+            <span className="text-[10px] text-charcoal-400">Drafts pending approval</span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-ivory-200 shadow-xs">
+            <span className="text-[11px] font-semibold text-charcoal-500 uppercase">Awaiting Assignment</span>
+            <div className="text-xl font-bold text-blue-600 mt-1">
+              {readinessQuery.isLoading ? '…' : readiness?.routes_awaiting_assignment ?? 0}
+            </div>
+            <span className="text-[10px] text-charcoal-400">Approved, need fleet</span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-ivory-200 shadow-xs">
+            <span className="text-[11px] font-semibold text-charcoal-500 uppercase">Awaiting Dispatch</span>
+            <div className="text-xl font-bold text-purple-600 mt-1">
+              {readinessQuery.isLoading ? '…' : readiness?.routes_awaiting_dispatch ?? 0}
+            </div>
+            <span className="text-[10px] text-charcoal-400">Assigned, ready to send</span>
+          </div>
+        </div>
+
+        {/* Fleet Capacity & Blockers */}
+        <div className="mt-4 pt-3 border-t border-ivory-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-4">
+            <div>
+              <span className="text-charcoal-500">Total Tomorrow Demand:</span>{' '}
+              <strong className="text-charcoal-900">{formatWeight(readiness?.total_demand_kg ?? 0)}</strong>
+            </div>
+            <div>
+              <span className="text-charcoal-500">Available Fleet Capacity:</span>{' '}
+              <strong className="text-charcoal-900">{formatWeight(readiness?.available_fleet_capacity_kg ?? 0)}</strong>
+            </div>
+            {readiness && readiness.capacity_shortfall_kg > 0 ? (
+              <div className="text-rose-600 font-bold flex items-center gap-1">
+                <AlertOctagon className="w-3.5 h-3.5" />
+                Shortfall: {formatWeight(readiness.capacity_shortfall_kg)}
+              </div>
             ) : (
-              <div className="space-y-2.5">
-                {openExceptions.slice(0, 3).map((exc) => (
-                  <div key={exc.id} className="p-2.5 rounded-lg bg-amber-50/60 border border-amber-200 text-xs">
-                    <div className="flex items-center justify-between font-semibold text-amber-900">
-                      <span>{exc.exception_type}</span>
-                      <StatusBadge status={exc.status} size="sm" />
-                    </div>
-                    <p className="mt-1 text-charcoal-700 line-clamp-1">{exc.reason}</p>
-                  </div>
-                ))}
+              <div className="text-emerald-600 font-bold flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" />
+                Capacity Sufficient
               </div>
             )}
           </div>
 
-          {/* Active Routes Card */}
-          <div className="bg-white rounded-xl border border-ivory-300 shadow-subtle p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-periwinkle-700" />
-                <h3 className="text-sm font-bold text-charcoal-900">Active Routes</h3>
-              </div>
-              <Link
-                to="/routes"
-                className="text-xs font-semibold text-periwinkle-700 hover:text-periwinkle-900"
-              >
-                Inspect
-              </Link>
+          {readiness && readiness.pickups_excluded_count > 0 && (
+            <Link
+              to="/pickups?tab=excluded"
+              className="text-amber-700 hover:text-amber-900 font-semibold inline-flex items-center gap-1"
+            >
+              <Info className="w-3.5 h-3.5" />
+              <span>{readiness.pickups_excluded_count} pickup(s) excluded (see reasons)</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          )}
+        </div>
+      </section>
+
+      {/* 3. Primary Operational Sequence Guide */}
+      <section className="bg-white rounded-xl border border-ivory-300 p-5 shadow-subtle">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-bold text-charcoal-900 uppercase tracking-wider">
+            Authoritative Linear Workflow Sequence
+          </h3>
+          <span className="text-[11px] font-medium text-charcoal-500">Strict D+1 Lifecycle</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 text-xs">
+          <Link
+            to="/pickups"
+            className="p-3 bg-ivory-50 rounded-lg border border-ivory-200 hover:border-periwinkle hover:bg-ivory-100 transition-all flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between font-bold text-charcoal-900">
+              <span>1. Queue</span>
+              <CalendarCheck className="w-4 h-4 text-periwinkle-700" />
             </div>
-            {isRoutesLoading ? (
-              <LoadingSkeleton type="text" count={2} />
-            ) : activeRoutes.length === 0 ? (
-              <p className="text-xs text-charcoal-500 py-3">
-                No active routes currently in progress.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {activeRoutes.slice(0, 3).map((route) => (
-                  <div key={route.id} className="flex items-center justify-between p-2 rounded-lg bg-ivory-50 text-xs">
-                    <div>
-                      <span className="font-mono font-semibold text-charcoal-900">{route.route_code}</span>
-                      <span className="block text-[11px] text-charcoal-500">
-                        {route.stops?.length || 0} stops assigned
-                      </span>
-                    </div>
-                    <StatusBadge status={route.status} size="sm" />
-                  </div>
-                ))}
-              </div>
-            )}
+            <p className="text-[11px] text-charcoal-500 mt-2">Filter next-day work</p>
+          </Link>
+
+          <Link
+            to="/route-optimization"
+            className="p-3 bg-ivory-50 rounded-lg border border-ivory-200 hover:border-periwinkle hover:bg-ivory-100 transition-all flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between font-bold text-charcoal-900">
+              <span>2. Optimize</span>
+              <Sparkles className="w-4 h-4 text-blue-600" />
+            </div>
+            <p className="text-[11px] text-charcoal-500 mt-2">Cluster multi-vehicle</p>
+          </Link>
+
+          <Link
+            to="/route-optimization?tab=review"
+            className="p-3 bg-ivory-50 rounded-lg border border-ivory-200 hover:border-periwinkle hover:bg-ivory-100 transition-all flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between font-bold text-charcoal-900">
+              <span>3. Review</span>
+              <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+            </div>
+            <p className="text-[11px] text-charcoal-500 mt-2">Approve draft routes</p>
+          </Link>
+
+          <Link
+            to="/fleet?tab=assignments"
+            className="p-3 bg-ivory-50 rounded-lg border border-ivory-200 hover:border-periwinkle hover:bg-ivory-100 transition-all flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between font-bold text-charcoal-900">
+              <span>4. Assign</span>
+              <Truck className="w-4 h-4 text-amber-600" />
+            </div>
+            <p className="text-[11px] text-charcoal-500 mt-2">Pair driver & vehicle</p>
+          </Link>
+
+          <Link
+            to="/dispatch"
+            className="p-3 bg-ivory-50 rounded-lg border border-ivory-200 hover:border-periwinkle hover:bg-ivory-100 transition-all flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between font-bold text-charcoal-900">
+              <span>5. Dispatch</span>
+              <Navigation className="w-4 h-4 text-emerald-600" />
+            </div>
+            <p className="text-[11px] text-charcoal-500 mt-2">Notify drivers & start</p>
+          </Link>
+
+          <Link
+            to="/warehouses"
+            className="p-3 bg-ivory-50 rounded-lg border border-ivory-200 hover:border-periwinkle hover:bg-ivory-100 transition-all flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between font-bold text-charcoal-900">
+              <span>6. Intake</span>
+              <Warehouse className="w-4 h-4 text-charcoal-700" />
+            </div>
+            <p className="text-[11px] text-charcoal-500 mt-2">Weigh & classify bins</p>
+          </Link>
+
+          <Link
+            to="/certificates"
+            className="p-3 bg-ivory-50 rounded-lg border border-ivory-200 hover:border-periwinkle hover:bg-ivory-100 transition-all flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between font-bold text-charcoal-900">
+              <span>7. Disposal</span>
+              <Scale className="w-4 h-4 text-purple-600" />
+            </div>
+            <p className="text-[11px] text-charcoal-500 mt-2">Manifests & certs</p>
+          </Link>
+
+          <Link
+            to="/billing"
+            className="p-3 bg-ivory-50 rounded-lg border border-ivory-200 hover:border-periwinkle hover:bg-ivory-100 transition-all flex flex-col justify-between"
+          >
+            <div className="flex items-center justify-between font-bold text-charcoal-900">
+              <span>8. Billing</span>
+              <CreditCard className="w-4 h-4 text-emerald-700" />
+            </div>
+            <p className="text-[11px] text-charcoal-500 mt-2">Settle invoices</p>
+          </Link>
+        </div>
+      </section>
+
+      {/* 4. Fleet Availability & Pending Actions */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xs font-bold text-charcoal-700 uppercase tracking-wider mb-3">
+            Fleet Availability & Compliance Actions
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <OperationalMetricCard
+              title="Available Drivers"
+              count={`${availableDrivers.length} / ${drivers.length}`}
+              subtitle="Active drivers ready for next-day deployment"
+              to="/fleet?tab=drivers"
+              icon={Users}
+              badge={`${availableDrivers.length} Online`}
+              badgeColor="emerald"
+              isLoading={driversQuery.isLoading}
+            />
+
+            <OperationalMetricCard
+              title="Available Fleet Vehicles"
+              count={`${availableVehicles.length} / ${vehicles.length}`}
+              subtitle={`Total carrying capacity: ${formatWeight(readiness?.available_fleet_capacity_kg ?? 0)}`}
+              to="/fleet?tab=vehicles"
+              icon={Truck}
+              badge={`${availableVehicles.length} Free`}
+              badgeColor="emerald"
+              isLoading={vehiclesQuery.isLoading}
+            />
+
+            <OperationalMetricCard
+              title="Operational Exceptions"
+              count={openExceptions.length}
+              subtitle="Discrepancies, failed pickups, & escalations"
+              to="/exceptions?status=OPEN"
+              icon={AlertOctagon}
+              badge={openExceptions.length > 0 ? `${openExceptions.length} Open` : 'Clear'}
+              badgeColor={openExceptions.length > 0 ? 'rose' : 'emerald'}
+              isLoading={exceptionsQuery.isLoading}
+            />
+
+            <OperationalMetricCard
+              title="Unpaid / Overdue Invoices"
+              count={formatCurrency(totalOutstandingAmount, 'INR')}
+              subtitle={`${unpaidInvoices.length} invoices awaiting settlement`}
+              to="/billing"
+              icon={CreditCard}
+              badge={unpaidInvoices.length > 0 ? 'Pending Payment' : 'Reconciled'}
+              badgeColor={unpaidInvoices.length > 0 ? 'rose' : 'emerald'}
+              isLoading={invoicesQuery.isLoading}
+            />
           </div>
         </div>
       </div>
+
+      {/* 5. Warehouse Intake Callout */}
+      <section className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <Warehouse className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
+          <div>
+            <h2 className="text-sm font-bold text-amber-950">Pending Warehouse Intake Handover</h2>
+            <p className="mt-1 text-xs text-amber-900">
+              {summaryQuery.data
+                ? `${summaryQuery.data.pending_warehouse_intakes} intake${summaryQuery.data.pending_warehouse_intakes === 1 ? '' : 's'} pending.`
+                : 'Loading pending intake count...'}
+              {' '}Total verified collected weight across system: {summaryQuery.data ? formatWeight(summaryQuery.data.total_collected_weight_kg) : '—'}.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/warehouses"
+          className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-900 hover:underline"
+        >
+          Open warehouse intake <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </section>
     </div>
   );
 };
+
+export default Overview;

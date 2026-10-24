@@ -44,3 +44,29 @@ class InvoiceResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     line_items: list[InvoiceLineItemResponse] = Field(default_factory=list)
+
+
+class InvoiceLineItemCreate(BaseModel):
+    item_type: str = "SERVICE"
+    description: str
+    quantity: Decimal = Field(default=Decimal("1.00"), gt=0)
+    unit_price: Decimal = Field(ge=0)
+    metadata_json: dict = Field(default_factory=dict)
+
+
+class InvoiceCreate(BaseModel):
+    customer_id: int
+    pickup_id: int | None = None
+    pricing_plan_id: int | None = None
+    pricing_plan_version_id: int | None = None
+    currency: str = "INR"
+    due_date: datetime | None = None
+    notes: str | None = None
+    line_items: list[InvoiceLineItemCreate] = Field(default_factory=list)
+
+
+class InvoiceUpdate(BaseModel):
+    status: str | None = None
+    due_date: datetime | None = None
+    notes: str | None = None
+

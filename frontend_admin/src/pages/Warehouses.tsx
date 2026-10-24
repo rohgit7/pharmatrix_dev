@@ -27,6 +27,7 @@ import {
   Scale,
   Edit2,
   Layers,
+  Trash2,
 } from 'lucide-react';
 
 type WarehouseCreateForm = Omit<WarehouseCreate, 'latitude' | 'longitude'> & {
@@ -55,6 +56,7 @@ export const Warehouses: React.FC = () => {
   // Edit Warehouse Modal
   const [editWarehouse, setEditWarehouse] = useState<WarehouseResponse | null>(null);
   const [editForm, setEditForm] = useState<WarehouseUpdate>({});
+  const [warehouseToDelete, setWarehouseToDelete] = useState<WarehouseResponse | null>(null);
 
   // Intake Lookup & Receipt State
   const [intakeIdInput, setIntakeIdInput] = useState('');
@@ -113,6 +115,21 @@ export const Warehouses: React.FC = () => {
       setEditWarehouse(null);
       if (selectedWarehouse && selectedWarehouse.id === data.id) {
         setSelectedWarehouse(data);
+      }
+    },
+    onError: (err) => {
+      setAlert({ type: 'error', message: getErrorMessage(err) });
+    },
+  });
+
+  const deleteWarehouseMutation = useMutation({
+    mutationFn: (id: number) => warehousesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminWarehouses'] });
+      setAlert({ type: 'success', message: 'Warehouse removed successfully.' });
+      setWarehouseToDelete(null);
+      if (selectedWarehouse && selectedWarehouse.id === warehouseToDelete?.id) {
+        setSelectedWarehouse(null);
       }
     },
     onError: (err) => {
@@ -236,6 +253,13 @@ export const Warehouses: React.FC = () => {
             title="Edit Warehouse"
           >
             <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setWarehouseToDelete(w)}
+            className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+            title="Delete Warehouse"
+          >
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       ),
@@ -1059,6 +1083,45 @@ export const Warehouses: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Warehouse Modal */}
+      <Modal
+        isOpen={!!warehouseToDelete}
+        onClose={() => setWarehouseToDelete(null)}
+        title="Delete Warehouse"
+        subtitle={`Confirm permanent removal of ${warehouseToDelete?.name} (${warehouseToDelete?.code})`}
+      >
+        <div className="space-y-4 text-xs">
+          <p className="text-charcoal-700">
+            Are you sure you want to delete warehouse <strong className="font-semibold text-charcoal-900">{warehouseToDelete?.name}</strong>?
+            If historic intakes, routes, or inventory items are linked, it will be safely deactivated instead of corrupting historical data.
+          </p>
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800">
+            <strong>Warning:</strong> Deleting a logistics hub disrupts active routing and receiving.
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-ivory-200">
+            <button
+              type="button"
+              onClick={() => setWarehouseToDelete(null)}
+              className="px-4 py-2 font-semibold text-charcoal-700 bg-white border border-ivory-300 rounded-lg hover:bg-ivory-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (warehouseToDelete) {
+                  deleteWarehouseMutation.mutate(warehouseToDelete.id);
+                }
+              }}
+              disabled={deleteWarehouseMutation.isPending}
+              className="px-4 py-2 font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+            >
+              {deleteWarehouseMutation.isPending ? 'Deleting...' : 'Delete Warehouse'}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

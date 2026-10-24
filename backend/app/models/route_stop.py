@@ -72,6 +72,7 @@ class RouteStop(Base):
 
     pickup = relationship(
         "Pickup",
+        back_populates="route_stops",
     )
 
     warehouse = relationship(
@@ -116,6 +117,44 @@ class RouteStop(Base):
         String(1000),
         nullable=True,
     )
+
+    @property
+    def lat(self) -> float | None:
+        if self.pickup and self.pickup.location and self.pickup.location.latitude is not None:
+            return float(self.pickup.location.latitude)
+        if self.warehouse and self.warehouse.latitude is not None:
+            return float(self.warehouse.latitude)
+        return None
+
+    @property
+    def lng(self) -> float | None:
+        if self.pickup and self.pickup.location and self.pickup.location.longitude is not None:
+            return float(self.pickup.location.longitude)
+        if self.warehouse and self.warehouse.longitude is not None:
+            return float(self.warehouse.longitude)
+        return None
+
+    @property
+    def location_name(self) -> str | None:
+        if self.pickup and self.pickup.location:
+            return self.pickup.location.name
+        if self.warehouse:
+            return self.warehouse.name
+        return None
+
+    @property
+    def address(self) -> str | None:
+        if self.pickup and self.pickup.location:
+            return getattr(self.pickup.location, "address_line_1", None) or getattr(self.pickup.location, "address", None)
+        if self.warehouse:
+            return self.warehouse.address
+        return None
+
+    @property
+    def estimated_weight_kg(self) -> float | None:
+        if self.pickup and self.pickup.estimated_weight_kg is not None:
+            return float(self.pickup.estimated_weight_kg)
+        return None
 
     __table_args__ = (
         CheckConstraint(

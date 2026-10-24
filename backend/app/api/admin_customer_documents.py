@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
@@ -109,3 +109,70 @@ def admin_download_customer_document(
         )
 
     return {"download_url": signed_url}
+
+
+@router.post("/")
+def admin_upload_customer_document(
+    customer_id: int = Form(...),
+    document_type: str = Form(...),
+    document_number: str | None = Form(None),
+    file: UploadFile | None = File(None),
+    document_url: str | None = Form(None),
+    is_verified: bool = Form(True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    import uuid
+    from app.models.customer_document import CustomerDocumentType
+    try:
+        doc_type_enum = CustomerDocumentType(document_type)
+    except ValueError:
+        doc_type_enum = CustomerDocumentType.OTHER
+
+    final_url = document_url or f"documents/{customer_id}/{uuid.uuid4().hex[:12]}"
+    if file:
+        final_url = f"documents/{customer_id}/{uuid.uuid4().hex[:12]}_{file.filename}"
+
+    doc = CustomerDocument(
+        customer_id=customer_id,
+        document_type=doc_type_enum,
+        document_number=document_number,
+        document_url=final_url,
+        is_verified=is_verified,
+        verified_by_user_id=current_user.id if is_verified else None,
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    return {
+        "id": doc.id,
+        "customer_id": doc.customer_id,
+        "document_type": doc.document_type.value,
+        "document_number": doc.document_number,
+        "is_verified": doc.is_verified,
+        "created_at": doc.created_at,
+    }
+
+
+@router.delete("/{document_id}")
+def admin_delete_customer_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    document = (
+        db.query(CustomerDocument)
+        .filter(CustomerDocument.id == document_id)
+        .first()
+    )
+
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    db.delete(document)
+    db.commit()
+    return {"message": "Document removed successfully"}
+

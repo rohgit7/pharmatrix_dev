@@ -7,6 +7,7 @@ from app.models.enums import RouteStatus, RouteStopType, RouteStopStatus
 
 
 class DriverRouteStopResponse(BaseModel):
+    id: int | None = None
     sequence_number: int
     stop_type: RouteStopType
 
@@ -15,12 +16,17 @@ class DriverRouteStopResponse(BaseModel):
 
     location_id: int | None = None
     location_name: str | None = None
+    customer_name: str | None = None
+    customer_phone: str | None = None
     address: str | None = None
     city: str | None = None
     state: str | None = None
     postal_code: str | None = None
     latitude: float | None = None
     longitude: float | None = None
+
+    estimated_weight_kg: float | None = None
+    collected_weight_kg: float | None = None
 
     warehouse_id: int | None = None
     warehouse_name: str | None = None
@@ -29,6 +35,7 @@ class DriverRouteStopResponse(BaseModel):
     departure_time: datetime | None = None
     proof_uploaded: bool
     execution_status: RouteStopStatus
+    failure_reason: str | None = None
 
 
 class DriverRouteResponse(BaseModel):

@@ -23,7 +23,8 @@ def pick_seeds(
             continue
 
         max_dw = max(problem.dw[x] for x in eligible) or 1.0
-        top = sorted(eligible, key=lambda x: -problem.dw[x])[:3]
+        pool_size = max(10, problem.cfg.n_vehicles * 3)
+        top = sorted(eligible, key=lambda x: -problem.dw[x])[:pool_size]
 
         if greedy:
             seed = top[0]
@@ -105,10 +106,29 @@ def construct(
 
                 for position in range(len(route)):
                     b = route[position]
-                    if position == 0:
-                        delta_cost = problem.C[store_index][b]
-                        delta_distance = problem.D[store_index][b]
-                        delta_time = problem.T[store_index][b] + problem.svc[store_index]
+                    if len(route) == 1:
+                        # Inserting into empty route [W] -> [store_index, W]
+                        delta_cost = problem.C[warehouse_index][store_index] + problem.C[store_index][warehouse_index]
+                        delta_distance = problem.D[warehouse_index][store_index] + problem.D[store_index][warehouse_index]
+                        delta_time = problem.T[warehouse_index][store_index] + problem.T[store_index][warehouse_index] + problem.svc[store_index]
+                    elif position == 0:
+                        # Inserting before first stop: replaces leg (W, b) with (W, store_index) and (store_index, b)
+                        delta_cost = (
+                            problem.C[warehouse_index][store_index]
+                            + problem.C[store_index][b]
+                            - problem.C[warehouse_index][b]
+                        )
+                        delta_distance = (
+                            problem.D[warehouse_index][store_index]
+                            + problem.D[store_index][b]
+                            - problem.D[warehouse_index][b]
+                        )
+                        delta_time = (
+                            problem.T[warehouse_index][store_index]
+                            + problem.T[store_index][b]
+                            - problem.T[warehouse_index][b]
+                            + problem.svc[store_index]
+                        )
                     else:
                         a = route[position - 1]
                         delta_cost = (

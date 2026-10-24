@@ -60,6 +60,7 @@ def get_today_route(
 
             stops.append(
                 DriverRouteStopResponse(
+                    id=getattr(stop, "id", None),
                     sequence_number=stop.sequence_number,
                     stop_type=stop.stop_type,
 
@@ -68,7 +69,17 @@ def get_today_route(
 
                     location_id=location.id,
                     location_name=location.name,
-                    address=location.address,
+                    customer_name=(
+                        pickup.customer.display_name
+                        if getattr(pickup, "customer", None) and hasattr(pickup.customer, "display_name")
+                        else getattr(location, "contact_name", None)
+                    ),
+                    customer_phone=(
+                        pickup.customer.phone
+                        if getattr(pickup, "customer", None) and hasattr(pickup.customer, "phone")
+                        else getattr(location, "contact_phone", None)
+                    ),
+                    address=getattr(location, "address", getattr(location, "address_line_1", "")),
                     city=location.city,
                     state=location.state,
                     postal_code=location.postal_code,
@@ -80,12 +91,24 @@ def get_today_route(
                         location.longitude
                     ),
 
+                    estimated_weight_kg=(
+                        float(pickup.estimated_weight_kg)
+                        if getattr(pickup, "estimated_weight_kg", None) is not None
+                        else None
+                    ),
+                    collected_weight_kg=(
+                        float(stop.collected_weight_kg)
+                        if getattr(stop, "collected_weight_kg", None) is not None
+                        else None
+                    ),
+
                     arrival_time=stop.arrival_time,
                     departure_time=stop.departure_time,
                     proof_uploaded=(
-                        stop.proof_storage_path is not None
+                        getattr(stop, "proof_storage_path", None) is not None
                     ),
                     execution_status=stop.execution_status,
+                    failure_reason=getattr(stop, "failure_reason", None),
                 )
             )
 
@@ -94,6 +117,7 @@ def get_today_route(
 
             stops.append(
                 DriverRouteStopResponse(
+                    id=getattr(stop, "id", None),
                     sequence_number=stop.sequence_number,
                     stop_type=stop.stop_type,
 
@@ -117,6 +141,7 @@ def get_today_route(
 
                     proof_uploaded=False,
                     execution_status=stop.execution_status,
+                    failure_reason=getattr(stop, "failure_reason", None),
                 )
         )
 

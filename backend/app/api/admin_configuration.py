@@ -5,6 +5,7 @@ from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.configuration import (
+    ConfigurationCreate,
     ConfigurationDetailResponse,
     ConfigurationHistoryResponse,
     ConfigurationResponse,
@@ -128,3 +129,63 @@ def get_configuration_version_history(
         configuration=configuration,
         versions=versions,
     )
+
+
+@router.post(
+    "",
+    response_model=ConfigurationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_configuration_param(
+    data: ConfigurationCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.configuration import Configuration
+    existing = db.query(Configuration).filter(Configuration.key == data.key).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Configuration key already exists",
+        )
+
+    config = Configuration(
+        key=data.key,
+        description=data.description,
+        data_type=data.data_type,
+        scope=data.scope,
+        scope_id=data.scope_id,
+        is_active=data.is_active,
+    )
+    db.add(config)
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+@router.delete(
+    "/{key}",
+    status_code=status.HTTP_200_OK,
+)
+def delete_configuration_param(
+    key: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.models.configuration import Configuration
+    config = db.query(Configuration).filter(Configuration.key == key).first()
+    if not config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Configuration not found",
+        )
+
+    try:
+        db.delete(config)
+        db.commit()
+    except Exception:
+        db.rollback()
+        config.is_active = False
+        db.commit()
+
+    return {"message": "Configuration parameter removed successfully"}

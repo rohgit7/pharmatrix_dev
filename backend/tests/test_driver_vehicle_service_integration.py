@@ -14,6 +14,7 @@ from app.services.driver_vehicle_service import (
     get_driver_active_vehicle,
     get_driver_assignment_history,
     get_vehicle_active_driver,
+    list_active_driver_vehicle_assignments,
     unassign_vehicle_from_driver,
 )
 
@@ -144,6 +145,30 @@ def test_assign_vehicle_to_driver(db):
             driver=driver,
             vehicle=vehicle,
             assignment=assignment,
+        )
+
+
+def test_list_active_driver_vehicle_assignments(db):
+    user, driver = make_driver(db)
+    vehicle = make_vehicle(db)
+    active_assignment = assign_vehicle_to_driver(
+        db=db,
+        driver_id=driver.id,
+        vehicle_id=vehicle.id,
+    )
+
+    try:
+        assignments = list_active_driver_vehicle_assignments(db)
+
+        assert [item.id for item in assignments] == [active_assignment.id]
+        assert assignments[0].unassigned_at is None
+    finally:
+        cleanup(
+            db,
+            user=user,
+            driver=driver,
+            vehicle=vehicle,
+            assignment=active_assignment,
         )
 
 

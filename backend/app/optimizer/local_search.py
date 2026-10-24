@@ -27,13 +27,19 @@ def local_search(problem: Problem, routes: list[list[int]], deadline: float) -> 
 
     def relocate() -> bool:
         k_count = len(routes)
+        total_stops = sum(len(r) - 1 for r in routes)
         for source in range(k_count):
+            if len(routes[source]) <= 2 and total_stops >= k_count:
+                continue
             for index in range(len(routes[source]) - 1):
                 store = routes[source][index]
                 base = routes[source][:index] + routes[source][index + 1:]
 
                 for target in range(k_count):
-                    for position in range(len(routes[target])):
+                    target_length = (
+                        len(base) if source == target else len(routes[target])
+                    )
+                    for position in range(target_length):
                         if source == target and position == index:
                             continue
 

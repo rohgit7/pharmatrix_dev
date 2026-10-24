@@ -47,3 +47,5 @@ from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.payment import Payment
 from app.models.razorpay_order import RazorpayOrder
 from app.models.razorpay_webhook_event import RazorpayWebhookEvent
+from app.models.audit_log import AuditLog
+from app.models.optimization_run import OptimizationRun, OptimizationRunPickup

@@ -376,7 +376,7 @@ def complete_stop(
             pickup_stop.id
             for pickup_stop in pickup_stops
             if pickup_stop.execution_status
-            != RouteStopStatus.COMPLETED
+            not in {RouteStopStatus.COMPLETED, RouteStopStatus.FAILED}
         ]
 
         if incomplete:

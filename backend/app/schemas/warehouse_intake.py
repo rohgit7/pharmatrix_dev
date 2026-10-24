@@ -91,3 +91,19 @@ class WarehouseIntakeResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+
+class WarehouseIntakeCreate(BaseModel):
+    route_id: int
+    warehouse_id: int
+    driver_id: int
+    vehicle_id: int
+    expected_weight_kg: float = Field(gt=0, le=100000)
+    notes: str | None = Field(default=None, max_length=1000)
+
+
+class WarehouseIntakeUpdate(BaseModel):
+    status: WarehouseIntakeStatus | None = None
+    notes: str | None = Field(default=None, max_length=1000)
+    discrepancy_reason: str | None = Field(default=None, max_length=1000)
+    received_weight_kg: float | None = Field(default=None, gt=0, le=100000)

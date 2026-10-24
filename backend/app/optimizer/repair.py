@@ -5,7 +5,7 @@ from app.optimizer.problem import Problem
 
 
 def _route_points(problem: Problem, route: list[int], warehouse: tuple[float, float]):
-    return [
+    return [warehouse] + [
         (problem.st[x].lat, problem.st[x].lon)
         for x in route[:-1]
     ] + [warehouse]

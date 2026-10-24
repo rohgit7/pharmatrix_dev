@@ -54,3 +54,10 @@ class DisposalShipmentReceiveItem(BaseModel):
 class DisposalShipmentReceiveRequest(BaseModel):
     items: list[DisposalShipmentReceiveItem]
     notes: str | None = None
+
+
+class DisposalShipmentUpdate(BaseModel):
+    status: DisposalShipmentStatus | None = None
+    notes: str | None = None
+    discrepancy_reason: str | None = None
+    received_weight_kg: Decimal | None = None

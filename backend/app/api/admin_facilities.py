@@ -85,3 +85,28 @@ def update_facility_endpoint(
         facility_id=facility_id,
         data=data,
     )
+
+
+@router.delete(
+    "/{facility_id}",
+    status_code=200,
+)
+def delete_facility_endpoint(
+    facility_id: int,
+    db: Session = Depends(get_db),
+):
+    from app.models.facility import Facility
+    from fastapi import HTTPException
+    facility = db.query(Facility).filter(Facility.id == facility_id).first()
+    if not facility:
+        raise HTTPException(status_code=404, detail="Facility not found")
+
+    try:
+        db.delete(facility)
+        db.commit()
+    except Exception:
+        db.rollback()
+        facility.active = False
+        db.commit()
+
+    return {"message": "Facility removed successfully"}

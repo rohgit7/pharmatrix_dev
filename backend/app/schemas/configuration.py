@@ -50,3 +50,13 @@ class ConfigurationDetailResponse(ConfigurationResponse):
 class ConfigurationHistoryResponse(BaseModel):
     configuration: ConfigurationResponse
     versions: list[ConfigurationVersionResponse]
+
+
+class ConfigurationCreate(BaseModel):
+    key: str
+    description: str | None = None
+    data_type: str = "STRING"
+    scope: str = "GLOBAL"
+    scope_id: int | None = None
+    is_active: bool = True
+

@@ -1,65 +1,95 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { whatsappApi } from '../api/operations';
-import { NotificationType, WhatsAppTemplateResponse } from '../types/operations';
+import {
+  WhatsAppTemplateResponse,
+  WhatsAppTemplateCreate,
+  WhatsAppTemplateUpdate,
+  NotificationType,
+} from '../types/operations';
 import { DataTable, Column } from '../components/common/DataTable';
-import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
-import { formatDate } from '../utils/formatters';
+import { formatDate, formatDateTime } from '../utils/formatters';
 import { getErrorMessage } from '../api/client';
-import { MessageSquare, Plus, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  MessageSquare,
+  Plus,
+  CheckCircle2,
+  AlertCircle,
+  ToggleLeft,
+  ToggleRight,
+  Edit2,
+  Trash2,
+  Languages,
+  Sparkles,
+  Layers,
+  Send,
+  HelpCircle,
+} from 'lucide-react';
+
+const NOTIFICATION_TYPES: NotificationType[] = [
+  'PICKUP_REQUESTED',
+  'PICKUP_SCHEDULED',
+  'PICKUP_REMINDER',
+  'DRIVER_ASSIGNED',
+  'PICKUP_COMPLETED',
+  'SHIPMENT_DISPATCHED',
+  'SHIPMENT_RECEIVED',
+  'DISPOSAL_COMPLETED',
+  'EXCEPTION_ESCALATED',
+];
 
 export const WhatsAppTemplates: React.FC = () => {
   const queryClient = useQueryClient();
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const [createForm, setCreateForm] = useState<{
-    notification_type: NotificationType | '';
-    template_key: string;
-    meta_template_name: string;
-    language_code: string;
-    parameter_keys: string;
-    is_active: boolean;
-  }>({
-    notification_type: '',
-    template_key: '',
-    meta_template_name: '',
-    language_code: 'en_US',
-    parameter_keys: '',
-    is_active: true,
-  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<WhatsAppTemplateResponse | null>(null);
+  const [templateToDelete, setTemplateToDelete] = useState<WhatsAppTemplateResponse | null>(null);
 
-  const { data: templates = [], isLoading } = useQuery({
+  // Form State
+  const [notificationType, setNotificationType] = useState<NotificationType>(NOTIFICATION_TYPES[0]);
+  const [templateKey, setTemplateKey] = useState('');
+  const [metaTemplateName, setMetaTemplateName] = useState('');
+  const [languageCode, setLanguageCode] = useState('en_US');
+  const [parameterKeysInput, setParameterKeysInput] = useState('');
+  const [isActive, setIsActive] = useState(true);
+
+  const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+
+  const {
+    data: templates = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['adminWhatsAppTemplates'],
-    queryFn: whatsappApi.list,
+    queryFn: () => whatsappApi.list(),
   });
 
   const createMutation = useMutation({
-    mutationFn: (form: Omit<typeof createForm, 'notification_type'> & { notification_type: NotificationType }) =>
-      whatsappApi.create({
-        notification_type: form.notification_type,
-        template_key: form.template_key.trim(),
-        meta_template_name: form.meta_template_name.trim(),
-        language_code: form.language_code.trim(),
-        parameter_keys: form.parameter_keys.split(',').map((k) => k.trim()).filter(Boolean),
-        is_active: form.is_active,
-      }),
+    mutationFn: (payload: WhatsAppTemplateCreate) => whatsappApi.create(payload),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['adminWhatsAppTemplates'] });
       setAlert({
         type: 'success',
-        message: `WhatsApp template "${data.template_key}" registered successfully.`,
+        message: `Template "${data.meta_template_name}" registered successfully.`,
       });
-      setShowCreateModal(false);
-      setCreateForm({
-        notification_type: '',
-        template_key: '',
-        meta_template_name: '',
-        language_code: 'en_US',
-        parameter_keys: '',
-        is_active: true,
+      closeModal();
+    },
+    onError: (err) => {
+      setAlert({ type: 'error', message: getErrorMessage(err) });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: WhatsAppTemplateUpdate }) =>
+      whatsappApi.update(id, payload),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['adminWhatsAppTemplates'] });
+      setAlert({
+        type: 'success',
+        message: `Template "${data.meta_template_name}" updated successfully.`,
       });
+      closeModal();
     },
     onError: (err) => {
       setAlert({ type: 'error', message: getErrorMessage(err) });
@@ -67,90 +97,220 @@ export const WhatsAppTemplates: React.FC = () => {
   });
 
   const activateMutation = useMutation({
-    mutationFn: whatsappApi.activate,
-    onSuccess: () => {
+    mutationFn: (id: number) => whatsappApi.activate(id),
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['adminWhatsAppTemplates'] });
-      setAlert({ type: 'success', message: 'Template activated for outbound messaging.' });
+      setAlert({
+        type: 'success',
+        message: `Template "${data.meta_template_name}" activated.`,
+      });
     },
-    onError: (err) => setAlert({ type: 'error', message: getErrorMessage(err) }),
+    onError: (err) => {
+      setAlert({ type: 'error', message: getErrorMessage(err) });
+    },
   });
 
   const deactivateMutation = useMutation({
-    mutationFn: whatsappApi.deactivate,
+    mutationFn: (id: number) => whatsappApi.deactivate(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['adminWhatsAppTemplates'] });
+      setAlert({
+        type: 'success',
+        message: `Template "${data.meta_template_name}" deactivated.`,
+      });
+    },
+    onError: (err) => {
+      setAlert({ type: 'error', message: getErrorMessage(err) });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => whatsappApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminWhatsAppTemplates'] });
-      setAlert({ type: 'success', message: 'Template deactivated.' });
+      setAlert({
+        type: 'success',
+        message: 'WhatsApp template deleted successfully.',
+      });
+      setTemplateToDelete(null);
     },
-    onError: (err) => setAlert({ type: 'error', message: getErrorMessage(err) }),
+    onError: (err) => {
+      setAlert({ type: 'error', message: getErrorMessage(err) });
+    },
   });
+
+  const openCreateModal = () => {
+    setEditingTemplate(null);
+    setNotificationType(NOTIFICATION_TYPES[0]);
+    setTemplateKey('');
+    setMetaTemplateName('');
+    setLanguageCode('en_US');
+    setParameterKeysInput('customer_name, pickup_code, scheduled_date');
+    setIsActive(true);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (tpl: WhatsAppTemplateResponse) => {
+    setEditingTemplate(tpl);
+    setNotificationType(tpl.notification_type);
+    setTemplateKey(tpl.template_key);
+    setMetaTemplateName(tpl.meta_template_name);
+    setLanguageCode(tpl.language_code);
+    setParameterKeysInput((tpl.parameter_keys || []).join(', '));
+    setIsActive(tpl.is_active);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingTemplate(null);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedParams = parameterKeysInput
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    if (editingTemplate) {
+      updateMutation.mutate({
+        id: editingTemplate.id,
+        payload: {
+          template_key: templateKey,
+          meta_template_name: metaTemplateName,
+          language_code: languageCode,
+          parameter_keys: parsedParams,
+          is_active: isActive,
+        },
+      });
+    } else {
+      createMutation.mutate({
+        notification_type: notificationType,
+        template_key: templateKey,
+        meta_template_name: metaTemplateName,
+        language_code: languageCode,
+        parameter_keys: parsedParams,
+        is_active: isActive,
+      });
+    }
+  };
+
+  // KPIs
+  const totalCount = templates.length;
+  const activeCount = templates.filter((t) => t.is_active).length;
+  const uniqueLanguages = new Set(templates.map((t) => t.language_code)).size;
 
   const columns: Column<WhatsAppTemplateResponse>[] = [
     {
-      key: 'template_key',
-      header: 'Template Key',
-      sortable: true,
-      render: (t) => <span className="font-mono font-bold text-charcoal-900">{t.template_key}</span>,
-    },
-    {
       key: 'notification_type',
-      header: 'Trigger Event',
+      header: 'Event Trigger',
+      render: (row) => (
+        <div>
+          <span className="font-bold text-xs text-slate-800 block">
+            {row.notification_type.replace(/_/g, ' ')}
+          </span>
+          <span className="font-mono text-[11px] text-slate-500">{row.template_key}</span>
+        </div>
+      ),
       sortable: true,
-      render: (t) => <span className="font-semibold text-xs text-charcoal-800">{t.notification_type}</span>,
     },
     {
       key: 'meta_template_name',
-      header: 'Meta Cloud Name',
-      render: (t) => <span className="font-mono text-xs text-charcoal-600">{t.meta_template_name}</span>,
+      header: 'Meta Template Name',
+      render: (row) => (
+        <span className="font-mono text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+          {row.meta_template_name}
+        </span>
+      ),
+      sortable: true,
     },
     {
       key: 'language_code',
-      header: 'Lang',
-      render: (t) => <span className="uppercase text-xs font-semibold">{t.language_code}</span>,
+      header: 'Language',
+      render: (row) => (
+        <span className="text-xs font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+          {row.language_code}
+        </span>
+      ),
+      sortable: true,
     },
     {
       key: 'parameter_keys',
-      header: 'Parameters',
-      render: (t) => <span className="text-xs">{t.parameter_keys.join(', ') || '—'}</span>,
+      header: 'Dynamic Variables',
+      render: (row) => (
+        <div className="flex flex-wrap gap-1 max-w-xs">
+          {row.parameter_keys && row.parameter_keys.length > 0 ? (
+            row.parameter_keys.map((k: string, idx: number) => (
+              <span
+                key={idx}
+                className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200"
+              >
+                &#123;&#123;{k}&#125;&#125;
+              </span>
+            ))
+          ) : (
+            <span className="text-[11px] text-slate-400 italic">None</span>
+          )}
+        </div>
+      ),
     },
     {
       key: 'is_active',
       header: 'Status',
+      render: (row) => (
+        <span
+          className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${
+            row.is_active
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              : 'bg-slate-100 text-slate-500 border border-slate-200'
+          }`}
+        >
+          {row.is_active ? 'Active' : 'Inactive'}
+        </span>
+      ),
       sortable: true,
-      render: (t) => <StatusBadge status={t.is_active ? 'ACTIVE' : 'INACTIVE'} />,
-    },
-    {
-      key: 'created_at',
-      header: 'Created',
-      render: (t) => <span>{formatDate(t.created_at)}</span>,
-    },
-    {
-      key: 'updated_at',
-      header: 'Updated',
-      render: (t) => <span>{formatDate(t.updated_at)}</span>,
     },
     {
       key: 'actions',
       header: 'Actions',
-      className: 'text-right',
-      render: (t) => (
-        <div className="flex items-center justify-end gap-2">
-          {t.is_active ? (
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          {row.is_active ? (
             <button
-              onClick={() => deactivateMutation.mutate(t.id)}
+              onClick={() => deactivateMutation.mutate(row.id)}
               disabled={deactivateMutation.isPending}
-              className="px-2 py-1 text-xs font-semibold rounded-lg bg-rose-100 text-rose-800 hover:bg-rose-200 transition-colors"
+              className="p-1 text-emerald-600 hover:text-emerald-700"
+              title="Deactivate Template"
             >
-              Deactivate
+              <ToggleRight className="w-5 h-5" />
             </button>
           ) : (
             <button
-              onClick={() => activateMutation.mutate(t.id)}
+              onClick={() => activateMutation.mutate(row.id)}
               disabled={activateMutation.isPending}
-              className="px-2 py-1 text-xs font-semibold rounded-lg bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-colors"
+              className="p-1 text-slate-400 hover:text-slate-600"
+              title="Activate Template"
             >
-              Activate
+              <ToggleLeft className="w-5 h-5" />
             </button>
           )}
+
+          <button
+            onClick={() => openEditModal(row)}
+            className="p-1 text-slate-500 hover:text-blue-600 rounded hover:bg-slate-100"
+            title="Edit Template"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={() => setTemplateToDelete(row)}
+            className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50"
+            title="Delete Template"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       ),
     },
@@ -158,16 +318,41 @@ export const WhatsAppTemplates: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Alert */}
+      {/* 1. Header Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-6 h-6 text-emerald-600" />
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              WhatsApp Notification Templates
+            </h1>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Configure Meta WhatsApp Business messaging templates for pickup scheduling, driver arrival alerts, scale receipts, and manifests.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={openCreateModal}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm flex items-center gap-1.5 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Register Meta Template</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Alert banner */}
       {alert && (
         <div
-          className={`p-4 rounded-xl border flex items-center justify-between ${
+          className={`px-4 py-3 rounded-xl border flex items-center justify-between text-xs font-semibold ${
             alert.type === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
               : 'bg-rose-50 border-rose-200 text-rose-800'
           }`}
         >
-          <div className="flex items-center gap-2 text-xs font-medium">
+          <div className="flex items-center gap-2">
             {alert.type === 'success' ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             ) : (
@@ -175,176 +360,220 @@ export const WhatsAppTemplates: React.FC = () => {
             )}
             <span>{alert.message}</span>
           </div>
-          <button onClick={() => setAlert(null)} className="text-xs font-bold opacity-60 hover:opacity-100">
+          <button onClick={() => setAlert(null)} className="text-slate-400 hover:text-slate-600 font-bold">
             Dismiss
           </button>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-charcoal-900 tracking-tight">WhatsApp Messaging Templates</h2>
-          <p className="text-xs text-charcoal-500 mt-0.5">
-            Configure approved Meta Cloud Business API templates for automated customer notifications.
-          </p>
+      {/* 2. KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Configured Templates</span>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-2xl font-extrabold text-slate-900">{totalCount}</span>
+            <Layers className="w-5 h-5 text-slate-400" />
+          </div>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-periwinkle hover:bg-periwinkle-600 text-charcoal-900 rounded-lg text-xs font-semibold shadow-sm transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Template</span>
-        </button>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Active in Production</span>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-2xl font-extrabold text-emerald-600">{activeCount}</span>
+            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-[11px] font-bold uppercase text-slate-500 tracking-wider">Supported Locales</span>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-2xl font-extrabold text-blue-600">{uniqueLanguages}</span>
+            <Languages className="w-5 h-5 text-blue-500" />
+          </div>
+        </div>
       </div>
 
-      {/* Table */}
-      <DataTable
-        columns={columns}
-        data={templates}
-        isLoading={isLoading}
-        searchPlaceholder="Filter templates..."
-        searchFilter={(row, q) =>
-          row.template_key.toLowerCase().includes(q) ||
-          row.notification_type.toLowerCase().includes(q) ||
-          row.meta_template_name.toLowerCase().includes(q)
-        }
-      />
+      {/* 3. DataTable */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+        <DataTable
+          columns={columns}
+          data={templates}
+          isLoading={isLoading}
+          emptyTitle="No WhatsApp notification templates found"
+          emptyDescription="No WhatsApp notification templates configured."
+        />
+      </div>
 
-      {/* Create Modal */}
-      <Modal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        title="Register WhatsApp Template"
-        subtitle="Map system operational events to Meta approved message templates"
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const notificationType = createForm.notification_type;
-            if (!notificationType) return;
-            createMutation.mutate({ ...createForm, notification_type: notificationType });
-          }}
-          className="space-y-3.5 text-xs"
+      {/* 4. Modal (Create / Edit) */}
+      {isModalOpen && (
+        <Modal
+          isOpen={true}
+          onClose={closeModal}
+          title={editingTemplate ? `Edit Template — ${editingTemplate.meta_template_name}` : 'Register New Meta Template'}
         >
-          <div>
-            <label className="block font-semibold text-charcoal-700 uppercase tracking-wider mb-1">
-              Trigger Event
-            </label>
-            <select
-              value={createForm.notification_type}
-              onChange={(e) =>
-                setCreateForm({ ...createForm, notification_type: e.target.value as NotificationType })
-              }
-              className="w-full px-3 py-2 bg-ivory-50 border border-ivory-300 rounded-lg text-charcoal"
-            >
-              <option value="">Select notification event...</option>
-              <option value="PICKUP_REQUESTED">PICKUP_REQUESTED</option>
-              <option value="PICKUP_SCHEDULED">PICKUP_SCHEDULED</option>
-              <option value="PICKUP_REMINDER">PICKUP_REMINDER</option>
-              <option value="DRIVER_ASSIGNED">DRIVER_ASSIGNED</option>
-              <option value="PICKUP_COMPLETED">PICKUP_COMPLETED</option>
-              <option value="SHIPMENT_DISPATCHED">SHIPMENT_DISPATCHED</option>
-              <option value="SHIPMENT_RECEIVED">SHIPMENT_RECEIVED</option>
-              <option value="DISPOSAL_COMPLETED">DISPOSAL_COMPLETED</option>
-              <option value="EXCEPTION_ESCALATED">EXCEPTION_ESCALATED</option>
-            </select>
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Event Notification Trigger *
+              </label>
+              <select
+                value={notificationType}
+                onChange={(e) => setNotificationType(e.target.value as NotificationType)}
+                disabled={Boolean(editingTemplate)}
+                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white disabled:bg-slate-100"
+              >
+                {NOTIFICATION_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block font-semibold text-charcoal-700 uppercase tracking-wider mb-1">
-                Template Key
-              </label>
-              <input
-                required
-                type="text"
-                maxLength={100}
-                placeholder="pickup_scheduled_v1"
-                value={createForm.template_key}
-                onChange={(e) => setCreateForm({ ...createForm, template_key: e.target.value })}
-                className="w-full px-3 py-2 bg-ivory-50 border border-ivory-300 rounded-lg text-charcoal"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-charcoal-700 uppercase tracking-wider mb-1">
-                Meta Template Name
-              </label>
-              <input
-                required
-                type="text"
-                maxLength={100}
-                placeholder="pharmatrix_pickup_scheduled"
-                value={createForm.meta_template_name}
-                onChange={(e) => setCreateForm({ ...createForm, meta_template_name: e.target.value })}
-                className="w-full px-3 py-2 bg-ivory-50 border border-ivory-300 rounded-lg text-charcoal"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block font-semibold text-charcoal-700 uppercase tracking-wider mb-1">
-                Language Code
-              </label>
-              <input
-                required
-                type="text"
-                minLength={2}
-                maxLength={20}
-                placeholder="en"
-                value={createForm.language_code}
-                onChange={(e) => setCreateForm({ ...createForm, language_code: e.target.value })}
-                className="w-full px-3 py-2 bg-ivory-50 border border-ivory-300 rounded-lg text-charcoal"
-              />
-            </div>
-            <div>
-              <label className="block font-semibold text-charcoal-700 uppercase tracking-wider mb-1">
-                Active Immediately
-              </label>
-              <label className="flex items-center gap-2 mt-2 cursor-pointer">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Internal Template Key *
+                </label>
                 <input
-                  type="checkbox"
-                  checked={createForm.is_active}
-                  onChange={(e) => setCreateForm({ ...createForm, is_active: e.target.checked })}
-                  className="rounded border-ivory-300 text-periwinkle focus:ring-periwinkle"
+                  type="text"
+                  required
+                  value={templateKey}
+                  onChange={(e) => setTemplateKey(e.target.value)}
+                  placeholder="e.g. pickup_confirmed_v1"
+                  className="w-full px-3 py-2 text-xs font-mono border border-slate-300 rounded-lg"
                 />
-                <span className="text-charcoal-800">Enable outbound sends</span>
-              </label>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Meta Template Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={metaTemplateName}
+                  onChange={(e) => setMetaTemplateName(e.target.value)}
+                  placeholder="pharmatrix_pickup_alert"
+                  className="w-full px-3 py-2 text-xs font-mono border border-slate-300 rounded-lg"
+                />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block font-semibold text-charcoal-700 uppercase tracking-wider mb-1">
-              Variable Parameter Keys (Comma-separated)
-            </label>
-            <input
-              type="text"
-              placeholder="pickup_code, scheduled_date, driver_name"
-              value={createForm.parameter_keys}
-              onChange={(e) => setCreateForm({ ...createForm, parameter_keys: e.target.value })}
-              className="w-full px-3 py-2 bg-ivory-50 border border-ivory-300 rounded-lg text-charcoal"
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Language Locale *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={languageCode}
+                  onChange={(e) => setLanguageCode(e.target.value)}
+                  placeholder="en_US, hi_IN, kn_IN..."
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg"
+                />
+              </div>
 
-          <div className="flex items-center justify-end gap-2 pt-4 border-t border-ivory-200">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Active in Dispatch
+                </label>
+                <div className="flex items-center gap-2 pt-2">
+                  <input
+                    type="checkbox"
+                    id="is_active_toggle"
+                    checked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                  />
+                  <label htmlFor="is_active_toggle" className="text-xs text-slate-700 font-medium">
+                    Enable immediate delivery
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Dynamic Variables (Comma-separated)
+              </label>
+              <input
+                type="text"
+                value={parameterKeysInput}
+                onChange={(e) => setParameterKeysInput(e.target.value)}
+                placeholder="customer_name, pickup_code, date, weight_kg"
+                className="w-full px-3 py-2 text-xs font-mono border border-slate-300 rounded-lg"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Variables mapped in order: &#123;&#123;1&#125;&#125;, &#123;&#123;2&#125;&#125;, &#123;&#123;3&#125;&#125; in the Meta WhatsApp template body.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={createMutation.isPending || updateMutation.isPending}
+                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm disabled:opacity-50"
+              >
+                {createMutation.isPending || updateMutation.isPending
+                  ? 'Saving…'
+                  : editingTemplate
+                  ? 'Update Template'
+                  : 'Register Template'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!templateToDelete}
+        onClose={() => setTemplateToDelete(null)}
+        title="Delete WhatsApp Template"
+        subtitle={`Confirm permanent removal of template "${templateToDelete?.meta_template_name}"`}
+      >
+        <div className="space-y-4 text-xs">
+          <p className="text-slate-700">
+            Are you sure you want to delete template <strong className="font-mono text-slate-900">{templateToDelete?.meta_template_name}</strong> ({templateToDelete?.template_key})?
+            Automated WhatsApp notifications for event <strong className="text-slate-900">{templateToDelete?.notification_type}</strong> using this template will cease immediately.
+          </p>
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800">
+            <strong>Warning:</strong> Ensure an alternative template is active if customer messaging is required for this lifecycle event.
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
             <button
               type="button"
-              onClick={() => setShowCreateModal(false)}
-              className="px-4 py-2 font-semibold text-charcoal-700 bg-white border border-ivory-300 rounded-lg hover:bg-ivory-50"
+              onClick={() => setTemplateToDelete(null)}
+              className="px-4 py-2 font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
             >
               Cancel
             </button>
             <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="px-4 py-2 font-semibold text-charcoal-900 bg-periwinkle hover:bg-periwinkle-600 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+              type="button"
+              onClick={() => {
+                if (templateToDelete) {
+                  deleteMutation.mutate(templateToDelete.id);
+                }
+              }}
+              disabled={deleteMutation.isPending}
+              className="px-4 py-2 font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
             >
-              {createMutation.isPending ? 'Registering...' : 'Register Template'}
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete Template'}
             </button>
           </div>
-        </form>
+        </div>
       </Modal>
     </div>
   );
 };
+
+export default WhatsAppTemplates;

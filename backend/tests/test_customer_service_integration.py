@@ -11,7 +11,7 @@ from app.models.enums import CustomerType
 from app.models.pharmacy_profile import PharmacyProfile
 from app.models.user import User, UserRole
 from app.schemas.customer import CustomerOnboardRequest
-from app.services.customer_service import create_customer
+from app.services.customer_service import create_customer, create_customer_profile
 
 
 def make_user(suffix: str) -> User:
@@ -464,3 +464,203 @@ def test_create_clinic_customer(db):
 
         db.delete(user)
         db.commit()
+
+
+def test_create_customer_without_profile_payload_creates_default_profile(db):
+    """
+    Verifies that creating a customer without supplying profile data
+    automatically creates the type-specific profile with database defaults
+    and without fabricating real-world licenses or credentials.
+    """
+    for c_type in [
+        CustomerType.PHARMACY,
+        CustomerType.DISTRIBUTOR,
+        CustomerType.HOSPITAL,
+        CustomerType.CLINIC,
+    ]:
+        user = make_user(f"noprofile-{c_type.value.lower()}-{uuid.uuid4().hex[:6]}")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        customer = None
+        try:
+            req = CustomerOnboardRequest(
+                customer_type=c_type,
+                legal_name=f"No Profile {c_type.value} Ltd",
+                display_name=f"No Profile {c_type.value}",
+                phone="9876543210",
+                email=f"noprofile-{c_type.value.lower()}@test.local",
+                gst_number="29ABCDE1234F1Z5",
+                profile=None,
+                location={
+                    "location_code": f"LOC-{c_type.value[:3]}",
+                    "name": "Main Site",
+                    "address_line_1": "100 Tech Park",
+                    "city": "Bengaluru",
+                    "state": "Karnataka",
+                    "postal_code": "560001",
+                    "latitude": 12.97,
+                    "longitude": 77.59,
+                    "service_time_seconds": 300,
+                },
+            )
+
+            customer = create_customer(db, user, req)
+            assert customer.id is not None
+            assert customer.customer_type == c_type
+
+            if c_type == CustomerType.PHARMACY:
+                p = db.query(PharmacyProfile).filter(PharmacyProfile.customer_id == customer.id).all()
+                assert len(p) == 1
+                assert p[0].pharmacy_license_number is None
+                assert p[0].pharmacist_name is None
+                assert p[0].license_verified is False
+                assert db.query(DistributorProfile).filter(DistributorProfile.customer_id == customer.id).first() is None
+
+            elif c_type == CustomerType.DISTRIBUTOR:
+                p = db.query(DistributorProfile).filter(DistributorProfile.customer_id == customer.id).all()
+                assert len(p) == 1
+                assert p[0].distribution_license_number is None
+                assert p[0].warehouse_count == 1
+                assert p[0].coverage_area is None
+                assert p[0].license_verified is False
+
+            elif c_type == CustomerType.HOSPITAL:
+                p = db.query(HospitalProfile).filter(HospitalProfile.customer_id == customer.id).all()
+                assert len(p) == 1
+                assert p[0].registration_number is None
+                assert p[0].hospital_type is None
+                assert p[0].department_count is None
+                assert p[0].registration_verified is False
+
+            elif c_type == CustomerType.CLINIC:
+                p = db.query(ClinicProfile).filter(ClinicProfile.customer_id == customer.id).all()
+                assert len(p) == 1
+                assert p[0].registration_number is None
+                assert p[0].clinic_type is None
+                assert p[0].doctor_name is None
+                assert p[0].speciality is None
+                assert p[0].registration_verified is False
+
+        finally:
+            if customer is not None:
+                db.delete(customer)
+            db.delete(user)
+            db.commit()
+
+
+def test_profile_creation_failure_rolls_back_customer_record(db):
+    """
+    Verifies transaction atomicity: if profile validation or creation fails,
+    the customer creation must be completely rolled back.
+    """
+    user = make_user(f"fail-rollback-{uuid.uuid4().hex[:6]}")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    try:
+        # Invalid warehouse_count (not a valid integer)
+        req = CustomerOnboardRequest(
+            customer_type=CustomerType.DISTRIBUTOR,
+            legal_name="Rollback Distributor Ltd",
+            display_name="Rollback Distributor",
+            phone="9876543210",
+            email=f"rollback-dist-{uuid.uuid4().hex[:6]}@test.local",
+            gst_number="29ABCDE1234F1Z5",
+            profile={"warehouse_count": "invalid_warehouse_count"},
+            location={
+                "location_code": "LOC-FAIL",
+                "name": "Fail Site",
+                "address_line_1": "100 Fail Park",
+                "city": "Bengaluru",
+                "state": "Karnataka",
+                "postal_code": "560001",
+                "latitude": 12.97,
+                "longitude": 77.59,
+                "service_time_seconds": 300,
+            },
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            create_customer(db, user, req)
+
+        assert exc.value.status_code == 422
+        assert "warehouse_count" in exc.value.detail
+
+        # Customer must NOT be committed in the database
+        saved_customer = db.query(Customer).filter(Customer.user_id == user.id).first()
+        assert saved_customer is None
+
+        # Profile must NOT be created
+        dist_profiles = db.query(DistributorProfile).all()
+        assert not any(p.distribution_license_number == "invalid_warehouse_count" for p in dist_profiles)
+
+    finally:
+        cleanup_user(db, user.id)
+
+
+def test_duplicate_profile_prevention_on_same_customer(db):
+    """
+    Verifies that attempting to attach a second profile to a customer is rejected
+    with a 409 Conflict error and does not violate DB consistency.
+    """
+    user = make_user(f"dupprofile-{uuid.uuid4().hex[:6]}")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    customer = None
+    try:
+        req = make_pharmacy_request()
+        customer = create_customer(db, user, req)
+
+        # Attempt to create another profile on the same customer
+        with pytest.raises(HTTPException) as exc:
+            create_customer_profile(db, customer, {"pharmacy_license_number": "KA-DUP-001"})
+
+        assert exc.value.status_code == 409
+        assert "already exists" in exc.value.detail
+
+        # Verify only 1 profile exists
+        profiles = db.query(PharmacyProfile).filter(PharmacyProfile.customer_id == customer.id).all()
+        assert len(profiles) == 1
+
+    finally:
+        if customer is not None:
+            db.delete(customer)
+        db.delete(user)
+        db.commit()
+
+
+def test_create_customer_rejects_unauthorized_user_role(db):
+    """
+    Verifies that only users with role=CUSTOMER can be onboarded via create_customer.
+    Users with other roles (e.g. ADMIN) are rejected with 403 Forbidden.
+    """
+    admin_user = User(
+        auth_user_id=uuid.uuid4(),
+        name="Admin Attempt Onboard",
+        email=f"admin-onboard-{uuid.uuid4().hex[:6]}@test.local",
+        role=UserRole.ADMIN,
+        is_active=True,
+    )
+    db.add(admin_user)
+    db.commit()
+    db.refresh(admin_user)
+
+    try:
+        req = make_pharmacy_request()
+        with pytest.raises(HTTPException) as exc:
+            create_customer(db, admin_user, req)
+
+        assert exc.value.status_code == 403
+        assert "Only customer accounts" in exc.value.detail
+
+        # Customer must NOT exist
+        assert db.query(Customer).filter(Customer.user_id == admin_user.id).first() is None
+
+    finally:
+        db.delete(admin_user)
+        db.commit()

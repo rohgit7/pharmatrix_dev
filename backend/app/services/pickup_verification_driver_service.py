@@ -56,10 +56,10 @@ def verify_qr(
             detail="QR verification is only for pickup stops",
         )
 
-    if stop.execution_status != RouteStopStatus.PENDING:
+    if stop.execution_status not in {RouteStopStatus.PENDING, RouteStopStatus.ARRIVED}:
         raise HTTPException(
             status_code=400,
-            detail="Pickup stop is no longer pending",
+            detail="Pickup stop is neither pending nor arrived",
         )
 
     previous_stop = (

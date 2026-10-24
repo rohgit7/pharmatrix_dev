@@ -21,6 +21,12 @@ setup_logging()
 from app.api.admin_exceptions import (
     router as admin_exceptions_router,
 )
+from app.api.admin_customers import router as admin_customers_router
+from app.api.admin_users import router as admin_users_router
+from app.api.admin_pricing import router as admin_pricing_router
+from app.api.admin_disposal_certificates import (
+    router as admin_disposal_certificates_router,
+)
 from app.services.configuration_runtime_service import (
     get_configuration_bool,
 )
@@ -328,6 +334,12 @@ app.include_router(
     admin_configuration_router
 )
 app.include_router(admin_exceptions_router)
+app.include_router(admin_customers_router)
+app.include_router(admin_users_router)
+app.include_router(admin_pricing_router)
+app.include_router(admin_disposal_certificates_router)
+from app.api.admin_audit_logs import router as admin_audit_logs_router
+app.include_router(admin_audit_logs_router)
 @app.get("/health")
 def health():
     return {

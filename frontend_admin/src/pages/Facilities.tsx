@@ -35,6 +35,7 @@ export const Facilities: React.FC = () => {
   const [selectedFacility, setSelectedFacility] = useState<FacilityResponse | null>(null);
   const [editFacility, setEditFacility] = useState<FacilityResponse | null>(null);
   const [editForm, setEditForm] = useState<FacilityUpdate>({});
+  const [facilityToDelete, setFacilityToDelete] = useState<FacilityResponse | null>(null);
 
   // Register Facility Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -113,6 +114,19 @@ export const Facilities: React.FC = () => {
     onError: (err) => setAlert({ type: 'error', message: getErrorMessage(err) }),
   });
 
+  const deleteFacilityMutation = useMutation({
+    mutationFn: (id: number) => facilitiesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminFacilities'] });
+      setAlert({ type: 'success', message: 'Disposal facility removed successfully.' });
+      setFacilityToDelete(null);
+      if (selectedFacility && selectedFacility.id === facilityToDelete?.id) {
+        setSelectedFacility(null);
+      }
+    },
+    onError: (err) => setAlert({ type: 'error', message: getErrorMessage(err) }),
+  });
+
   const createShipmentMutation = useMutation({
     mutationFn: (payload: DisposalShipmentCreate) => facilitiesApi.createShipment(payload),
     onSuccess: (res) => {
@@ -121,7 +135,7 @@ export const Facilities: React.FC = () => {
         message: `Disposal shipment ${res.shipment_code} created. Public ID: ${res.public_id}`,
       });
       setShowShipmentModal(false);
-      setDispatchShipmentId(String(res.id));
+      setDispatchShipmentId(res.public_id);
       setCreatedShipment(res);
       setShipmentFacilityId('');
       setShipmentIntakeId('');
@@ -243,6 +257,13 @@ export const Facilities: React.FC = () => {
             title="Edit Facility"
           >
             <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setFacilityToDelete(f)}
+            className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+            title="Delete Facility"
+          >
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       ),
@@ -946,6 +967,45 @@ export const Facilities: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete Facility Modal */}
+      <Modal
+        isOpen={!!facilityToDelete}
+        onClose={() => setFacilityToDelete(null)}
+        title="Delete Treatment Facility"
+        subtitle={`Confirm permanent removal of ${facilityToDelete?.legal_name} (${facilityToDelete?.facility_code})`}
+      >
+        <div className="space-y-4 text-xs">
+          <p className="text-charcoal-700">
+            Are you sure you want to delete disposal facility <strong className="font-semibold text-charcoal-900">{facilityToDelete?.legal_name}</strong>?
+            If historical shipments, manifests, or destruction certificates are associated with this facility, its account will be safely set to Inactive instead of corrupting historical environmental compliance records.
+          </p>
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800">
+            <strong>Warning:</strong> Deleting a facility will prevent any future hazardous waste consignments or certificate assignments to it.
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-ivory-200">
+            <button
+              type="button"
+              onClick={() => setFacilityToDelete(null)}
+              className="px-4 py-2 font-semibold text-charcoal-700 bg-white border border-ivory-300 rounded-lg hover:bg-ivory-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (facilityToDelete) {
+                  deleteFacilityMutation.mutate(facilityToDelete.id);
+                }
+              }}
+              disabled={deleteFacilityMutation.isPending}
+              className="px-4 py-2 font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+            >
+              {deleteFacilityMutation.isPending ? 'Deleting...' : 'Delete Facility'}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

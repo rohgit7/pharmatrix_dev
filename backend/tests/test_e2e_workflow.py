@@ -441,7 +441,7 @@ def test_complete_operational_workflow(db):
     assert scheduled_pickup["status"] == "SCHEDULED"
 
     # ---------------------------------------------------------
-    # 12. Admin optimizes and dispatches route
+    # 12. Admin optimizes route (proposes draft route plan)
     # ---------------------------------------------------------
     settings.OSRM_BASE_URL = None
     optimize_response = client.post(
@@ -463,11 +463,29 @@ def test_complete_operational_workflow(db):
     assert optimization_data["routes"]
 
     route_summary = optimization_data["routes"][0]
-
     route_id = route_summary["route_id"]
 
-    assert route_summary["driver_id"] == driver.id
-    assert route_summary["vehicle_id"] == vehicle.id
+    # ---------------------------------------------------------
+    # 12b. Admin assigns driver & vehicle to draft route
+    # ---------------------------------------------------------
+    assign_response = client.post(
+        f"/api/admin/routes/{route_id}/assign",
+        json={
+            "driver_id": driver.id,
+            "vehicle_id": vehicle.id,
+        },
+    )
+    assert assign_response.status_code == 200, assign_response.text
+    assert assign_response.json()["status"] == "READY"
+
+    # ---------------------------------------------------------
+    # 12c. Admin explicitly dispatches route
+    # ---------------------------------------------------------
+    dispatch_response = client.post(
+        f"/api/admin/routes/{route_id}/dispatch"
+    )
+    assert dispatch_response.status_code == 200, dispatch_response.text
+    assert dispatch_response.json()["status"] == "ASSIGNED"
 
     # ---------------------------------------------------------
     # 13. Verify assigned route
@@ -481,6 +499,7 @@ def test_complete_operational_workflow(db):
     assert route.status == RouteStatus.ASSIGNED
     assert route.driver_id == driver.id
     assert route.vehicle_id == vehicle.id
+
 
     # ---------------------------------------------------------
     # 14. Verify pickup assignment

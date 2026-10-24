@@ -257,3 +257,29 @@ def deactivate_template(
     db.refresh(template)
 
     return template
+
+
+@router.delete(
+    "/{template_id}",
+    status_code=status.HTTP_200_OK,
+)
+def delete_template(
+    template_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    template = db.get(
+        WhatsAppTemplate,
+        template_id,
+    )
+
+    if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="WhatsApp template not found",
+        )
+
+    db.delete(template)
+    db.commit()
+
+    return {"message": "WhatsApp template removed successfully"}

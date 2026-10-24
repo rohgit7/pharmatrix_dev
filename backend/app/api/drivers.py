@@ -138,3 +138,86 @@ def onboard_driver_endpoint(
         message="Driver onboarded successfully. An invitation has been sent to the driver's email.",
     )
 
+
+@router.delete(
+    "/{driver_id}",
+    status_code=status.HTTP_200_OK,
+)
+def delete_driver_endpoint(
+    driver_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(UserRole.ADMIN)),
+):
+    from datetime import datetime, timezone
+    from app.models.driver import Driver
+    from app.models.enums import DriverStatus, RouteStatus
+    from app.models.route import Route
+    from app.models.driver_vehicle_assignment import DriverVehicleAssignment
+
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Driver not found",
+        )
+
+    # 1. Protect active routes
+    active_routes = (
+        db.query(Route)
+        .filter(
+            Route.driver_id == driver.id,
+            Route.status.in_([RouteStatus.READY, RouteStatus.ASSIGNED, RouteStatus.IN_PROGRESS]),
+        )
+        .all()
+    )
+    if active_routes:
+        codes = ", ".join(r.route_code for r in active_routes[:3])
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Driver cannot be removed while assigned to active routes ({codes}). Reassign or cancel active routes first.",
+        )
+
+    # 2. Detach from draft routes safely
+    draft_routes = (
+        db.query(Route)
+        .filter(
+            Route.driver_id == driver.id,
+            Route.status == RouteStatus.DRAFT,
+        )
+        .all()
+    )
+    for r in draft_routes:
+        r.driver_id = None
+
+    # 3. Check for completed routes or vehicle assignments
+    has_routes = db.query(Route).filter(Route.driver_id == driver.id).first() is not None
+    assignments = (
+        db.query(DriverVehicleAssignment)
+        .filter(DriverVehicleAssignment.driver_id == driver.id)
+        .all()
+    )
+
+    now = datetime.now(timezone.utc)
+    for a in assignments:
+        if a.unassigned_at is None:
+            a.unassigned_at = now
+
+    if has_routes or assignments:
+        driver.status = DriverStatus.INACTIVE
+        driver.is_available = False
+        db.commit()
+        return {"message": "Driver deactivated safely to preserve historical audit records"}
+
+    try:
+        db.delete(driver)
+        db.commit()
+        return {"message": "Driver removed successfully"}
+    except Exception:
+        db.rollback()
+        driver.status = DriverStatus.INACTIVE
+        driver.is_available = False
+        db.commit()
+        return {"message": "Driver deactivated safely"}
+
+
+

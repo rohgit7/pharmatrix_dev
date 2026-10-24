@@ -88,3 +88,28 @@ def update_warehouse_endpoint(
         warehouse_id=warehouse_id,
         data=data,
     )
+
+
+@router.delete(
+    "/{warehouse_id}",
+    status_code=200,
+)
+def delete_warehouse_endpoint(
+    warehouse_id: int,
+    db: Session = Depends(get_db),
+):
+    from app.models.warehouse import Warehouse
+    from fastapi import HTTPException
+    warehouse = db.query(Warehouse).filter(Warehouse.id == warehouse_id).first()
+    if not warehouse:
+        raise HTTPException(status_code=404, detail="Warehouse not found")
+
+    try:
+        db.delete(warehouse)
+        db.commit()
+    except Exception:
+        db.rollback()
+        warehouse.active = False
+        db.commit()
+
+    return {"message": "Warehouse removed successfully"}

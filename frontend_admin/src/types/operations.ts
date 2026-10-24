@@ -118,6 +118,32 @@ export interface PickupAdminResponse {
   collected_at: string | null;
   created_at: string;
   updated_at: string;
+  customer_name?: string | null;
+  location_name?: string | null;
+  location_address?: string | null;
+  estimated_weight_kg?: number | null;
+  operational_state?: 'awaiting_selection' | 'selected' | 'optimized' | 'awaiting_assignment' | 'awaiting_dispatch' | 'dispatched' | 'completed' | 'cancelled' | 'failed' | 'requested' | 'scheduled_other_date' | string;
+  route_id?: number | null;
+  route_code?: string | null;
+  route_status?: string | null;
+  is_eligible_for_tomorrow?: boolean;
+  ineligibility_reason?: string | null;
+}
+
+export interface PickupAdminCreate {
+  customer_id: number;
+  location_id: number;
+  priority?: PickupPriority;
+  notes?: string | null;
+  scheduled_date?: string | null;
+}
+
+export interface PickupAdminUpdate {
+  status?: PickupStatus;
+  priority?: PickupPriority;
+  scheduled_date?: string | null;
+  notes?: string | null;
+  failure_reason?: string | null;
 }
 
 export interface PickupScheduleRequest {
@@ -126,6 +152,274 @@ export interface PickupScheduleRequest {
 
 export interface PickupCancelRequest {
   reason: string;
+}
+
+// ==========================================
+// Customers & Locations
+// ==========================================
+export interface CustomerLocationResponse {
+  id: number;
+  customer_id: number;
+  name: string;
+  address_line_1: string;
+  address_line_2: string | null;
+  city: string;
+  state: string;
+  postal_code: string;
+  latitude: number;
+  longitude: number;
+  contact_name: string | null;
+  contact_phone: string | null;
+  is_primary: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerLocationCreate {
+  name: string;
+  address_line_1: string;
+  address_line_2?: string | null;
+  city: string;
+  state: string;
+  postal_code: string;
+  latitude: number;
+  longitude: number;
+  contact_name?: string | null;
+  contact_phone?: string | null;
+  is_primary?: boolean;
+}
+
+export interface CustomerLocationUpdate {
+  name?: string;
+  address_line_1?: string;
+  address_line_2?: string | null;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  latitude?: number;
+  longitude?: number;
+  contact_name?: string | null;
+  contact_phone?: string | null;
+  is_primary?: boolean;
+  is_active?: boolean;
+}
+
+export interface CustomerResponse {
+  id: number;
+  public_id: string;
+  customer_type: CustomerType;
+  legal_name: string;
+  display_name: string;
+  phone: string;
+  email: string;
+  gst_number: string | null;
+  pan_number: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PharmacyProfile {
+  id: number;
+  customer_id: number;
+  pharmacy_license_number: string | null;
+  pharmacist_name: string | null;
+  license_verified: boolean;
+}
+
+export interface DistributorProfile {
+  id: number;
+  customer_id: number;
+  distribution_license_number: string | null;
+  warehouse_count: number;
+  coverage_area: string | null;
+  license_verified: boolean;
+}
+
+export interface HospitalProfile {
+  id: number;
+  customer_id: number;
+  registration_number: string | null;
+  hospital_type: string | null;
+  department_count: number | null;
+  registration_verified: boolean;
+}
+
+export interface ClinicProfile {
+  id: number;
+  customer_id: number;
+  registration_number: string | null;
+  clinic_type: string | null;
+  doctor_name: string | null;
+  speciality: string | null;
+  registration_verified: boolean;
+}
+
+export interface CustomerDetailResponse extends CustomerResponse {
+  locations: CustomerLocationResponse[];
+  pharmacy_profile?: PharmacyProfile | null;
+  distributor_profile?: DistributorProfile | null;
+  hospital_profile?: HospitalProfile | null;
+  clinic_profile?: ClinicProfile | null;
+}
+
+export interface CustomerCreate {
+  customer_type: CustomerType;
+  legal_name: string;
+  display_name: string;
+  phone: string;
+  email: string;
+  gst_number?: string | null;
+  pan_number?: string | null;
+  is_active?: boolean;
+  location?: CustomerLocationCreate | null;
+  profile?: Record<string, any> | null;
+}
+
+export interface CustomerUpdate {
+  customer_type?: CustomerType;
+  legal_name?: string;
+  display_name?: string;
+  phone?: string;
+  email?: string;
+  gst_number?: string | null;
+  pan_number?: string | null;
+  is_active?: boolean;
+}
+
+// ==========================================
+// Users Management
+// ==========================================
+export interface UserResponse {
+  id: number;
+  auth_user_id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserCreate {
+  name: string;
+  email: string;
+  password?: string | null;
+  role: UserRole;
+  is_active?: boolean;
+}
+
+export interface UserUpdate {
+  name?: string;
+  email?: string;
+  role?: UserRole;
+  is_active?: boolean;
+  password?: string;
+}
+
+// ==========================================
+// Pricing Plans & Assignments
+// ==========================================
+export interface PricingPlanVersionResponse {
+  id: number;
+  pricing_plan_id: number;
+  version: number;
+  status: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+  currency: string;
+  per_kg_rate: DecimalString;
+  pickup_fee: DecimalString;
+  subscription_fee: DecimalString;
+  minimum_pickup_charge: DecimalString;
+  included_weight_kg: DecimalString;
+  effective_from: string;
+  effective_until: string | null;
+  fee_rules: Record<string, JsonValue>;
+  created_at: string;
+}
+
+export interface PricingPlanVersionCreate {
+  version: number;
+  status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+  currency?: string;
+  per_kg_rate: number;
+  pickup_fee: number;
+  subscription_fee: number;
+  minimum_pickup_charge: number;
+  included_weight_kg: number;
+  effective_from?: string | null;
+  effective_until?: string | null;
+  fee_rules?: Record<string, JsonValue>;
+}
+
+export interface PricingPlanResponse {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  versions?: PricingPlanVersionResponse[];
+}
+
+export interface PricingPlanCreate {
+  code: string;
+  name: string;
+  description?: string | null;
+  is_active?: boolean;
+}
+
+export interface PricingPlanUpdate {
+  name?: string;
+  description?: string | null;
+  is_active?: boolean;
+}
+
+export interface CustomerPricingAssignmentResponse {
+  id: number;
+  customer_id: number;
+  customer_public_id: string;
+  customer_name: string;
+  pricing_plan_id: number;
+  pricing_plan_code: string;
+  pricing_plan_name: string;
+  effective_from: string;
+  effective_until: string | null;
+  reason: string | null;
+  created_at: string;
+}
+
+export interface CustomerPricingAssignmentCreate {
+  customer_id: number;
+  pricing_plan_id: number;
+  effective_from?: string | null;
+  effective_until?: string | null;
+  reason?: string | null;
+}
+
+// ==========================================
+// Disposal Certificates
+// ==========================================
+export interface DisposalCertificateResponse {
+  id: number;
+  certificate_number: string;
+  shipment_id: number;
+  facility_id: number;
+  facility_name?: string | null;
+  storage_key: string;
+  sha256_hash: string;
+  issued_at: string;
+  created_at: string;
+}
+
+export interface DisposalCertificateCreate {
+  certificate_number: string;
+  shipment_id: number;
+  facility_id: number;
+  storage_key: string;
+  sha256_hash: string;
+  issued_at?: string;
 }
 
 // ==========================================
@@ -139,6 +433,11 @@ export interface RouteStopResponse {
   warehouse_id: number | null;
   arrival_time: string | null;
   departure_time: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  location_name?: string | null;
+  address?: string | null;
+  estimated_weight_kg?: number | null;
 }
 
 export interface RouteResponse {
@@ -152,9 +451,15 @@ export interface RouteResponse {
   planned_distance_km: number | null;
   planned_duration_seconds: number | null;
   optimized_at: string | null;
+  approved_at?: string | null;
+  approved_by_id?: number | null;
+  optimization_run_id?: number | null;
+  is_approved?: boolean;
   created_at: string;
   updated_at: string;
   stops: RouteStopResponse[];
+  driver?: any;
+  vehicle?: any;
 }
 
 export interface RouteCreate {
@@ -163,29 +468,255 @@ export interface RouteCreate {
   pickup_ids: number[];
 }
 
+export interface RouteUpdate {
+  route_date?: string;
+  driver_id?: number | null;
+  vehicle_id?: number | null;
+  status?: RouteStatus;
+  warehouse_id?: number;
+}
+
 export interface OptimizeRoutesRequest {
   warehouse_id: number;
   route_date: string;
+  batch_id?: number;
+  num_vehicles?: number;
+  vehicle_capacity_kg?: number;
+  max_distance_km?: number;
+  max_duration_minutes?: number;
+  service_time_minutes?: number;
+  local_backward_allowance_km?: number;
+  selected_pickup_ids?: number[];
+  auto_dispatch?: boolean;
+  rerun?: boolean;
+}
+
+export interface OptimizationBatchCreate {
+  warehouse_id: number;
+  pickup_ids: number[];
+  planning_date?: string;
+}
+
+export interface OptimizationBatchResponse {
+  batch_id: number;
+  batch_code: string;
+  planning_date: string;
+  warehouse_id: number;
+  status: string;
+  pickup_count: number;
+  pickup_ids: number[];
+  created_at: string;
+  created_by_id?: number | null;
+  routes_created: number;
+}
+
+export interface OptimizationBatchPickup {
+  id: number;
+  pickup_code: string;
+  customer_id: number;
+  location_name: string;
+  latitude: number | null;
+  longitude: number | null;
+  address_line1: string;
+  city: string;
+  estimated_weight_kg: number;
+  priority: PickupPriority;
+  status: PickupStatus;
+  scheduled_date: string | null;
+}
+
+export interface OptimizationBatchDetailResponse {
+  batch_id: number;
+  batch_code: string;
+  planning_date: string;
+  warehouse_id: number;
+  status: string;
+  pickup_count: number;
+  pickup_ids: number[];
+  created_at: string;
+  created_by_id?: number | null;
+  routes_created: number;
+  pickups: OptimizationBatchPickup[];
+  routes: OptimizedRouteSummary[];
+  summary_metrics?: {
+    total_distance_km?: number;
+    max_duration_minutes?: number;
+  } | null;
+}
+
+
+export interface RouteAssignRequest {
+  driver_id: number;
+  vehicle_id: number;
+  notes?: string;
+}
+
+export interface RouteReassignRequest {
+  driver_id: number;
+  vehicle_id: number;
+  reason: string;
+}
+
+export interface RouteBulkApproveRequest {
+  route_ids: number[];
+}
+
+export interface RouteBulkApproveResponse {
+  approved_count: number;
+  failed_count: number;
+  results: { route_id: number; success: boolean; error?: string | null }[];
+}
+
+export interface RouteBulkDispatchItem {
+  route_id: number;
+  success: boolean;
+  status: string;
+  error?: string | null;
+}
+
+export interface RouteBulkDispatchResponse {
+  dispatched_count: number;
+  failed_count: number;
+  results: RouteBulkDispatchItem[];
+}
+
+export interface OptimizedStopLocation {
+  pickup_id: number;
+  sequence_number: number;
+  location_name: string;
+  lat: number;
+  lng: number;
+  estimated_weight_kg: number | null;
 }
 
 export interface OptimizedRouteSummary {
   route_id: number;
   route_code: string;
-  driver_id: number;
-  vehicle_id: number;
+  driver_id?: number | null;
+  vehicle_id?: number | null;
   pickup_ids: number[];
   distance_km: number;
   duration_minutes: number;
   load_kg: number;
+  stop_locations: OptimizedStopLocation[];
+  polyline?: number[][];
+  backtrack_km?: number;
+  status?: string;
+  is_approved?: boolean;
 }
+
+export interface PlanningReadinessResponse {
+  planning_date: string;
+  timezone: string;
+  total_pickups_requested_tomorrow: number;
+  eligible_pickups_awaiting_selection: number;
+  pickups_allocated_to_routes: number;
+  pickups_excluded_count: number;
+  pickups_excluded: {
+    pickup_id: number;
+    pickup_code: string;
+    customer_id: number;
+    customer_name?: string | null;
+    scheduled_date?: string | null;
+    reason: string;
+  }[];
+  routes_awaiting_review: number;
+  routes_awaiting_assignment: number;
+  routes_awaiting_dispatch: number;
+  total_demand_kg: number;
+  available_fleet_capacity_kg: number;
+  capacity_shortfall_kg: number;
+  is_ready_for_dispatch: boolean;
+  blockers: string[];
+  latest_run?: any;
+}
+
+export interface OptimizationRunSummary {
+  id: number;
+  run_code: string;
+  planning_date: string;
+  warehouse_id: number;
+  status: string;
+  routes_created: number;
+  pickups_assigned: number;
+  created_at: string;
+  unassigned_count?: number;
+}
+
+export interface AuditLogItem {
+  id: number;
+  action: string;
+  entity_type: string;
+  entity_id: number | null;
+  entity_code: string | null;
+  actor_id: number | null;
+  actor_name: string | null;
+  actor_role?: string | null;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  details: Record<string, any> | null;
+  created_at: string;
+}
+
+export interface AuditLogResponse {
+  items: AuditLogItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface PickupHistoryItem {
+  id: number;
+  public_id: string;
+  pickup_code: string;
+  customer_id: number;
+  customer_name?: string | null;
+  location_id: number;
+  location_name?: string | null;
+  location_address?: string | null;
+  status: PickupStatus;
+  priority: PickupPriority;
+  requested_date?: string | null;
+  scheduled_date?: string | null;
+  collected_at?: string | null;
+  estimated_weight_kg?: number | null;
+  collected_weight_kg?: number | null;
+  failure_reason?: string | null;
+  route_id?: number | null;
+  route_code?: string | null;
+  driver_id?: number | null;
+  driver_name?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PickupHistoryResponse {
+  items: PickupHistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 
 export interface OptimizeRoutesResponse {
   route_date: string;
   warehouse_id: number;
+  warehouse_coordinates?: number[];
   vehicles_available: number;
   routes_created: number;
   pickups_assigned: number;
+  unassigned_pickups?: { pickup_id: number; reason: string }[];
+  total_fleet_distance_km?: number;
+  max_route_duration_minutes?: number;
+  vehicle_utilization_pct?: number;
+  cross_vehicle_overlap_km?: number;
   routes: OptimizedRouteSummary[];
+  routing_source: string;
+  optimization_run_id?: number | null;
+  optimization_run_code?: string | null;
+  planning_date?: string | null;
 }
 
 // ==========================================
@@ -274,6 +805,26 @@ export interface WarehouseIntakeResponse {
   created_at: string;
   updated_at: string;
   items: WarehouseIntakeItemResponse[];
+}
+
+export interface WarehouseIntakeCreate {
+  intake_code?: string | null;
+  route_id: number;
+  warehouse_id: number;
+  driver_id: number;
+  vehicle_id: number;
+  status?: WarehouseIntakeStatus;
+  expected_weight_kg?: number;
+  received_weight_kg?: number | null;
+  discrepancy_reason?: string | null;
+  notes?: string | null;
+}
+
+export interface WarehouseIntakeUpdate {
+  status?: WarehouseIntakeStatus;
+  received_weight_kg?: number | null;
+  discrepancy_reason?: string | null;
+  notes?: string | null;
 }
 
 // ==========================================
@@ -367,6 +918,16 @@ export interface DisposalShipmentResponse {
   items: DisposalShipmentItemResponse[];
 }
 
+export interface DisposalShipmentUpdate {
+  status?: DisposalShipmentStatus;
+  facility_id?: number;
+  dispatched_at?: string | null;
+  received_at?: string | null;
+  received_weight_kg?: number | null;
+  discrepancy_reason?: string | null;
+  notes?: string | null;
+}
+
 // ==========================================
 // Operational Exceptions
 // ==========================================
@@ -384,6 +945,20 @@ export interface OperationalExceptionResponse {
   resolution_notes: string | null;
 }
 
+export interface OperationalExceptionCreate {
+  exception_type: OperationalExceptionType;
+  source_type: string;
+  source_id: number;
+  reason: string;
+  status?: OperationalExceptionStatus;
+}
+
+export interface OperationalExceptionUpdate {
+  status?: OperationalExceptionStatus;
+  reason?: string;
+  resolution_notes?: string | null;
+}
+
 export interface OperationalExceptionResolveRequest {
   resolution_notes: string;
 }
@@ -398,6 +973,14 @@ export interface CustomerDocumentResponse {
   document_number: string | null;
   is_verified: boolean;
   created_at: string;
+}
+
+export interface CustomerDocumentCreate {
+  customer_id: number;
+  document_type: CustomerDocumentType;
+  document_number?: string | null;
+  file_path?: string;
+  is_verified?: boolean;
 }
 
 // ==========================================
@@ -441,6 +1024,16 @@ export interface ConfigurationDetailResponse extends ConfigurationResponse {
 export interface ConfigurationHistoryResponse {
   configuration: ConfigurationResponse;
   versions: ConfigurationVersionResponse[];
+}
+
+export interface ConfigurationCreate {
+  key: string;
+  description?: string | null;
+  data_type?: string;
+  scope?: string;
+  scope_id?: number | null;
+  initial_value?: JsonValue;
+  is_active?: boolean;
 }
 
 export interface ConfigurationChangeCreate {
@@ -600,6 +1193,21 @@ export interface VehicleResponse {
   updated_at: string;
 }
 
+export interface DriverVehicleAssignmentCreate {
+  driver_id: number;
+  vehicle_id: number;
+  notes?: string | null;
+}
+
+export interface DriverVehicleAssignmentResponse {
+  id: number;
+  driver_id: number;
+  vehicle_id: number;
+  assigned_at: string;
+  unassigned_at: string | null;
+  notes: string | null;
+}
+
 // ==========================================
 // Invoices & Payments
 // ==========================================
@@ -613,6 +1221,32 @@ export interface InvoiceLineItemResponse {
   amount: DecimalString;
   metadata_json: Record<string, JsonValue>;
   created_at: string;
+}
+
+export interface InvoiceLineItemCreate {
+  item_type: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  metadata_json?: Record<string, JsonValue>;
+}
+
+export interface InvoiceCreate {
+  customer_id: number;
+  pickup_id: number;
+  pricing_plan_id?: number | null;
+  pricing_plan_version_id?: number | null;
+  currency?: string;
+  tax_amount?: number;
+  due_date?: string | null;
+  notes?: string | null;
+  line_items?: InvoiceLineItemCreate[];
+}
+
+export interface InvoiceUpdate {
+  status?: string;
+  due_date?: string | null;
+  notes?: string | null;
 }
 
 export interface InvoiceResponse {

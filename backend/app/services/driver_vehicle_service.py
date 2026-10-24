@@ -189,6 +189,20 @@ def get_driver_active_vehicle(
     )
 
 
+def list_active_driver_vehicle_assignments(
+    db: Session,
+) -> list[DriverVehicleAssignment]:
+    return list(
+        db.execute(
+            select(DriverVehicleAssignment)
+            .where(DriverVehicleAssignment.unassigned_at.is_(None))
+            .order_by(DriverVehicleAssignment.assigned_at.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+
 def get_vehicle_active_driver(
     db: Session,
     vehicle_id: int,

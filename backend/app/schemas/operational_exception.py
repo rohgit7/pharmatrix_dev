@@ -32,3 +32,16 @@ class OperationalExceptionResolveRequest(BaseModel):
         min_length=1,
         max_length=2000,
     )
+
+
+class OperationalExceptionCreate(BaseModel):
+    exception_type: OperationalExceptionType
+    source_type: str = Field(min_length=1, max_length=50)
+    source_id: int
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class OperationalExceptionUpdate(BaseModel):
+    reason: str | None = Field(default=None, max_length=2000)
+    status: OperationalExceptionStatus | None = None
+    resolution_notes: str | None = Field(default=None, max_length=2000)

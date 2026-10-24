@@ -13,6 +13,7 @@ from app.services.driver_vehicle_service import (
     get_driver_active_vehicle,
     get_driver_assignment_history,
     get_vehicle_active_driver,
+    list_active_driver_vehicle_assignments,
     unassign_vehicle_from_driver,
 )
 
@@ -20,6 +21,17 @@ router = APIRouter(
     prefix="/api/admin/driver-vehicle",
     tags=["Driver Vehicle Assignment"],
 )
+
+
+@router.get(
+    "/active",
+    response_model=list[DriverVehicleAssignmentResponse],
+)
+def list_active_assignments(
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(UserRole.ADMIN)),
+):
+    return list_active_driver_vehicle_assignments(db)
 
 
 @router.post(

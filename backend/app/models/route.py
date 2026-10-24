@@ -76,6 +76,22 @@ class Route(Base):
         nullable=True,
     )
 
+    approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    approved_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    optimization_run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("optimization_runs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -89,6 +105,10 @@ class Route(Base):
         nullable=False,
     )
 
+    @property
+    def is_approved(self) -> bool:
+        return self.approved_at is not None
+
     warehouse = relationship(
         "Warehouse",
         back_populates="routes",
@@ -100,6 +120,16 @@ class Route(Base):
 
     vehicle = relationship(
         "Vehicle",
+    )
+
+    approved_by = relationship(
+        "User",
+        foreign_keys=[approved_by_id],
+    )
+
+    optimization_run = relationship(
+        "OptimizationRun",
+        back_populates="routes",
     )
 
     stops = relationship(

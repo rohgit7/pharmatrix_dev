@@ -8,6 +8,7 @@ import {
   ConfigurationChangeResponse,
   ConfigurationAuditResponse,
   ConfigurationRollbackCreate,
+  ConfigurationCreate,
   JsonValue,
 } from '../types/operations';
 import { DataTable, Column } from '../components/common/DataTable';
@@ -16,7 +17,7 @@ import { Modal } from '../components/common/Modal';
 import { DetailDrawer } from '../components/common/DetailDrawer';
 import { formatDate, formatDateTime } from '../utils/formatters';
 import { getErrorMessage } from '../api/client';
-import { Sliders, Plus, History, Check, X, Undo2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Sliders, Plus, History, Check, X, Undo2, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
 
 function parseConfigurationValue(dataType: string, rawValue: string): JsonValue {
   switch (dataType) {
@@ -73,6 +74,25 @@ export const Configuration: React.FC = () => {
   // Review modal
   const [reviewChange, setReviewChange] = useState<ConfigurationChangeResponse | null>(null);
   const [reviewComment, setReviewComment] = useState('');
+
+  // Create & Delete Parameter Modal State
+  const [showCreateParamModal, setShowCreateParamModal] = useState(false);
+  const [paramToDelete, setParamToDelete] = useState<ConfigurationResponse | null>(null);
+  const [createParamForm, setCreateParamForm] = useState<{
+    key: string;
+    description: string;
+    data_type: string;
+    scope: string;
+    scope_id: string;
+    is_active: boolean;
+  }>({
+    key: '',
+    description: '',
+    data_type: 'STRING',
+    scope: 'GLOBAL',
+    scope_id: '',
+    is_active: true,
+  });
 
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -134,6 +154,47 @@ export const Configuration: React.FC = () => {
       setAlert({ type: 'success', message: 'Configuration change rejected.' });
       setReviewChange(null);
       setReviewComment('');
+    },
+    onError: (err) => {
+      setAlert({ type: 'error', message: getErrorMessage(err) });
+    },
+  });
+
+  const createParamMutation = useMutation({
+    mutationFn: (payload: ConfigurationCreate) => configurationApi.createParam(payload),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['adminConfigurations'] });
+      setAlert({
+        type: 'success',
+        message: `System parameter "${data.key}" registered successfully.`,
+      });
+      setShowCreateParamModal(false);
+      setCreateParamForm({
+        key: '',
+        description: '',
+        data_type: 'STRING',
+        scope: 'GLOBAL',
+        scope_id: '',
+        is_active: true,
+      });
+    },
+    onError: (err) => {
+      setAlert({ type: 'error', message: getErrorMessage(err) });
+    },
+  });
+
+  const deleteParamMutation = useMutation({
+    mutationFn: (key: string) => configurationApi.deleteParam(key),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminConfigurations'] });
+      setAlert({
+        type: 'success',
+        message: 'Configuration parameter deleted successfully.',
+      });
+      setParamToDelete(null);
+      if (selectedConfig && selectedConfig.key === paramToDelete?.key) {
+        setSelectedConfig(null);
+      }
     },
     onError: (err) => {
       setAlert({ type: 'error', message: getErrorMessage(err) });
@@ -204,6 +265,22 @@ export const Configuration: React.FC = () => {
       key: 'is_active',
       header: 'Active',
       render: (c) => <StatusBadge status={c.is_active ? 'ACTIVE' : 'INACTIVE'} />,
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'text-right',
+      render: (c) => (
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => setParamToDelete(c)}
+            className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+            title="Delete Parameter"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ),
     },
   ];
 
@@ -354,13 +431,22 @@ export const Configuration: React.FC = () => {
             Operational tolerances, route optimizer thresholds, and 4-eye approval change workflows.
           </p>
         </div>
-        <button
-          onClick={() => setShowChangeModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-periwinkle hover:bg-periwinkle-600 text-charcoal-900 rounded-lg text-xs font-semibold shadow-sm transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Propose Change Request</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCreateParamModal(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-charcoal-800 hover:bg-charcoal-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Parameter</span>
+          </button>
+          <button
+            onClick={() => setShowChangeModal(true)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-periwinkle hover:bg-periwinkle-600 text-charcoal-900 rounded-lg text-xs font-semibold shadow-sm transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Propose Change Request</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -841,6 +927,159 @@ export const Configuration: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Create Parameter Modal */}
+      <Modal
+        isOpen={showCreateParamModal}
+        onClose={() => setShowCreateParamModal(false)}
+        title="Register System Configuration Parameter"
+        subtitle="Define a new operational tolerance, optimizer constraint, or billing variable"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            createParamMutation.mutate({
+              key: createParamForm.key.trim(),
+              description: createParamForm.description.trim() || undefined,
+              data_type: createParamForm.data_type,
+              scope: createParamForm.scope.trim() || 'GLOBAL',
+              scope_id: createParamForm.scope_id ? Number(createParamForm.scope_id) : undefined,
+              is_active: createParamForm.is_active,
+            });
+          }}
+          className="space-y-4 text-xs"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold text-charcoal-700 mb-1">Parameter Key *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. route.max_stops_per_day"
+                value={createParamForm.key}
+                onChange={(e) => setCreateParamForm({ ...createParamForm, key: e.target.value })}
+                className="w-full px-3 py-2 bg-ivory-50 border border-ivory-300 rounded-lg text-charcoal font-mono"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-charcoal-700 mb-1">Data Type *</label>
+              <select
+                value={createParamForm.data_type}
+                onChange={(e) => setCreateParamForm({ ...createParamForm, data_type: e.target.value })}
+                className="w-full px-3 py-2 bg-ivory-50 border border-ivory-300 rounded-lg text-charcoal"
+              >
+                <option value="STRING">STRING</option>
+                <option value="INTEGER">INTEGER</option>
+                <option value="DECIMAL">DECIMAL</option>
+                <option value="BOOLEAN">BOOLEAN</option>
+                <option value="JSON">JSON</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-charcoal-700 mb-1">Description / Purpose</label>
+            <textarea
+              rows={2}
+              placeholder="Explain how this parameter governs the dispatch, billing, or facility workflow..."
+              value={createParamForm.description}
+              onChange={(e) => setCreateParamForm({ ...createParamForm, description: e.target.value })}
+              className="w-full px-3 py-2 bg-ivory-50 border border-ivory-300 rounded-lg text-charcoal"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold text-charcoal-700 mb-1">Scope</label>
+              <input
+                type="text"
+                value={createParamForm.scope}
+                onChange={(e) => setCreateParamForm({ ...createParamForm, scope: e.target.value })}
+                className="w-full px-3 py-2 bg-ivory-50 border border-ivory-300 rounded-lg text-charcoal"
+              />
+            </div>
+            <div>
+              <label className="block font-semibold text-charcoal-700 mb-1">Scope ID (Optional)</label>
+              <input
+                type="number"
+                placeholder="Leave blank for global"
+                value={createParamForm.scope_id}
+                onChange={(e) => setCreateParamForm({ ...createParamForm, scope_id: e.target.value })}
+                className="w-full px-3 py-2 bg-ivory-50 border border-ivory-300 rounded-lg text-charcoal"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="is_param_active"
+              checked={createParamForm.is_active}
+              onChange={(e) => setCreateParamForm({ ...createParamForm, is_active: e.target.checked })}
+              className="rounded border-ivory-300 text-charcoal-900 focus:ring-periwinkle"
+            />
+            <label htmlFor="is_param_active" className="text-charcoal-700 font-medium">
+              Activate parameter immediately
+            </label>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-ivory-200">
+            <button
+              type="button"
+              onClick={() => setShowCreateParamModal(false)}
+              className="px-4 py-2 font-semibold text-charcoal-700 bg-white border border-ivory-300 rounded-lg hover:bg-ivory-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={createParamMutation.isPending || !createParamForm.key.trim()}
+              className="px-4 py-2 font-semibold text-charcoal-900 bg-periwinkle hover:bg-periwinkle-600 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+            >
+              {createParamMutation.isPending ? 'Registering...' : 'Register Parameter'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Parameter Confirmation Modal */}
+      <Modal
+        isOpen={!!paramToDelete}
+        onClose={() => setParamToDelete(null)}
+        title="Delete Configuration Parameter"
+        subtitle={`Confirm permanent removal of parameter "${paramToDelete?.key}"`}
+      >
+        <div className="space-y-4 text-xs">
+          <p className="text-charcoal-700">
+            Are you sure you want to delete parameter <strong className="font-mono text-charcoal-900">{paramToDelete?.key}</strong>?
+            If historical version audit records or pending change requests exist, the parameter will be safely marked as Inactive instead of corrupting historical audit logs.
+          </p>
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800">
+            <strong>Warning:</strong> Deleting a parameter removes it from active runtime resolution and may cause fallback defaults to take effect.
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-ivory-200">
+            <button
+              type="button"
+              onClick={() => setParamToDelete(null)}
+              className="px-4 py-2 font-semibold text-charcoal-700 bg-white border border-ivory-300 rounded-lg hover:bg-ivory-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (paramToDelete) {
+                  deleteParamMutation.mutate(paramToDelete.key);
+                }
+              }}
+              disabled={deleteParamMutation.isPending}
+              className="px-4 py-2 font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+            >
+              {deleteParamMutation.isPending ? 'Deleting...' : 'Delete Parameter'}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
