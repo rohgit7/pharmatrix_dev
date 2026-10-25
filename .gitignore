@@ -1,0 +1,33 @@
+﻿
+# Secrets and environment files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[cod]
+**/.coverage
+**/htmlcov/
+
+# Node and build output
+**/node_modules/
+**/dist/
+**/build/
+**/.expo/
+**/web-build/
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Git recovery metadata
+.git_recovery_backup/
