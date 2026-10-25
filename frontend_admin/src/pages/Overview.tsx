@@ -11,7 +11,7 @@ import {
   Truck,
   Users,
   CreditCard,
-  Sparkles,
+  Route,
   Scale,
   ShieldAlert,
   Clock,
@@ -207,7 +207,7 @@ export const Overview: React.FC = () => {
             to="/route-optimization"
             className="inline-flex items-center gap-1.5 rounded-xl border border-charcoal-700 bg-charcoal-800 px-3.5 py-2 text-xs font-semibold text-white hover:bg-charcoal-700 transition-colors shadow-sm"
           >
-            <Sparkles className="h-3.5 w-3.5 text-periwinkle" />
+            <Route className="h-3.5 w-3.5 text-periwinkle" />
             <span>Optimize Routes</span>
           </Link>
         </div>
@@ -364,7 +364,7 @@ export const Overview: React.FC = () => {
           >
             <div className="flex items-center justify-between font-bold text-charcoal-900">
               <span>2. Optimize</span>
-              <Sparkles className="w-4 h-4 text-blue-600" />
+              <Route className="w-4 h-4 text-blue-600" />
             </div>
             <p className="text-[11px] text-charcoal-500 mt-2">Cluster multi-vehicle</p>
           </Link>

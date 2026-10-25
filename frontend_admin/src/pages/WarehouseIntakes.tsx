@@ -25,7 +25,6 @@ import {
   Eye,
   Plus,
   Trash2,
-  Sparkles,
   Layers,
   FileCheck2,
   Boxes,

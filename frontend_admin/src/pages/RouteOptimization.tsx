@@ -15,7 +15,7 @@ import { Modal } from '../components/common/Modal';
 import { formatDate, formatDistance, formatDuration, formatWeight } from '../utils/formatters';
 import { getErrorMessage } from '../api/client';
 import {
-  Sparkles,
+  Route,
   ArrowRight,
   CheckCircle2,
   AlertCircle,
@@ -455,7 +455,7 @@ export const RouteOptimization: React.FC = () => {
             ) : alert.type === 'error' ? (
               <AlertCircle className="w-4 h-4 text-rose-400" />
             ) : (
-              <Sparkles className="w-4 h-4 text-blue-400" />
+              <Route className="w-4 h-4 text-blue-400" />
             )}
             <span>{alert.message}</span>
           </div>
@@ -671,7 +671,7 @@ export const RouteOptimization: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
+                    <Route className="w-4 h-4" />
                     <span>Optimize Tomorrow's Routes</span>
                   </>
                 )}

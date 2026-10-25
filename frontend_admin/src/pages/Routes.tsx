@@ -10,7 +10,7 @@ import { Modal } from '../components/common/Modal';
 import { formatDate, formatDistance, formatDuration } from '../utils/formatters';
 import { getErrorMessage } from '../api/client';
 import { ErrorState } from '../components/common/ErrorState';
-import { MapPin, Navigation, Sparkles, CheckCircle2, AlertCircle, Eye, Plus, Edit, Trash2 } from 'lucide-react';
+import { MapPin, Navigation, Route, CheckCircle2, AlertCircle, Eye, Plus, Edit, Trash2 } from 'lucide-react';
 
 const statusOptions: Array<RouteStatus | 'ALL'> = [
   'ALL',
@@ -326,7 +326,7 @@ export const Routes: React.FC = () => {
             onClick={() => setShowOptimizeModal(true)}
             className="inline-flex items-center gap-2 px-3.5 py-2 bg-periwinkle hover:bg-periwinkle-600 text-charcoal-900 rounded-lg text-xs font-semibold shadow-sm transition-colors"
           >
-            <Sparkles className="w-4 h-4" />
+            <Route className="w-4 h-4" />
             <span>Optimize Routes</span>
           </button>
         </div>

@@ -21,7 +21,6 @@ import {
   Edit2,
   Trash2,
   Languages,
-  Sparkles,
   Layers,
   Send,
   HelpCircle,

@@ -25,7 +25,7 @@ import {
   AlertCircle,
   Eye,
   Clock,
-  Sparkles,
+  Route,
   ArrowRight,
   Filter,
   CheckSquare,
@@ -560,7 +560,7 @@ export const Pickups: React.FC = () => {
             ) : alert.type === 'error' ? (
               <AlertCircle className="w-4 h-4 text-rose-600" />
             ) : (
-              <Sparkles className="w-4 h-4 text-blue-600" />
+              <Route className="w-4 h-4 text-blue-600" />
             )}
             <span>{alert.message}</span>
           </div>
@@ -610,7 +610,7 @@ export const Pickups: React.FC = () => {
               disabled={selectedPickupIds.length === 0 || submitBatchMutation.isPending}
               className="inline-flex items-center gap-2 px-4 py-2 bg-periwinkle hover:bg-periwinkle-600 text-charcoal-900 rounded-lg text-xs font-bold shadow-sm transition-all disabled:opacity-50"
             >
-              <Sparkles className="w-4 h-4" />
+              <Route className="w-4 h-4" />
               <span>
                 {submitBatchMutation.isPending
                   ? 'Submitting to Optimization...'

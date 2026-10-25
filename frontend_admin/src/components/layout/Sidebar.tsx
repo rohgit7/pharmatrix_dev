@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   CalendarCheck,
-  Sparkles,
+  Route,
   MapPin,
   Users,
   Building2,
@@ -40,7 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       items: [
         { name: 'Overview', to: '/', icon: LayoutDashboard },
         { name: '1. Pickup Planning', to: '/pickups', icon: CalendarCheck },
-        { name: '2. Route Optimization', to: '/route-optimization', icon: Sparkles },
+        { name: '2. Route Optimization', to: '/route-optimization', icon: Route },
         { name: '3. Fleet Assignment', to: '/fleet', icon: Users },
         { name: '4. Dispatch & Monitoring', to: '/dispatch', icon: Navigation },
         { name: '5. Warehouse Intakes', to: '/warehouse-intakes', icon: Scale },
