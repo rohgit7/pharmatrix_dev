@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,7 +16,12 @@ import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { TokenStorage } from '@/services/storage';
-import { getDefaultApiBaseUrl } from '@/services/api';
+import {
+  ApiClient,
+  getDefaultApiBaseUrl,
+  getEffectiveApiBaseUrl,
+  getAutoDetectedHostIp,
+} from '@/services/api';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -27,9 +33,47 @@ export default function LoginScreen() {
   // Server URL settings
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverUrl, setServerUrl] = useState(getDefaultApiBaseUrl());
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<{
+    ok?: boolean;
+    message?: string;
+  } | null>(null);
 
   const { login } = useAuth();
   const router = useRouter();
+
+  // Load saved custom base URL on mount
+  React.useEffect(() => {
+    (async () => {
+      const effective = await getEffectiveApiBaseUrl();
+      setServerUrl(effective);
+    })();
+  }, []);
+
+  const handleTestConnection = async (urlToTest?: string) => {
+    const target = (urlToTest || serverUrl).trim();
+    if (!target) return;
+    setTestingConnection(true);
+    setConnectionStatus(null);
+    try {
+      const res = await ApiClient.checkHealth(target);
+      if (res.ok) {
+        setConnectionStatus({ ok: true, message: 'Connected (200 OK)' });
+      } else {
+        setConnectionStatus({
+          ok: false,
+          message: res.error || 'Server responded with an error',
+        });
+      }
+    } catch (e: any) {
+      setConnectionStatus({
+        ok: false,
+        message: e.message || 'Cannot reach server',
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -66,7 +110,7 @@ export default function LoginScreen() {
       >
         <View style={styles.header}>
           <View style={styles.logoBadge}>
-            <Ionicons name="medical" size={40} color="#000000" />
+            <Ionicons name="medical" size={40} color={Colors.charcoal[950]} />
           </View>
           <Text style={styles.brandTitle}>PHARMATRIX</Text>
           <Text style={styles.brandSubtitle}>DRIVER OPERATIONS</Text>
@@ -79,7 +123,17 @@ export default function LoginScreen() {
         {errorMessage ? (
           <View style={styles.errorBox}>
             <Ionicons name="alert-circle" size={20} color="#EF4444" />
-            <Text style={styles.errorText}>{errorMessage}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.errorText}>{errorMessage}</Text>
+              {(errorMessage.includes('connect') || errorMessage.includes('timed out')) && !showServerConfig ? (
+                <TouchableOpacity
+                  onPress={() => setShowServerConfig(true)}
+                  style={{ marginTop: 6 }}
+                >
+                  <Text style={styles.errorActionText}>Configure Backend URL ➔</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </View>
         ) : null}
 
@@ -96,7 +150,7 @@ export default function LoginScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="driver@pharmatrix.local"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={Colors.charcoal[500]}
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -121,7 +175,7 @@ export default function LoginScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="••••••••••••"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={Colors.charcoal[500]}
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
@@ -171,15 +225,109 @@ export default function LoginScreen() {
           {showServerConfig ? (
             <View style={styles.serverInputBox}>
               <Text style={styles.serverInputLabel}>
-                API BASE URL (Set your machine LAN IP for Expo Go on Android)
+                API BASE URL (Use host Wi-Fi IP for phone, 10.0.2.2 for emulator)
               </Text>
               <TextInput
                 style={styles.serverInput}
                 value={serverUrl}
-                onChangeText={setServerUrl}
+                onChangeText={(text) => {
+                  setServerUrl(text);
+                  setConnectionStatus(null);
+                }}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
+
+              {/* Quick Presets */}
+              <View style={styles.presetRow}>
+                <TouchableOpacity
+                  style={styles.presetChip}
+                  onPress={() => {
+                    const url = 'http://10.138.26.167:8000';
+                    setServerUrl(url);
+                    handleTestConnection(url);
+                  }}
+                >
+                  <Text style={styles.presetChipText}>Wi-Fi (:8000)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.presetChip}
+                  onPress={() => {
+                    const url = 'http://10.138.26.167:8001';
+                    setServerUrl(url);
+                    handleTestConnection(url);
+                  }}
+                >
+                  <Text style={styles.presetChipText}>Relay (:8001)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.presetChip}
+                  onPress={() => {
+                    const url = 'http://10.0.2.2:8000';
+                    setServerUrl(url);
+                    handleTestConnection(url);
+                  }}
+                >
+                  <Text style={styles.presetChipText}>Emulator (10.0.2.2)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.presetChip}
+                  onPress={() => {
+                    const url = 'http://localhost:8000';
+                    setServerUrl(url);
+                    handleTestConnection(url);
+                  }}
+                >
+                  <Text style={styles.presetChipText}>Localhost</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Test Connection Button */}
+              <View style={styles.testRow}>
+                <TouchableOpacity
+                  style={styles.testButton}
+                  onPress={() => handleTestConnection()}
+                  disabled={testingConnection}
+                >
+                  {testingConnection ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <>
+                      <Ionicons name="pulse" size={14} color={Colors.primary} />
+                      <Text style={styles.testButtonText}>Test Connection</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {connectionStatus ? (
+                  <View
+                    style={[
+                      styles.statusPill,
+                      {
+                        backgroundColor: connectionStatus.ok
+                          ? 'rgba(34, 197, 94, 0.15)'
+                          : 'rgba(239, 68, 68, 0.15)',
+                        borderColor: connectionStatus.ok ? '#22C55E' : '#EF4444',
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={connectionStatus.ok ? 'checkmark-circle' : 'alert-circle'}
+                      size={14}
+                      color={connectionStatus.ok ? '#22C55E' : '#EF4444'}
+                    />
+                    <Text
+                      style={[
+                        styles.statusPillText,
+                        { color: connectionStatus.ok ? '#4ADE80' : '#FCA5A5' },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {connectionStatus.message}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
           ) : null}
         </View>
@@ -197,7 +345,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
-    backgroundColor: Colors.navyDark,
+    backgroundColor: Colors.background,
   },
   scrollContainer: {
     flexGrow: 1,
@@ -212,11 +360,11 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 20,
-    backgroundColor: Colors.amber,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.md,
-    shadowColor: Colors.amber,
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -231,7 +379,7 @@ const styles = StyleSheet.create({
   brandSubtitle: {
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
-    color: Colors.amber,
+    color: Colors.primary,
     letterSpacing: 3,
     marginTop: 4,
   },
@@ -260,7 +408,7 @@ const styles = StyleSheet.create({
     color: '#FCA5A5',
   },
   form: {
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
@@ -277,14 +425,14 @@ const styles = StyleSheet.create({
   label: {
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
-    color: Colors.platinum,
+    color: Colors.ivory,
     letterSpacing: 1,
     marginBottom: Spacing.xs,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.background,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
@@ -321,7 +469,7 @@ const styles = StyleSheet.create({
   },
   serverInputBox: {
     width: '100%',
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
@@ -330,12 +478,12 @@ const styles = StyleSheet.create({
   },
   serverInputLabel: {
     fontSize: 10,
-    color: Colors.amber,
+    color: Colors.primary,
     fontWeight: Typography.weights.bold,
     marginBottom: Spacing.xs,
   },
   serverInput: {
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.background,
     borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
@@ -343,6 +491,66 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     fontSize: Typography.sizes.sm,
+  },
+  errorActionText: {
+    color: Colors.primary,
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  presetChip: {
+    backgroundColor: Colors.surfaceAlt,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  presetChipText: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: Typography.weights.medium,
+  },
+  testRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.surfaceAlt,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  testButtonText: {
+    color: Colors.primary,
+    fontSize: Typography.sizes.xs,
+    fontWeight: Typography.weights.bold,
+  },
+  statusPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: Typography.weights.medium,
   },
   footer: {
     marginTop: Spacing.xl,

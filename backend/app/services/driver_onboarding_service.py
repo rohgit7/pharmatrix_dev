@@ -66,19 +66,33 @@ def onboard_driver(
     # ---------------------------------------------------------
 
     supabase_admin = get_supabase_admin()
+    clean_email = data.email.strip().lower()
 
     try:
-        auth_response = (
-            supabase_admin.auth.admin.invite_user_by_email(
-                data.email,
-                options={
-                    "data": {
+        if data.password:
+            auth_response = supabase_admin.auth.admin.create_user(
+                {
+                    "email": clean_email,
+                    "password": data.password,
+                    "email_confirm": True,
+                    "user_metadata": {
                         "name": data.name,
                         "role": UserRole.DRIVER.value,
-                    }
-                },
+                    },
+                }
             )
-        )
+        else:
+            auth_response = (
+                supabase_admin.auth.admin.invite_user_by_email(
+                    clean_email,
+                    options={
+                        "data": {
+                            "name": data.name,
+                            "role": UserRole.DRIVER.value,
+                        }
+                    },
+                )
+            )
 
         auth_user = auth_response.user
 
@@ -102,7 +116,7 @@ def onboard_driver(
 
         user = User(
             auth_user_id=auth_user.id,
-            email=data.email,
+            email=clean_email,
             name=data.name,
             role=UserRole.DRIVER,
             is_active=True,

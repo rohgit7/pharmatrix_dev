@@ -23,6 +23,7 @@ class DriverOnboardRequest(BaseModel):
     )
 
     license_expiry: date | None = None
+    password: str | None = None
 
 
 class DriverOnboardResponse(BaseModel):

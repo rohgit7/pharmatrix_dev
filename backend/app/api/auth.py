@@ -25,10 +25,11 @@ def login(
     request: Request,
     data: LoginRequest,
 ):
+    clean_email = data.email.strip().lower()
     try:
         response = supabase.auth.sign_in_with_password(
             {
-                "email": data.email,
+                "email": clean_email,
                 "password": data.password,
             }
         )

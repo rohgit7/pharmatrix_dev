@@ -79,19 +79,19 @@ export default function HistoryAndExceptionsScreen() {
             onRefresh={() => {
               refetch();
             }}
-            tintColor={Colors.amber}
-            colors={[Colors.amber]}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
           />
         }
       >
         {isLoading ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color={Colors.amber} />
+            <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={styles.centeredText}>Loading history log...</Text>
           </View>
         ) : filteredStops.length === 0 ? (
           <Card style={styles.emptyCard}>
-            <Ionicons name="document-text-outline" size={44} color={Colors.amber} />
+            <Ionicons name="document-text-outline" size={44} color={Colors.primary} />
             <Text style={styles.emptyTitle}>No Records Found</Text>
             <Text style={styles.emptySubtitle}>
               {filter === 'failed'
@@ -111,7 +111,7 @@ export default function HistoryAndExceptionsScreen() {
               <Card
                 key={stop.id || `${stop.sequence_number}-${index}`}
                 style={styles.recordCard}
-                accentColor={isFailed ? '#EF4444' : '#10B981'}
+                accentColor={isFailed ? '#EF4444' : Colors.forest[500]}
               >
                 <View style={styles.recordHeader}>
                   <View style={styles.sequenceBadge}>
@@ -155,7 +155,7 @@ export default function HistoryAndExceptionsScreen() {
                     </View>
                     <View>
                       <Text style={styles.weightLabel}>INVOICE & PROOF</Text>
-                      <Text style={[styles.weightVal, { color: '#34D399' }]}>
+                      <Text style={[styles.weightVal, { color: Colors.forest[400] }]}>
                         {stop.proof_uploaded ? 'Verified' : 'Recorded'}
                       </Text>
                     </View>
@@ -190,14 +190,14 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 10,
-    color: Colors.amber,
+    color: Colors.primary,
     fontWeight: Typography.weights.bold,
     letterSpacing: 1,
     marginTop: 2,
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.surfaceAlt,
     borderBottomWidth: 1,
     borderBottomColor: Colors.cardBorder,
   },
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabItemActive: {
-    borderBottomColor: Colors.amber,
+    borderBottomColor: Colors.primary,
   },
   tabText: {
     fontSize: Typography.sizes.xs,
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
   },
   tabTextActive: {
-    color: Colors.amber,
+    color: Colors.primary,
     fontWeight: Typography.weights.bold,
   },
   scrollContent: {
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.navyLight,
+    backgroundColor: Colors.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   recordType: {
     fontSize: 9,
     fontWeight: Typography.weights.bold,
-    color: Colors.amber,
+    color: Colors.primary,
     letterSpacing: 0.5,
   },
   recordTitle: {
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   weightSummaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#0E172B',
+    backgroundColor: Colors.background,
     borderRadius: Radius.sm,
     padding: Spacing.sm,
     marginTop: Spacing.sm,

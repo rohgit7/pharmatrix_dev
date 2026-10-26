@@ -1,4 +1,6 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import { TokenStorage } from './storage';
 import {
   DriverMeResponse,
@@ -16,22 +18,73 @@ import {
   ApiErrorResponse,
 } from '@/types/api';
 
+/**
+ * Extracts host IP from Expo Metro packager when running in Expo Go or dev client.
+ */
+export function getAutoDetectedHostIp(): string | null {
+  try {
+    const hostUri =
+      Constants.expoConfig?.hostUri ||
+      (Constants as any).manifest2?.extra?.expoClient?.hostUri ||
+      (Constants as any).manifest?.debuggerHost;
+    if (hostUri && typeof hostUri === 'string') {
+      const ip = hostUri.split(':')[0];
+      if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+        return ip;
+      }
+    }
+  } catch {
+    // Ignore extraction failure
+  }
+  return null;
+}
+
 // Resolve default Base URL
 export function getDefaultApiBaseUrl(): string {
-  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
-    return process.env.EXPO_PUBLIC_API_BASE_URL;
+  const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  const detectedIp = getAutoDetectedHostIp();
+
+  // If we detected the Metro development server's LAN IP (Expo Go on phone/LAN):
+  if (detectedIp) {
+    if (!envUrl || envUrl.includes('localhost') || envUrl.includes('127.0.0.1') || envUrl.includes('10.0.2.2')) {
+      return `http://${detectedIp}:8000`;
+    }
   }
-  // Standard fallback
+
+  // If running on a physical device, 10.0.2.2 or localhost NEVER works
+  if (Device.isDevice) {
+    if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1') && !envUrl.includes('10.0.2.2')) {
+      return envUrl;
+    }
+    return detectedIp ? `http://${detectedIp}:8000` : 'http://10.138.26.167:8000';
+  }
+
+  // If env URL is explicitly provided
+  if (envUrl) {
+    return envUrl;
+  }
+
+  // Standard fallback for Android Emulator
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:8000';
   }
+
+  // iOS simulator or Web
   return 'http://localhost:8000';
 }
 
 export async function getEffectiveApiBaseUrl(): Promise<string> {
   const custom = await TokenStorage.getCustomApiBaseUrl();
   if (custom && custom.trim().length > 0) {
-    return custom.trim().replace(/\/+$/, '');
+    const trimmed = custom.trim().replace(/\/+$/, '');
+    // If the saved custom URL contains 10.0.2.2, but we are running on a physical device or detected LAN IP:
+    // 10.0.2.2 is an emulator-only address and will always fail on physical devices!
+    const detectedIp = getAutoDetectedHostIp();
+    if (trimmed.includes('10.0.2.2') && (detectedIp || Device.isDevice)) {
+      await TokenStorage.clearCustomApiBaseUrl();
+      return getDefaultApiBaseUrl().replace(/\/+$/, '');
+    }
+    return trimmed;
   }
   return getDefaultApiBaseUrl().replace(/\/+$/, '');
 }
@@ -91,7 +144,11 @@ async function request<T>(
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+  let didTimeout = false;
+  const timeoutId = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, 20000); // 20s timeout
 
   try {
     const response = await fetch(url, {
@@ -106,6 +163,20 @@ async function request<T>(
       if (response.status === 401) {
         // If unauthorized, clean stored token
         await TokenStorage.clearTokens();
+        const message = await parseErrorMessage(response);
+        throw new ApiError(message || 'Invalid email or password. Please verify your credentials.', 401);
+      }
+      if (response.status === 403) {
+        const message = await parseErrorMessage(response);
+        throw new ApiError(message || 'Access denied: Restricted to authorized Pharmatrix drivers.', 403);
+      }
+      if (response.status === 404) {
+        const message = await parseErrorMessage(response);
+        throw new ApiError(message || 'Requested resource was not found.', 404);
+      }
+      if (response.status >= 500) {
+        const message = await parseErrorMessage(response);
+        throw new ApiError(message || 'Internal server error. Please contact dispatch or administrator.', response.status);
       }
       const message = await parseErrorMessage(response);
       throw new ApiError(message, response.status);
@@ -121,22 +192,64 @@ async function request<T>(
     if (error instanceof ApiError) {
       throw error;
     }
-    if (error.name === 'AbortError') {
-      throw new ApiError('Request timed out after 20 seconds. Please check your network connection.', 408);
+
+    const errMsg = String(error?.message || '');
+    const isTimeout = didTimeout || error.name === 'AbortError' || errMsg.toLowerCase().includes('timeout');
+    const isConnectionError =
+      errMsg.toLowerCase().includes('canceled') ||
+      errMsg.toLowerCase().includes('cancelled') ||
+      errMsg.toLowerCase().includes('network request failed') ||
+      errMsg.toLowerCase().includes('failed to fetch') ||
+      errMsg.toLowerCase().includes('networkerror') ||
+      errMsg.toLowerCase().includes('connection refused') ||
+      error.name === 'TypeError';
+
+    if (isTimeout) {
+      throw new ApiError(
+        `Request timed out after 20 seconds. Please check that the backend server is running and accessible at ${baseUrl}.`,
+        408
+      );
     }
+
+    if (isConnectionError) {
+      throw new ApiError(
+        `Cannot connect to backend server at ${baseUrl}. Ensure your phone is on the same Wi-Fi network as your computer, and check your IP address.`,
+        0
+      );
+    }
+
     throw new ApiError(
-      error.message || 'Network connection failed. Ensure backend API is accessible.',
+      error.message || `Network connection failed. Ensure backend API is accessible at ${baseUrl}.`,
       0
     );
   }
 }
 
 export const ApiClient = {
+  checkHealth: async (targetUrl?: string): Promise<{ ok: boolean; status?: number; error?: string }> => {
+    try {
+      const base = targetUrl ? targetUrl.trim().replace(/\/+$/, '') : await getEffectiveApiBaseUrl();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(`${base}/health`, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        return { ok: true, status: res.status };
+      }
+      return { ok: false, status: res.status, error: `Server responded with ${res.status}` };
+    } catch (e: any) {
+      return { ok: false, error: e.message || 'Connection failed' };
+    }
+  },
+
   // Auth endpoints
   login: async (email: string, password: string): Promise<LoginResponse> => {
     return request<LoginResponse>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
     });
   },
 

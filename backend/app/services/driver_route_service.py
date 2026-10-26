@@ -1,9 +1,11 @@
 from datetime import date, datetime, time, timedelta, timezone
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.driver import Driver
 from app.models.enums import RouteStatus
+from app.models.pickup import Pickup
 from app.models.route import Route
 from app.models.route_stop import RouteStop
 from app.models.user import User
@@ -48,7 +50,7 @@ def get_driver_route_for_date(
         .options(
             selectinload(Route.stops)
             .selectinload(RouteStop.pickup)
-            .selectinload("location"),
+            .selectinload(Pickup.location),
 
             selectinload(Route.stops)
             .selectinload(RouteStop.warehouse),

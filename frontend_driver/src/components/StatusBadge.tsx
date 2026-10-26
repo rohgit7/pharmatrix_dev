@@ -14,32 +14,32 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
       case 'COMPLETED':
       case 'COLLECTED':
         return {
-          bg: 'rgba(16, 185, 129, 0.15)',
-          border: '#10B981',
-          text: '#34D399',
+          bg: 'rgba(34, 197, 94, 0.15)',
+          border: Colors.forest[500],
+          text: Colors.forest[400],
           label: 'Completed',
         };
       case 'IN_PROGRESS':
         return {
-          bg: 'rgba(59, 130, 246, 0.15)',
-          border: '#3B82F6',
-          text: '#60A5FA',
+          bg: 'rgba(180, 199, 242, 0.15)',
+          border: Colors.primary,
+          text: Colors.ice,
           label: 'In Progress',
         };
       case 'ARRIVED':
         return {
-          bg: 'rgba(99, 102, 241, 0.15)',
-          border: '#6366F1',
-          text: '#818CF8',
+          bg: 'rgba(118, 144, 239, 0.15)',
+          border: Colors.primary,
+          text: Colors.palette.periwinkle[200],
           label: 'Arrived',
         };
       case 'PENDING':
       case 'ASSIGNED':
       case 'READY':
         return {
-          bg: 'rgba(252, 163, 17, 0.15)',
-          border: '#FCA311',
-          text: '#FBBF24',
+          bg: 'rgba(244, 172, 69, 0.15)',
+          border: Colors.amber,
+          text: Colors.palette.amber[300],
           label: status === 'ASSIGNED' ? 'Assigned' : 'Pending',
         };
       case 'FAILED':
@@ -53,9 +53,9 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
         };
       default:
         return {
-          bg: 'rgba(156, 163, 175, 0.15)',
-          border: '#6B7280',
-          text: '#D1D5DB',
+          bg: 'rgba(90, 84, 75, 0.15)',
+          border: Colors.charcoal[600],
+          text: Colors.charcoal[300],
           label: status,
         };
     }

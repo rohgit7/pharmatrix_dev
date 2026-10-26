@@ -81,7 +81,7 @@ export default function ScanQrModal() {
   if (!permission) {
     return (
       <View style={styles.permissionScreen}>
-        <ActivityIndicator size="large" color={Colors.amber} />
+        <ActivityIndicator size="large" color={Colors.primary} />
         <Text style={styles.permissionDesc}>Checking camera permissions...</Text>
       </View>
     );
@@ -90,7 +90,7 @@ export default function ScanQrModal() {
   if (!permission.granted) {
     return (
       <View style={styles.permissionScreen}>
-        <Ionicons name="camera-outline" size={56} color={Colors.amber} />
+        <Ionicons name="camera-outline" size={56} color={Colors.primary} />
         <Text style={styles.permissionTitle}>Camera Permission Required</Text>
         <Text style={styles.permissionDesc}>
           Pharmatrix needs camera access to scan customer biomedical waste pickup QR codes.
@@ -138,7 +138,7 @@ export default function ScanQrModal() {
             <Ionicons
               name={torch ? 'flash' : 'flash-outline'}
               size={22}
-              color={torch ? Colors.amber : Colors.white}
+              color={torch ? Colors.primary : Colors.white}
             />
           </TouchableOpacity>
         </View>
@@ -152,7 +152,7 @@ export default function ScanQrModal() {
             <View style={[styles.corner, styles.cornerBR]} />
 
             {scanQrMutation.isPending ? (
-              <ActivityIndicator size="large" color={Colors.amber} />
+              <ActivityIndicator size="large" color={Colors.primary} />
             ) : null}
           </View>
           <Text style={styles.instructionText}>
@@ -194,7 +194,7 @@ export default function ScanQrModal() {
               style={styles.manualTriggerButton}
               onPress={() => setShowManualInput(true)}
             >
-              <Ionicons name="keypad-outline" size={18} color={Colors.amber} />
+              <Ionicons name="keypad-outline" size={18} color={Colors.primary} />
               <Text style={styles.manualTriggerText}>Trouble scanning? Enter token manually</Text>
             </TouchableOpacity>
           )}
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   },
   permissionScreen: {
     flex: 1,
-    backgroundColor: Colors.navyDark,
+    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xl,
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(20, 33, 61, 0.75)',
+    backgroundColor: 'rgba(31, 29, 26, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 32,
     height: 32,
-    borderColor: Colors.amber,
+    borderColor: Colors.primary,
   },
   cornerTL: {
     top: 0,
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.semibold,
     marginTop: Spacing.xl,
     textAlign: 'center',
-    backgroundColor: 'rgba(20, 33, 61, 0.7)',
+    backgroundColor: 'rgba(31, 29, 26, 0.85)',
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: Radius.full,
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(20, 33, 61, 0.9)',
+    backgroundColor: 'rgba(31, 29, 26, 0.95)',
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     gap: Spacing.xs,
@@ -343,12 +343,12 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
   },
   manualTriggerText: {
-    color: Colors.amber,
+    color: Colors.primary,
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
   manualInputCard: {
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
@@ -357,11 +357,11 @@ const styles = StyleSheet.create({
   manualInputLabel: {
     fontSize: 10,
     fontWeight: Typography.weights.bold,
-    color: Colors.amber,
+    color: Colors.primary,
     marginBottom: Spacing.xs,
   },
   manualTextInput: {
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.background,
     borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
@@ -379,6 +379,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: Radius.md,
+    backgroundColor: Colors.surfaceAlt,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     justifyContent: 'center',

@@ -67,7 +67,7 @@ export default function DriverDashboardScreen() {
           <View
             style={[
               styles.availDot,
-              { backgroundColor: driver?.is_available ? '#10B981' : Colors.amber },
+              { backgroundColor: driver?.is_available ? Colors.forest[500] : Colors.amber },
             ]}
           />
           <Text style={styles.availText}>
@@ -84,15 +84,15 @@ export default function DriverDashboardScreen() {
             onRefresh={() => {
               refetch();
             }}
-            tintColor={Colors.amber}
-            colors={[Colors.amber]}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
           />
         }
       >
         {/* Loading State */}
         {isLoading ? (
           <View style={styles.centeredBox}>
-            <ActivityIndicator size="large" color={Colors.amber} />
+            <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={styles.centeredText}>Loading today's schedule...</Text>
           </View>
         ) : isError ? (
@@ -115,7 +115,7 @@ export default function DriverDashboardScreen() {
           /* Empty State: No Route Assigned Today */
           <Card style={styles.stateCard}>
             <View style={styles.emptyIconCircle}>
-              <Ionicons name="calendar-outline" size={36} color={Colors.amber} />
+              <Ionicons name="calendar-outline" size={36} color={Colors.primary} />
             </View>
             <Text style={styles.stateTitle}>No Route Assigned</Text>
             <Text style={styles.stateSubtitle}>
@@ -133,7 +133,7 @@ export default function DriverDashboardScreen() {
           /* Active Route Content */
           <>
             {/* Today's Route Banner Card */}
-            <Card style={styles.routeBannerCard} accentColor={Colors.amber}>
+            <Card style={styles.routeBannerCard} accentColor={Colors.primary}>
               <View style={styles.routeHeaderRow}>
                 <View>
                   <Text style={styles.routeCodeLabel}>TODAY'S ASSIGNED RUN</Text>
@@ -145,7 +145,7 @@ export default function DriverDashboardScreen() {
               {/* Vehicle & Warehouse Info */}
               <View style={styles.routeInfoGrid}>
                 <View style={styles.routeInfoCol}>
-                  <Ionicons name="car-outline" size={18} color={Colors.amber} />
+                  <Ionicons name="car-outline" size={18} color={Colors.primary} />
                   <View style={{ marginLeft: Spacing.xs }}>
                     <Text style={styles.infoColLabel}>VEHICLE</Text>
                     <Text style={styles.infoColValue}>
@@ -155,7 +155,7 @@ export default function DriverDashboardScreen() {
                 </View>
 
                 <View style={styles.routeInfoCol}>
-                  <Ionicons name="business-outline" size={18} color={Colors.amber} />
+                  <Ionicons name="business-outline" size={18} color={Colors.primary} />
                   <View style={{ marginLeft: Spacing.xs }}>
                     <Text style={styles.infoColLabel}>WAREHOUSE</Text>
                     <Text style={styles.infoColValue} numberOfLines={1}>
@@ -189,7 +189,7 @@ export default function DriverDashboardScreen() {
                   title="START TODAY'S ROUTE"
                   onPress={handleStartRoute}
                   loading={startRouteMutation.isPending}
-                  icon={<Ionicons name="play" size={20} color="#000" />}
+                  icon={<Ionicons name="play" size={20} color={Colors.charcoal[950]} />}
                   style={{ marginTop: Spacing.md }}
                 />
               ) : route.status === 'IN_PROGRESS' ? (
@@ -202,12 +202,12 @@ export default function DriverDashboardScreen() {
                       router.push('/(app)/route');
                     }
                   }}
-                  icon={<Ionicons name="arrow-forward" size={20} color="#000" />}
+                  icon={<Ionicons name="arrow-forward" size={20} color={Colors.charcoal[950]} />}
                   style={{ marginTop: Spacing.md }}
                 />
               ) : (
                 <View style={styles.completedRouteNotice}>
-                  <Ionicons name="checkmark-done-circle" size={20} color="#10B981" />
+                  <Ionicons name="checkmark-done-circle" size={20} color={Colors.forest[500]} />
                   <Text style={styles.completedNoticeText}>Route Successfully Completed</Text>
                 </View>
               )}
@@ -222,13 +222,13 @@ export default function DriverDashboardScreen() {
               </Card>
 
               <Card style={styles.metricCard}>
-                <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                <Ionicons name="checkmark-circle" size={24} color={Colors.forest[500]} />
                 <Text style={styles.metricValue}>{completedStops.length}</Text>
                 <Text style={styles.metricLabel}>Completed</Text>
               </Card>
 
               <Card style={styles.metricCard}>
-                <Ionicons name="scale-outline" size={24} color="#60A5FA" />
+                <Ionicons name="scale-outline" size={24} color={Colors.ice} />
                 <Text style={styles.metricValue}>{totalCollectedWeight} kg</Text>
                 <Text style={styles.metricLabel}>Waste Collected</Text>
               </Card>
@@ -274,7 +274,7 @@ export default function DriverDashboardScreen() {
                   }}
                 >
                   <Text style={styles.openStopButtonText}>OPEN STOP DETAILS</Text>
-                  <Ionicons name="chevron-forward" size={18} color="#000" />
+                  <Ionicons name="chevron-forward" size={18} color={Colors.charcoal[950]} />
                 </TouchableOpacity>
               </Card>
             ) : null}
@@ -303,7 +303,7 @@ export default function DriverDashboardScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.navyDark,
+    backgroundColor: Colors.background,
   },
   topHeader: {
     flexDirection: 'row',
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.cardBorder,
   },
@@ -323,14 +323,14 @@ const styles = StyleSheet.create({
   },
   employeeTag: {
     fontSize: Typography.sizes.xs,
-    color: Colors.amber,
+    color: Colors.primary,
     fontWeight: Typography.weights.semibold,
     marginTop: 2,
   },
   availabilityPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radius.full,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: 'rgba(252, 163, 17, 0.15)',
+    backgroundColor: Colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.md,
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   routeCodeLabel: {
     fontSize: 10,
     fontWeight: Typography.weights.bold,
-    color: Colors.amber,
+    color: Colors.primary,
     letterSpacing: 1.5,
   },
   routeCodeValue: {
@@ -449,33 +449,33 @@ const styles = StyleSheet.create({
   },
   progressValue: {
     fontSize: Typography.sizes.xs,
-    color: Colors.amber,
+    color: Colors.primary,
     fontWeight: Typography.weights.bold,
   },
   progressBarTrack: {
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#0E172B',
+    backgroundColor: Colors.background,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: Colors.amber,
+    backgroundColor: Colors.primary,
     borderRadius: 4,
   },
   completedRouteNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: Colors.forest[500],
     borderRadius: Radius.md,
     padding: Spacing.md,
     marginTop: Spacing.md,
     gap: Spacing.sm,
   },
   completedNoticeText: {
-    color: '#34D399',
+    color: Colors.forest[400],
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
@@ -502,8 +502,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   nextStopCard: {
-    backgroundColor: '#1E2F52',
-    borderColor: Colors.amber,
+    backgroundColor: Colors.surfaceAlt,
+    borderColor: Colors.primary,
     marginBottom: Spacing.lg,
   },
   nextStopHeader: {
@@ -514,19 +514,19 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: Colors.amber,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sequenceBadgeText: {
-    color: '#000',
+    color: Colors.charcoal[950],
     fontWeight: Typography.weights.black,
     fontSize: Typography.sizes.md,
   },
   nextStopType: {
     fontSize: 10,
     fontWeight: Typography.weights.bold,
-    color: Colors.amber,
+    color: Colors.primary,
     letterSpacing: 1,
   },
   nextStopName: {
@@ -550,14 +550,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.amber,
+    backgroundColor: Colors.primary,
     borderRadius: Radius.md,
     height: 44,
     marginTop: Spacing.md,
     gap: Spacing.xs,
   },
   openStopButtonText: {
-    color: '#000',
+    color: Colors.charcoal[950],
     fontWeight: Typography.weights.bold,
     fontSize: Typography.sizes.sm,
     letterSpacing: 0.5,

@@ -53,14 +53,14 @@ export function ConfirmationModal({
                   {
                     backgroundColor: isDanger
                       ? 'rgba(239, 68, 68, 0.15)'
-                      : 'rgba(252, 163, 17, 0.15)',
+                      : Colors.primaryLight,
                   },
                 ]}
               >
                 <Ionicons
                   name={isDanger ? 'alert-circle' : 'help-circle'}
                   size={32}
-                  color={isDanger ? '#EF4444' : Colors.amber}
+                  color={isDanger ? '#EF4444' : Colors.primary}
                 />
               </View>
 
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    backgroundColor: '#1E2C4B',
+    backgroundColor: Colors.surfaceAlt,
     justifyContent: 'center',
     alignItems: 'center',
   },

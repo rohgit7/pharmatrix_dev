@@ -22,14 +22,14 @@ export default function IndexScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.logoBadge}>
-        <Ionicons name="medical" size={44} color="#000000" />
+        <Ionicons name="medical" size={44} color={Colors.charcoal[950]} />
       </View>
       <Text style={styles.title}>PHARMATRIX</Text>
       <Text style={styles.subtitle}>DRIVER OPERATIONS</Text>
 
       <ActivityIndicator
         size="large"
-        color={Colors.amber}
+        color={Colors.primary}
         style={styles.spinner}
       />
       <Text style={styles.loadingText}>Initializing secure session...</Text>
@@ -40,7 +40,7 @@ export default function IndexScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xl,
@@ -49,12 +49,12 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 24,
-    backgroundColor: Colors.amber,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.lg,
     elevation: 6,
-    shadowColor: Colors.amber,
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
-    color: Colors.amber,
+    color: Colors.primary,
     letterSpacing: 3,
     marginTop: 4,
   },

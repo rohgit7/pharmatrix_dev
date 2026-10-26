@@ -33,25 +33,25 @@ export function PrimaryButton({
   const isOutline = variant === 'outline';
 
   const getBackgroundColor = () => {
-    if (disabled) return '#23324E';
-    if (isPrimary) return Colors.amber;
-    if (isSecondary) return Colors.navyLight;
+    if (disabled) return Colors.charcoal[800];
+    if (isPrimary) return Colors.primary;
+    if (isSecondary) return Colors.charcoal[800];
     if (isDanger) return '#DC2626';
     if (isOutline) return 'transparent';
-    return Colors.amber;
+    return Colors.primary;
   };
 
   const getTextColor = () => {
-    if (disabled) return '#64748B';
-    if (isPrimary) return '#000000';
-    if (isDanger || isSecondary) return '#FFFFFF';
-    if (isOutline) return Colors.amber;
-    return '#000000';
+    if (disabled) return Colors.charcoal[500];
+    if (isPrimary) return Colors.charcoal[950];
+    if (isDanger || isSecondary) return Colors.white;
+    if (isOutline) return Colors.primary;
+    return Colors.charcoal[950];
   };
 
   const getBorderColor = () => {
-    if (disabled) return '#2E3F5F';
-    if (isOutline) return Colors.amber;
+    if (disabled) return Colors.charcoal[700];
+    if (isOutline) return Colors.primary;
     if (isSecondary) return Colors.cardBorder;
     if (isDanger) return '#EF4444';
     return 'transparent';

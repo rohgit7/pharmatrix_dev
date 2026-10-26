@@ -112,14 +112,14 @@ export default function AssignedRouteScreen() {
             onRefresh={() => {
               refetch();
             }}
-            tintColor={Colors.amber}
-            colors={[Colors.amber]}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
           />
         }
       >
         {isLoading ? (
           <View style={styles.centeredBox}>
-            <ActivityIndicator size="large" color={Colors.amber} />
+            <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={styles.centeredText}>Loading route itinerary...</Text>
           </View>
         ) : isError ? (
@@ -137,7 +137,7 @@ export default function AssignedRouteScreen() {
           </Card>
         ) : !route ? (
           <Card style={styles.stateCard}>
-            <Ionicons name="map-outline" size={44} color={Colors.amber} />
+            <Ionicons name="map-outline" size={44} color={Colors.primary} />
             <Text style={styles.stateTitle}>No Active Route</Text>
             <Text style={styles.stateSubtitle}>No route is currently assigned to your profile for today.</Text>
             <PrimaryButton
@@ -151,7 +151,7 @@ export default function AssignedRouteScreen() {
         ) : (
           <>
             {/* Route Summary Overview */}
-            <Card style={styles.summaryCard} accentColor={Colors.amber}>
+            <Card style={styles.summaryCard} accentColor={Colors.primary}>
               <View style={styles.summaryRow}>
                 <View style={styles.summaryCol}>
                   <Text style={styles.summaryLabel}>DISTANCE</Text>
@@ -182,7 +182,7 @@ export default function AssignedRouteScreen() {
                   title="START ROUTE NOW"
                   onPress={handleStartRoute}
                   loading={startRouteMutation.isPending}
-                  icon={<Ionicons name="play" size={20} color="#000" />}
+                  icon={<Ionicons name="play" size={20} color={Colors.charcoal[950]} />}
                   style={{ marginTop: Spacing.md }}
                 />
               ) : null}
@@ -199,11 +199,11 @@ export default function AssignedRouteScreen() {
               const isInProgress = stop.execution_status === 'IN_PROGRESS';
 
               const cardBorderColor = isCompleted
-                ? '#10B981'
+                ? Colors.forest[500]
                 : isFailed
                 ? '#EF4444'
                 : isArrived || isInProgress
-                ? Colors.amber
+                ? Colors.primary
                 : Colors.cardBorder;
 
               const title = isPickup
@@ -226,14 +226,23 @@ export default function AssignedRouteScreen() {
                         styles.sequenceCircle,
                         {
                           backgroundColor: isCompleted
-                            ? '#10B981'
+                            ? Colors.forest[500]
                             : isFailed
                             ? '#EF4444'
-                            : Colors.amber,
+                            : isPickup
+                            ? Colors.amber
+                            : Colors.primary,
                         },
                       ]}
                     >
-                      <Text style={styles.sequenceText}>#{stop.sequence_number}</Text>
+                      <Text
+                        style={[
+                          styles.sequenceText,
+                          { color: isCompleted || isFailed ? '#FFF' : Colors.charcoal[950] },
+                        ]}
+                      >
+                        #{stop.sequence_number}
+                      </Text>
                     </View>
 
                     <View style={{ flex: 1, marginLeft: Spacing.md }}>
@@ -255,7 +264,7 @@ export default function AssignedRouteScreen() {
 
                   {/* Address */}
                   <View style={styles.stopAddressBox}>
-                    <Ionicons name="location-outline" size={16} color={Colors.amber} />
+                    <Ionicons name="location-outline" size={16} color={Colors.primary} />
                     <Text style={styles.stopAddressText}>
                       {stop.address}, {stop.city} {stop.postal_code || ''}
                     </Text>
@@ -274,7 +283,7 @@ export default function AssignedRouteScreen() {
                       {stop.collected_weight_kg ? (
                         <View style={styles.detailItem}>
                           <Text style={styles.detailItemLabel}>COLLECTED</Text>
-                          <Text style={[styles.detailItemValue, { color: '#34D399' }]}>
+                          <Text style={[styles.detailItemValue, { color: Colors.forest[400] }]}>
                             {stop.collected_weight_kg} kg
                           </Text>
                         </View>
@@ -285,7 +294,7 @@ export default function AssignedRouteScreen() {
                         <Text
                           style={[
                             styles.detailItemValue,
-                            { color: stop.proof_uploaded ? '#34D399' : '#FBBF24' },
+                            { color: stop.proof_uploaded ? Colors.forest[400] : Colors.amber },
                           ]}
                         >
                           {stop.proof_uploaded ? 'Uploaded' : 'Pending'}
@@ -344,7 +353,7 @@ export default function AssignedRouteScreen() {
                       <Ionicons
                         name="chevron-forward"
                         size={16}
-                        color={isCompleted ? Colors.textMuted : '#000'}
+                        color={isCompleted ? Colors.textMuted : Colors.charcoal[950]}
                       />
                     </TouchableOpacity>
                   </View>
@@ -361,7 +370,7 @@ export default function AssignedRouteScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.navyDark,
+    backgroundColor: Colors.background,
   },
   topHeader: {
     flexDirection: 'row',
@@ -369,7 +378,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.cardBorder,
   },
@@ -381,7 +390,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: Typography.sizes.xs,
-    color: Colors.amber,
+    color: Colors.primary,
     fontWeight: Typography.weights.semibold,
     marginTop: 2,
   },
@@ -465,20 +474,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sequenceText: {
-    color: '#000',
+    color: Colors.charcoal[950],
     fontWeight: Typography.weights.black,
     fontSize: Typography.sizes.sm,
   },
   stopTypeTag: {
     fontSize: 9,
     fontWeight: Typography.weights.black,
-    color: Colors.amber,
+    color: Colors.primary,
     letterSpacing: 0.8,
   },
   pickupCodeTag: {
     fontSize: 9,
     color: Colors.textMuted,
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.background,
     paddingHorizontal: 4,
     borderRadius: 4,
   },
@@ -491,7 +500,7 @@ const styles = StyleSheet.create({
   stopAddressBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#0E172B',
+    backgroundColor: Colors.background,
     borderRadius: Radius.sm,
     padding: Spacing.sm,
     marginTop: Spacing.md,
@@ -506,7 +515,7 @@ const styles = StyleSheet.create({
   stopDetailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#121F38',
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
@@ -552,7 +561,7 @@ const styles = StyleSheet.create({
   actionPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.navyLight,
+    backgroundColor: Colors.surfaceAlt,
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     borderRadius: Radius.md,
@@ -568,16 +577,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.amber,
+    backgroundColor: Colors.primary,
     borderRadius: Radius.md,
     height: 38,
     gap: 4,
   },
   executeButtonDim: {
-    backgroundColor: Colors.navyLight,
+    backgroundColor: Colors.surfaceAlt,
   },
   executeButtonText: {
-    color: '#000',
+    color: Colors.charcoal[950],
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
     letterSpacing: 0.5,

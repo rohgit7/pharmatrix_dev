@@ -14,7 +14,7 @@
     "android": {
       "package": "com.pharmatrix.driver",
       "adaptiveIcon": {
-        "backgroundColor": "#14213D",
+        "backgroundColor": "#151411",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -33,7 +33,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#14213D",
+          "backgroundColor": "#151411",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 120
         }

@@ -9,10 +9,10 @@ export default function AppLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.amber,
-        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.charcoal[400],
         tabBarStyle: {
-          backgroundColor: Colors.navy,
+          backgroundColor: Colors.surface,
           borderTopColor: Colors.cardBorder,
           borderTopWidth: 1,
           height: Platform.OS === 'ios' ? 88 : 64,

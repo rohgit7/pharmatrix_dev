@@ -265,18 +265,18 @@ export default function StopDetailScreen() {
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Main Info Card */}
-          <Card style={styles.stopCard} accentColor={isPickup ? Colors.amber : '#3B82F6'}>
+          <Card style={styles.stopCard} accentColor={isPickup ? Colors.amber : Colors.primary}>
             <View style={styles.cardHeader}>
               <View style={styles.typeTag}>
                 <Ionicons
                   name={isPickup ? 'medical' : 'business'}
                   size={14}
-                  color={isPickup ? Colors.amber : '#60A5FA'}
+                  color={isPickup ? Colors.amber : Colors.ice}
                 />
                 <Text
                   style={[
                     styles.typeTagText,
-                    { color: isPickup ? Colors.amber : '#60A5FA' },
+                    { color: isPickup ? Colors.amber : Colors.ice },
                   ]}
                 >
                   {isPickup ? 'PHARMACEUTICAL COLLECTION' : 'CENTRAL INTAKE'}
@@ -294,7 +294,7 @@ export default function StopDetailScreen() {
             </Text>
 
             <View style={styles.metaRow}>
-              <Ionicons name="location-outline" size={16} color={Colors.amber} />
+              <Ionicons name="location-outline" size={16} color={Colors.primary} />
               <Text style={styles.metaText}>
                 {stop.address}, {stop.city} {stop.postal_code || ''}
               </Text>
@@ -302,7 +302,7 @@ export default function StopDetailScreen() {
 
             {isPickup && stop.customer_phone ? (
               <View style={styles.metaRow}>
-                <Ionicons name="call-outline" size={16} color={Colors.amber} />
+                <Ionicons name="call-outline" size={16} color={Colors.primary} />
                 <TouchableOpacity onPress={() => Linking.openURL(`tel:${stop.customer_phone}`)}>
                   <Text style={[styles.metaText, styles.linkText]}>
                     {stop.customer_phone} ({stop.customer_name || 'Contact'})
@@ -313,7 +313,7 @@ export default function StopDetailScreen() {
 
             {isPickup && stop.estimated_weight_kg ? (
               <View style={styles.expectedWeightBanner}>
-                <Ionicons name="scale-outline" size={18} color={Colors.amber} />
+                <Ionicons name="scale-outline" size={18} color={Colors.primary} />
                 <Text style={styles.expectedWeightText}>
                   Expected Collection Weight:{' '}
                   <Text style={{ color: Colors.white, fontWeight: 'bold' }}>
@@ -327,7 +327,7 @@ export default function StopDetailScreen() {
           {/* If stop is already Completed */}
           {isCompleted ? (
             <Card style={styles.completedNoticeCard}>
-              <Ionicons name="checkmark-circle" size={40} color="#10B981" />
+              <Ionicons name="checkmark-circle" size={40} color={Colors.forest[500]} />
               <Text style={styles.completedCardTitle}>Stop Completed Successfully</Text>
               <Text style={styles.completedCardSubtitle}>
                 {isPickup
@@ -336,7 +336,7 @@ export default function StopDetailScreen() {
               </Text>
               {stop.proof_uploaded ? (
                 <View style={styles.proofVerifiedPill}>
-                  <Ionicons name="shield-checkmark" size={16} color="#34D399" />
+                  <Ionicons name="shield-checkmark" size={16} color={Colors.forest[400]} />
                   <Text style={styles.proofVerifiedText}>Proof Photo Stored in Supabase</Text>
                 </View>
               ) : null}
@@ -369,7 +369,7 @@ export default function StopDetailScreen() {
                         </Text>
                       </View>
                       {isArrived || isInProgress ? (
-                        <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                        <Ionicons name="checkmark-circle" size={24} color={Colors.forest[500]} />
                       ) : null}
                     </View>
 
@@ -383,7 +383,7 @@ export default function StopDetailScreen() {
                               params: { stopId: stop.id, routeId: route.id },
                             })
                           }
-                          icon={<Ionicons name="qr-code" size={20} color="#000" />}
+                          icon={<Ionicons name="qr-code" size={20} color={Colors.charcoal[950]} />}
                         />
                         <TouchableOpacity
                           style={styles.secondaryArrivalBtn}
@@ -397,7 +397,7 @@ export default function StopDetailScreen() {
                       </View>
                     ) : (
                       <View style={styles.stepDoneBanner}>
-                        <Ionicons name="shield-checkmark" size={18} color="#34D399" />
+                        <Ionicons name="shield-checkmark" size={18} color={Colors.forest[400]} />
                         <Text style={styles.stepDoneText}>Arrival & QR Verified</Text>
                       </View>
                     )}
@@ -421,13 +421,13 @@ export default function StopDetailScreen() {
                         </Text>
                       </View>
                       {isInProgress ? (
-                        <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                        <Ionicons name="checkmark-circle" size={24} color={Colors.forest[500]} />
                       ) : null}
                     </View>
 
                     {isInProgress ? (
                       <View style={styles.stepDoneBanner}>
-                        <Ionicons name="key" size={18} color="#34D399" />
+                        <Ionicons name="key" size={18} color={Colors.forest[400]} />
                         <Text style={styles.stepDoneText}>Customer OTP Verified</Text>
                       </View>
                     ) : isArrived ? (
@@ -495,7 +495,7 @@ export default function StopDetailScreen() {
 
                         {stop.proof_uploaded || localProofUri ? (
                           <View style={styles.proofPreviewBox}>
-                            <Ionicons name="image" size={32} color={Colors.amber} />
+                            <Ionicons name="image" size={32} color={Colors.forest[400]} />
                             <Text style={styles.proofPreviewText}>Proof Photo Attached & Uploaded</Text>
                             <TouchableOpacity
                               style={styles.retakeBtn}
@@ -511,7 +511,7 @@ export default function StopDetailScreen() {
                               onPress={() => handlePickProofImage(true)}
                               disabled={uploadProofMutation.isPending}
                             >
-                              <Ionicons name="camera" size={22} color={Colors.amber} />
+                              <Ionicons name="camera" size={22} color={Colors.primary} />
                               <Text style={styles.photoPickerText}>Take Photo</Text>
                             </TouchableOpacity>
 
@@ -520,7 +520,7 @@ export default function StopDetailScreen() {
                               onPress={() => handlePickProofImage(false)}
                               disabled={uploadProofMutation.isPending}
                             >
-                              <Ionicons name="images" size={22} color={Colors.amber} />
+                              <Ionicons name="images" size={22} color={Colors.primary} />
                               <Text style={styles.photoPickerText}>Gallery</Text>
                             </TouchableOpacity>
                           </View>
@@ -528,7 +528,7 @@ export default function StopDetailScreen() {
 
                         {uploadProofMutation.isPending ? (
                           <View style={styles.uploadingNotice}>
-                            <ActivityIndicator size="small" color={Colors.amber} />
+                            <ActivityIndicator size="small" color={Colors.primary} />
                             <Text style={styles.uploadingNoticeText}>
                               Uploading image to secure storage...
                             </Text>
@@ -557,7 +557,7 @@ export default function StopDetailScreen() {
                       title="COMPLETE PICKUP"
                       onPress={() => setShowCompleteConfirm(true)}
                       loading={completeMutation.isPending}
-                      icon={<Ionicons name="checkmark-circle" size={22} color="#000" />}
+                      icon={<Ionicons name="checkmark-circle" size={22} color={Colors.charcoal[950]} />}
                       style={{ marginTop: Spacing.md }}
                     />
                   ) : null}
@@ -574,9 +574,9 @@ export default function StopDetailScreen() {
               ) : (
                 /* WAREHOUSE HANDOVER WORKFLOW */
                 <View style={styles.workflowSection}>
-                  <Card style={styles.stepCard} accentColor="#3B82F6">
+                  <Card style={styles.stepCard} accentColor={Colors.primary}>
                     <View style={styles.stepHeader}>
-                      <Ionicons name="business" size={28} color="#3B82F6" />
+                      <Ionicons name="business" size={28} color={Colors.primary} />
                       <View style={{ flex: 1, marginLeft: Spacing.sm }}>
                         <Text style={styles.stepTitle}>WAREHOUSE INTAKE HANDOVER</Text>
                         <Text style={styles.stepSub}>
@@ -596,7 +596,7 @@ export default function StopDetailScreen() {
                       </View>
                       <View style={styles.intakeSummaryRow}>
                         <Text style={styles.intakeLabel}>Total Collected Weight:</Text>
-                        <Text style={[styles.intakeValue, { color: Colors.amber }]}>
+                        <Text style={[styles.intakeValue, { color: Colors.primary }]}>
                           {route.stops
                             .filter((s) => s.stop_type === 'PICKUP')
                             .reduce((acc, s) => acc + (s.collected_weight_kg || 0), 0)
@@ -611,7 +611,7 @@ export default function StopDetailScreen() {
                         title="ARRIVE AT WAREHOUSE"
                         onPress={handleArrive}
                         loading={arriveMutation.isPending}
-                        icon={<Ionicons name="location" size={20} color="#000" />}
+                        icon={<Ionicons name="location" size={20} color={Colors.charcoal[950]} />}
                         style={{ marginTop: Spacing.md }}
                       />
                     ) : (
@@ -619,7 +619,7 @@ export default function StopDetailScreen() {
                         title="COMPLETE WAREHOUSE INTAKE"
                         onPress={() => setShowCompleteConfirm(true)}
                         loading={completeMutation.isPending}
-                        icon={<Ionicons name="checkmark-done" size={20} color="#000" />}
+                        icon={<Ionicons name="checkmark-done" size={20} color={Colors.charcoal[950]} />}
                         style={{ marginTop: Spacing.md }}
                       />
                     )}
@@ -706,7 +706,7 @@ const styles = StyleSheet.create({
   },
   topBarSubtitle: {
     fontSize: 10,
-    color: Colors.amber,
+    color: Colors.primary,
     fontWeight: Typography.weights.bold,
     letterSpacing: 1,
   },
@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
   codeText: {
     fontSize: 10,
     color: Colors.textMuted,
-    backgroundColor: '#0E172B',
+    backgroundColor: Colors.background,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radius.sm,
@@ -761,13 +761,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   linkText: {
-    color: Colors.amber,
+    color: Colors.primary,
     fontWeight: Typography.weights.bold,
   },
   expectedWeightBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(252, 163, 17, 0.12)',
+    backgroundColor: Colors.primaryLight,
     borderRadius: Radius.sm,
     padding: Spacing.sm,
     marginTop: Spacing.md,
@@ -775,18 +775,18 @@ const styles = StyleSheet.create({
   },
   expectedWeightText: {
     fontSize: Typography.sizes.xs,
-    color: Colors.amber,
+    color: Colors.primary,
   },
   completedNoticeCard: {
     alignItems: 'center',
     padding: Spacing.xl,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    borderColor: '#10B981',
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    borderColor: Colors.forest[500],
   },
   completedCardTitle: {
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
-    color: '#34D399',
+    color: Colors.forest[400],
     marginTop: Spacing.sm,
   },
   completedCardSubtitle: {
@@ -799,7 +799,7 @@ const styles = StyleSheet.create({
   proofVerifiedPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.background,
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: Radius.full,
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   proofVerifiedText: {
-    color: '#34D399',
+    color: Colors.forest[400],
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.semibold,
   },
@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   stepCard: {
-    backgroundColor: '#192847',
+    backgroundColor: Colors.surface,
   },
   stepDisabled: {
     opacity: 0.5,
@@ -846,12 +846,12 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.amber,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepNumberText: {
-    color: '#000',
+    color: Colors.charcoal[950],
     fontWeight: Typography.weights.black,
     fontSize: Typography.sizes.xs,
   },
@@ -882,14 +882,14 @@ const styles = StyleSheet.create({
   stepDoneBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
     borderRadius: Radius.sm,
     padding: Spacing.sm,
     marginTop: Spacing.md,
     gap: Spacing.xs,
   },
   stepDoneText: {
-    color: '#34D399',
+    color: Colors.forest[400],
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
   },
@@ -897,10 +897,10 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   otpInput: {
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.background,
     borderRadius: Radius.md,
     borderWidth: 1.5,
-    borderColor: Colors.amber,
+    borderColor: Colors.primary,
     color: Colors.white,
     textAlign: 'center',
     fontSize: Typography.sizes.xl,
@@ -914,14 +914,14 @@ const styles = StyleSheet.create({
   inputFieldLabel: {
     fontSize: 10,
     fontWeight: Typography.weights.bold,
-    color: Colors.amber,
+    color: Colors.primary,
     letterSpacing: 1,
     marginBottom: Spacing.xs,
   },
   weightInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.background,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
@@ -935,13 +935,13 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.bold,
   },
   weightUnitBadge: {
-    backgroundColor: Colors.navyLight,
+    backgroundColor: Colors.surfaceAlt,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: Radius.sm,
   },
   weightUnitText: {
-    color: Colors.amber,
+    color: Colors.primary,
     fontWeight: Typography.weights.bold,
     fontSize: Typography.sizes.xs,
   },
@@ -954,7 +954,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.navyLight,
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
@@ -968,14 +968,14 @@ const styles = StyleSheet.create({
   },
   proofPreviewBox: {
     alignItems: 'center',
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.background,
     borderRadius: Radius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.amber,
+    borderColor: Colors.primary,
   },
   proofPreviewText: {
-    color: '#34D399',
+    color: Colors.forest[400],
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
     marginTop: 4,
@@ -984,7 +984,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: 4,
-    backgroundColor: Colors.navyLight,
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radius.sm,
   },
   retakeBtnText: {
@@ -1000,10 +1000,10 @@ const styles = StyleSheet.create({
   },
   uploadingNoticeText: {
     fontSize: 11,
-    color: Colors.amber,
+    color: Colors.primary,
   },
   notesTextInput: {
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.background,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
@@ -1028,7 +1028,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   intakeSummaryBox: {
-    backgroundColor: '#0E172B',
+    backgroundColor: Colors.background,
     borderRadius: Radius.md,
     padding: Spacing.md,
     marginTop: Spacing.md,

@@ -81,10 +81,10 @@ export default function DriverProfileScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Profile Card */}
-        <Card style={styles.profileCard} accentColor={Colors.amber}>
+        <Card style={styles.profileCard} accentColor={Colors.primary}>
           <View style={styles.avatarRow}>
             <View style={styles.avatarCircle}>
-              <Ionicons name="person" size={36} color="#000" />
+              <Ionicons name="person" size={36} color={Colors.charcoal[950]} />
             </View>
             <View style={{ flex: 1, marginLeft: Spacing.md }}>
               <Text style={styles.driverName}>{driver?.name || user?.name || 'Driver'}</Text>
@@ -125,7 +125,7 @@ export default function DriverProfileScreen() {
         {/* Assigned Vehicle Card */}
         <Card style={styles.vehicleCard}>
           <View style={styles.cardHeaderRow}>
-            <Ionicons name="car" size={22} color={Colors.amber} />
+            <Ionicons name="car" size={22} color={Colors.primary} />
             <Text style={styles.cardSectionTitle}>TODAY'S VEHICLE ASSIGNMENT</Text>
           </View>
 
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: Colors.amber,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -269,19 +269,19 @@ const styles = StyleSheet.create({
   driverIdBadge: {
     fontSize: 10,
     fontWeight: Typography.weights.bold,
-    color: Colors.amber,
+    color: Colors.primary,
     marginTop: 2,
   },
   statusPill: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: Radius.full,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: Colors.forest[500],
   },
   statusPillText: {
-    color: '#34D399',
+    color: Colors.forest[400],
     fontSize: 10,
     fontWeight: Typography.weights.bold,
   },
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   vehicleDetailsBox: {
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.background,
     borderRadius: Radius.md,
     padding: Spacing.md,
     borderWidth: 1,
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   },
   regNumberLabel: {
     fontSize: 9,
-    color: Colors.amber,
+    color: Colors.primary,
     fontWeight: Typography.weights.bold,
   },
   regNumberValue: {
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   apiInput: {
-    backgroundColor: '#0F1A2F',
+    backgroundColor: Colors.background,
     borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   },
   healthStatusText: {
     fontSize: Typography.sizes.xs,
-    color: Colors.amber,
+    color: Colors.primary,
     marginTop: Spacing.xs,
     fontWeight: Typography.weights.semibold,
   },
@@ -383,20 +383,20 @@ const styles = StyleSheet.create({
   },
   testBtn: {
     flex: 1,
-    backgroundColor: Colors.amber,
+    backgroundColor: Colors.primary,
     borderRadius: Radius.sm,
     height: 38,
     justifyContent: 'center',
     alignItems: 'center',
   },
   testBtnText: {
-    color: '#000',
+    color: Colors.charcoal[950],
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
   },
   resetBtn: {
     flex: 1,
-    backgroundColor: Colors.navyLight,
+    backgroundColor: Colors.surfaceAlt,
     borderRadius: Radius.sm,
     height: 38,
     justifyContent: 'center',
@@ -421,6 +421,6 @@ const styles = StyleSheet.create({
   },
   securityNote: {
     fontSize: 10,
-    color: '#64748B',
+    color: Colors.charcoal[500],
   },
 });

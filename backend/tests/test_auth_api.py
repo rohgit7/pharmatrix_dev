@@ -101,6 +101,37 @@ def test_login_success(sign_in_mock):
 @patch(
     "app.api.auth.supabase.auth.sign_in_with_password"
 )
+def test_login_normalizes_email(sign_in_mock):
+    sign_in_mock.return_value = SimpleNamespace(
+        session=SimpleNamespace(
+            access_token="access-token-123",
+            refresh_token="refresh-token-123",
+        ),
+        user=SimpleNamespace(
+            id="auth-user-123",
+        ),
+    )
+
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "email": "  DRIVER1@GMAIL.COM  ",
+            "password": "driver123",
+        },
+    )
+
+    assert response.status_code == 200
+    sign_in_mock.assert_called_once_with(
+        {
+            "email": "driver1@gmail.com",
+            "password": "driver123",
+        }
+    )
+
+
+@patch(
+    "app.api.auth.supabase.auth.sign_in_with_password"
+)
 def test_login_returns_401_for_invalid_credentials(
     sign_in_mock,
 ):
