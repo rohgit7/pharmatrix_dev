@@ -1,15 +1,15 @@
 // Pharmatrix Brand Color Palette - Modern Minimalist Design Tokens
 
 export const Brand = {
-  dark: '#1C1917',          // Rich dark charcoal
-  background: '#FDFBF8',    // Warm off-white background
-  surface: '#FFFFFF',       // Clean white surfaces
-  primary: '#5E76DC',       // Primary indigo/blue
-  primaryLight: '#E8ECFF',   // Light primary tint
-  primaryDark: '#4355B9',    // Deep pressed blue
-  infoSurface: '#F0F4FF',   // Crisp info tint
-  separator: '#E7DFD5',     // Warm neutral divider
-  separatorSubtle: '#F4EFEA',
+  dark: '#201E1C',
+  background: '#FDFBF8',
+  surface: '#FFFFFF',
+  primary: '#7B91EE',
+  primaryLight: '#E5EBFF',
+  primaryDark: '#201E1C',
+  infoSurface: '#E5EBFF',
+  separator: '#EADFD0',
+  separatorSubtle: '#EADFD0',
 };
 
 export const Semantic = {
@@ -23,7 +23,7 @@ export const Semantic = {
   errorLight: '#FEE2E2',
   errorBorder: '#FCA5A5',
   info: '#2563EB',
-  infoLight: '#EFF6FF',
+  infoLight: '#E5EBFF',
 };
 
 export const Colors = {
@@ -105,14 +105,14 @@ export const Radius = {
 
 export const Shadows = {
   subtle: {
-    shadowColor: '#1C1917',
+    shadowColor: '#201E1C',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
   },
   card: {
-    shadowColor: '#1C1917',
+    shadowColor: '#201E1C',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 12,

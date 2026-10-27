@@ -43,8 +43,8 @@ export function PrimaryButton({
 
   const getTextColor = () => {
     if (disabled) return '#A8A29E';
-    if (isPrimary || isDanger) return '#FFFFFF';
-    if (isSecondary || isOutline) return Colors.primaryDark;
+    if (isPrimary || isSecondary || isOutline) return Colors.brandDark;
+    if (isDanger) return '#FFFFFF';
     return '#FFFFFF';
   };
 
@@ -56,7 +56,7 @@ export function PrimaryButton({
     return Colors.primary;
   };
 
-  const height = size === 'lg' ? 52 : size === 'md' ? 44 : 36;
+  const height = size === 'lg' ? 52 : size === 'md' ? 44 : 44;
   const fontSize = size === 'sm' ? Typography.sizes.sm : Typography.sizes.md;
 
   return (

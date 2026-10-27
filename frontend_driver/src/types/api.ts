@@ -167,7 +167,6 @@ export interface VerifyQRResponse {
   status: RouteStopStatus;
   arrived_at?: string;
   otp_required: boolean;
-  otp?: string | null;
 }
 
 export interface VerifyOTPRequest {
@@ -231,7 +230,6 @@ export interface ApiErrorResponse {
 
 export interface RequestOTPResponse {
   pickup_id: string;
-  otp?: string;
   expires_at: string;
   message: string;
 }

@@ -7,8 +7,8 @@ export const DRIVER_ROUTE_QUERY_KEY = ['driverRoute', 'today'];
 export function useTodayRoute(enabled = true) {
   return useQuery<DriverRouteResponse, Error>({
     queryKey: DRIVER_ROUTE_QUERY_KEY,
-    queryFn: async () => {
-      return await ApiClient.getTodayRoute();
+    queryFn: async ({ signal }) => {
+      return await ApiClient.getTodayRoute(signal);
     },
     enabled,
     staleTime: 1000 * 30, // 30 seconds

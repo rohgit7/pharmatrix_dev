@@ -46,7 +46,7 @@ export function getDefaultApiBaseUrl(): string {
   const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
   const detectedIp = getAutoDetectedHostIp();
 
-  // 1. Android Emulator: 10.0.2.2 is the official loopback alias to host machine
+  // Android emulators reach the host through this reserved emulator address.
   if (Platform.OS === 'android' && !Device.isDevice) {
     if (envUrl && envUrl.includes('10.0.2.2')) {
       return envUrl;
@@ -54,50 +54,37 @@ export function getDefaultApiBaseUrl(): string {
     return 'http://10.0.2.2:8000';
   }
 
-  // 2. Physical device (Android or iOS): Requires reachable LAN IP of host machine
-  // Uses port 8001 (Node relay which passes Windows Defender Firewall on Public Wi-Fi profiles)
+  // A physical phone cannot reach its own localhost. Prefer an explicitly
+  // configured reachable API, otherwise use the host advertised by Expo.
   if (Device.isDevice) {
-    if (detectedIp) {
-      return `http://${detectedIp}:8001`;
-    }
-    if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1') && !envUrl.includes('10.0.2.2')) {
+    const isLoopback = /localhost|127\.0\.0\.1|10\.0\.2\.2/.test(envUrl || '');
+    if (envUrl && !isLoopback) {
       return envUrl;
     }
-    return 'http://10.138.26.167:8001';
+    if (detectedIp) return `http://${detectedIp}:8001`;
+    return envUrl || '';
   }
 
-  // 3. Web or iOS Simulator
-  if (Platform.OS === 'web' || Platform.OS === 'ios') {
-    if (envUrl && !envUrl.includes('10.0.2.2')) {
-      return envUrl;
-    }
-    return 'http://localhost:8000';
+  // Web preview runs in the visitor's browser, so localhost would point at
+  // their own machine rather than the Replit workspace.
+  if (Platform.OS === 'web') {
+    return envUrl || '';
   }
 
-  // 4. Fallback to env URL or localhost
+  // An iOS simulator shares the host's loopback interface.
+  if (Platform.OS === 'ios') {
+    return envUrl && !envUrl.includes('10.0.2.2')
+      ? envUrl
+      : 'http://localhost:8000';
+  }
+
   return envUrl || 'http://localhost:8000';
 }
 
 export async function getEffectiveApiBaseUrl(): Promise<string> {
   const custom = await TokenStorage.getCustomApiBaseUrl();
   if (custom && custom.trim().length > 0) {
-    let trimmed = custom.trim().replace(/\/+$/, '');
-
-    // Safety check for physical devices: "localhost", "127.0.0.1", or "10.0.2.2" inside a physical phone
-    // will always fail with Connection Refused! Auto-fix loopback to the host LAN IP.
-    if (Device.isDevice) {
-      const isLoopback =
-        trimmed.includes('localhost') ||
-        trimmed.includes('127.0.0.1') ||
-        trimmed.includes('10.0.2.2');
-      if (isLoopback) {
-        const ip = getAutoDetectedHostIp() || '10.138.26.167';
-        const port = trimmed.includes(':8000') ? '8001' : '8001';
-        trimmed = `http://${ip}:${port}`;
-        await TokenStorage.setCustomApiBaseUrl(trimmed);
-      }
-    }
-    return trimmed;
+    return custom.trim().replace(/\/+$/, '');
   }
   return getDefaultApiBaseUrl().replace(/\/+$/, '');
 }
@@ -134,6 +121,30 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const baseUrl = await getEffectiveApiBaseUrl();
+  if (!baseUrl) {
+    throw new ApiError(
+      'Backend URL is not configured. Enter a reachable HTTPS API URL in the sign-in settings.',
+      0
+    );
+  }
+  let parsedBaseUrl: URL;
+  try {
+    parsedBaseUrl = new URL(baseUrl);
+  } catch {
+    throw new ApiError('Backend URL must be a valid HTTP or HTTPS URL.', 0);
+  }
+  if (!['http:', 'https:'].includes(parsedBaseUrl.protocol)) {
+    throw new ApiError('Backend URL must use HTTP or HTTPS.', 0);
+  }
+  if (
+    Device.isDevice &&
+    /^(localhost|127\.0\.0\.1|10\.0\.2\.2)$/i.test(parsedBaseUrl.hostname)
+  ) {
+    throw new ApiError(
+      'This device cannot reach a loopback backend URL. Use the backend host address on your network.',
+      0
+    );
+  }
   const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
   const token = await TokenStorage.getAccessToken();
@@ -156,7 +167,15 @@ async function request<T>(
     headers.set('Content-Type', 'application/json');
   }
 
+  const externalSignal = options.signal;
+  const fetchOptions = { ...options };
+  delete fetchOptions.signal;
+  if (externalSignal?.aborted) {
+    throw new ApiError('Request was cancelled.', 499);
+  }
   const controller = new AbortController();
+  const abortFromCaller = () => controller.abort();
+  externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
   let didTimeout = false;
   const timeoutId = setTimeout(() => {
     didTimeout = true;
@@ -165,12 +184,10 @@ async function request<T>(
 
   try {
     const response = await fetch(url, {
-      ...options,
+      ...fetchOptions,
       headers,
       signal: controller.signal,
     });
-
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -201,61 +218,35 @@ async function request<T>(
 
     return (await response.json()) as T;
   } catch (error: any) {
-    clearTimeout(timeoutId);
     if (error instanceof ApiError) {
       throw error;
     }
 
     const errMsg = String(error?.message || '');
-    const isTimeout = didTimeout || error.name === 'AbortError' || errMsg.toLowerCase().includes('timeout');
+    if (externalSignal?.aborted) {
+      throw new ApiError('Request was cancelled.', 499);
+    }
+    const isTimeout =
+      didTimeout ||
+      (error?.name === 'AbortError' && !externalSignal?.aborted) ||
+      errMsg.toLowerCase().includes('timeout');
     const isConnectionError =
-      errMsg.toLowerCase().includes('canceled') ||
-      errMsg.toLowerCase().includes('cancelled') ||
       errMsg.toLowerCase().includes('network request failed') ||
       errMsg.toLowerCase().includes('failed to fetch') ||
       errMsg.toLowerCase().includes('networkerror') ||
       errMsg.toLowerCase().includes('connection refused') ||
-      error.name === 'TypeError';
+      error?.name === 'TypeError';
 
     if (isTimeout || isConnectionError) {
-      // Attempt automatic fallback port retry (e.g. switch between :8000 and :8001 on physical device)
-      let fallbackUrl: string | null = null;
-      if (baseUrl.includes(':8000')) {
-        fallbackUrl = baseUrl.replace(':8000', ':8001');
-      } else if (baseUrl.includes(':8001')) {
-        fallbackUrl = baseUrl.replace(':8001', ':8000');
-      }
-
-      if (fallbackUrl) {
-        try {
-          const fbTarget = `${fallbackUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-          const fbController = new AbortController();
-          const fbTimeout = setTimeout(() => fbController.abort(), 6000);
-          const fbResponse = await fetch(fbTarget, {
-            ...options,
-            headers,
-            signal: fbController.signal,
-          });
-          clearTimeout(fbTimeout);
-          if (fbResponse.ok) {
-            await TokenStorage.setCustomApiBaseUrl(fallbackUrl);
-            if (fbResponse.status === 204) return {} as T;
-            return (await fbResponse.json()) as T;
-          }
-        } catch {
-          // Fallback failed, proceed to standard error below
-        }
-      }
-
       if (isTimeout) {
         throw new ApiError(
-          `Request timed out after 20 seconds. If connecting over Wi-Fi, try switching to port 8001 (Wi-Fi Relay) at ${baseUrl.replace(':8000', ':8001')}.`,
+          `Request to ${baseUrl} timed out after 20 seconds. Check the backend and network connection, then retry.`,
           408
         );
       }
 
       throw new ApiError(
-        `Cannot connect to backend server at ${baseUrl}. Ensure your phone is on the same Wi-Fi network. On physical phones, use port 8001 (Wi-Fi Relay) if Windows Firewall blocks port 8000.`,
+        `Cannot connect to the backend at ${baseUrl}. Check that the URL is reachable from this device and that the backend is running.`,
         0
       );
     }
@@ -264,25 +255,35 @@ async function request<T>(
       error.message || `Network connection failed. Ensure backend API is accessible at ${baseUrl}.`,
       0
     );
+  } finally {
+    clearTimeout(timeoutId);
+    externalSignal?.removeEventListener('abort', abortFromCaller);
   }
 }
 
 export const ApiClient = {
   checkHealth: async (targetUrl?: string): Promise<{ ok: boolean; status?: number; workingUrl?: string; error?: string }> => {
     const base = targetUrl ? targetUrl.trim().replace(/\/+$/, '') : await getEffectiveApiBaseUrl();
+    if (!base) {
+      return {
+        ok: false,
+        error: 'Backend URL is not configured. Enter a reachable API URL first.',
+      };
+    }
 
     const testSingle = async (url: string) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
         const res = await fetch(`${url}/health`, {
           method: 'GET',
           signal: controller.signal,
         });
-        clearTimeout(timeoutId);
         return { ok: res.ok, status: res.status, url };
       } catch (e: any) {
         return { ok: false, error: e.message || 'Connection failed', url };
+      } finally {
+        clearTimeout(timeoutId);
       }
     };
 
@@ -322,9 +323,10 @@ export const ApiClient = {
     });
   },
 
-  getMe: async (): Promise<UserMeResponse> => {
+  getMe: async (signal?: AbortSignal): Promise<UserMeResponse> => {
     return request<UserMeResponse>('/api/auth/me', {
       method: 'GET',
+      signal,
     });
   },
 
@@ -335,9 +337,10 @@ export const ApiClient = {
   },
 
   // Driver route endpoints
-  getTodayRoute: async (): Promise<DriverRouteResponse> => {
+  getTodayRoute: async (signal?: AbortSignal): Promise<DriverRouteResponse> => {
     return request<DriverRouteResponse>('/api/driver/routes/today', {
       method: 'GET',
+      signal,
     });
   },
 
@@ -364,13 +367,17 @@ export const ApiClient = {
     stopId: number,
     qrToken: string
   ): Promise<VerifyQRResponse> => {
-    return request<VerifyQRResponse>(
+    const response = await request<VerifyQRResponse & { otp?: string | null }>(
       `/api/driver/routes/${routeId}/stops/${stopId}/scan-qr`,
       {
         method: 'POST',
         body: JSON.stringify({ qr_token: qrToken }),
       }
     );
+    // Older development servers include the generated OTP in this response.
+    // Never expose or autofill it in the driver UI.
+    const { otp: _otp, ...safeResponse } = response;
+    return safeResponse;
   },
 
   verifyPickupOtp: async (
@@ -476,12 +483,14 @@ export const ApiClient = {
   requestPickupOtp: async (
     pickupId: string
   ): Promise<RequestOTPResponse> => {
-    return request<RequestOTPResponse>(
+    const response = await request<RequestOTPResponse & { otp?: string }>(
       `/api/pickups/${pickupId}/verification/request-otp`,
       {
         method: 'POST',
       }
     );
+    const { otp: _otp, ...safeResponse } = response;
+    return safeResponse;
   },
 };
 

@@ -30,16 +30,16 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
         return {
           bg: '#E5EBFF',
           border: Colors.primary,
-          text: '#3730A3',
+          text: Colors.brandDark,
           label: 'Arrived',
         };
       case 'PENDING':
       case 'ASSIGNED':
       case 'READY':
         return {
-          bg: '#FEF3C7',
-          border: '#D97706',
-          text: '#92400E',
+          bg: '#EADFD0',
+          border: '#BBAE9D',
+          text: Colors.brandDark,
           label: status === 'ASSIGNED' ? 'Assigned' : 'Pending',
         };
       case 'FAILED':
@@ -53,9 +53,9 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
         };
       default:
         return {
-          bg: '#F3ECE3',
-          border: '#8C8476',
-          text: '#5A544B',
+          bg: '#EADFD0',
+          border: '#BBAE9D',
+          text: Colors.brandDark,
           label: status,
         };
     }
