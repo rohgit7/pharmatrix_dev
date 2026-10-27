@@ -1,16 +1,25 @@
 import React from 'react';
 import { StyleSheet, View, ViewProps } from 'react-native';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing, Shadows } from '@/constants/theme';
 
 interface CardProps extends ViewProps {
   accentColor?: string;
+  variant?: 'white' | 'info' | 'neutral';
 }
 
-export function Card({ style, children, accentColor, ...props }: CardProps) {
+export function Card({ style, children, accentColor, variant = 'white', ...props }: CardProps) {
+  const variantBg =
+    variant === 'info'
+      ? Colors.infoSurface
+      : variant === 'neutral'
+      ? Colors.separatorSubtle
+      : Colors.card;
+
   return (
     <View
       style={[
         styles.card,
+        { backgroundColor: variantBg },
         accentColor ? { borderLeftWidth: 4, borderLeftColor: accentColor } : null,
         style,
       ]}
@@ -28,10 +37,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     padding: Spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 3,
+    ...Shadows.card,
   },
 });

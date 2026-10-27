@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Radius, Spacing, Typography, Shadows } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { TokenStorage } from '@/services/storage';
@@ -30,6 +30,10 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Field touch validation
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+
   // Server URL settings
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverUrl, setServerUrl] = useState(getDefaultApiBaseUrl());
@@ -42,13 +46,24 @@ export default function LoginScreen() {
   const { login } = useAuth();
   const router = useRouter();
 
-  // Load saved custom base URL on mount
-  React.useEffect(() => {
+  useEffect(() => {
     (async () => {
       const effective = await getEffectiveApiBaseUrl();
       setServerUrl(effective);
     })();
   }, []);
+
+  const emailError =
+    emailTouched && !email.trim()
+      ? 'Driver email is required'
+      : emailTouched && !/\S+@\S+\.\S+/.test(email.trim())
+      ? 'Please enter a valid email address'
+      : null;
+
+  const passwordError =
+    passwordTouched && !password
+      ? 'Password is required'
+      : null;
 
   const handleTestConnection = async (urlToTest?: string) => {
     const target = (urlToTest || serverUrl).trim();
@@ -58,7 +73,16 @@ export default function LoginScreen() {
     try {
       const res = await ApiClient.checkHealth(target);
       if (res.ok) {
-        setConnectionStatus({ ok: true, message: 'Connected (200 OK)' });
+        if (res.workingUrl && res.workingUrl !== target) {
+          setServerUrl(res.workingUrl);
+          await TokenStorage.setCustomApiBaseUrl(res.workingUrl);
+          setConnectionStatus({
+            ok: true,
+            message: `Connected via ${res.workingUrl.includes(':8001') ? 'Wi-Fi Relay (:8001)' : 'Direct (:8000)'}`,
+          });
+        } else {
+          setConnectionStatus({ ok: true, message: 'Connected (200 OK)' });
+        }
       } else {
         setConnectionStatus({
           ok: false,
@@ -76,8 +100,13 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
+    if (loading) return; // Prevent duplicate concurrent submissions
+
+    setEmailTouched(true);
+    setPasswordTouched(true);
+
     if (!email.trim() || !password) {
-      setErrorMessage('Please enter both email and password.');
+      setErrorMessage('Please enter both driver email and password.');
       return;
     }
 
@@ -92,7 +121,7 @@ export default function LoginScreen() {
       router.replace('/(app)');
     } catch (err: any) {
       setErrorMessage(
-        err.message || 'Login failed. Please check your credentials.'
+        err.message || 'Login failed. Please check your driver credentials.'
       );
     } finally {
       setLoading(false);
@@ -108,85 +137,107 @@ export default function LoginScreen() {
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Brand Header */}
         <View style={styles.header}>
           <View style={styles.logoBadge}>
-            <Ionicons name="medical" size={40} color={Colors.charcoal[950]} />
+            <Ionicons name="medical" size={38} color={Colors.white} />
           </View>
           <Text style={styles.brandTitle}>PHARMATRIX</Text>
           <Text style={styles.brandSubtitle}>DRIVER OPERATIONS</Text>
           <Text style={styles.welcomeText}>
-            Sign in with your driver credentials to access today's assigned
-            routes.
+            Secure driver sign-in. Access today's assigned routes, pickups, and facility handovers.
           </Text>
         </View>
 
+        {/* Global Error Banner */}
         {errorMessage ? (
           <View style={styles.errorBox}>
-            <Ionicons name="alert-circle" size={20} color="#EF4444" />
-            <View style={{ flex: 1 }}>
+            <Ionicons name="alert-circle" size={20} color="#DC2626" style={{ marginTop: 2 }} />
+            <View style={{ flex: 1, marginLeft: Spacing.sm }}>
               <Text style={styles.errorText}>{errorMessage}</Text>
               {(errorMessage.includes('connect') || errorMessage.includes('timed out')) && !showServerConfig ? (
                 <TouchableOpacity
                   onPress={() => setShowServerConfig(true)}
                   style={{ marginTop: 6 }}
                 >
-                  <Text style={styles.errorActionText}>Configure Backend URL ➔</Text>
+                  <Text style={styles.errorActionText}>Configure Backend URL & Server &rarr;</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
           </View>
         ) : null}
 
-        <View style={styles.form}>
+        {/* Form Card */}
+        <View style={styles.formCard}>
+          {/* Email Field */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>DRIVER EMAIL</Text>
-            <View style={styles.inputContainer}>
+            <View
+              style={[
+                styles.inputContainer,
+                emailError ? styles.inputContainerError : null,
+              ]}
+            >
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color={Colors.textMuted}
+                color={emailError ? '#DC2626' : Colors.textMuted}
                 style={styles.inputIcon}
               />
               <TextInput
                 style={styles.input}
                 placeholder="driver@pharmatrix.local"
-                placeholderTextColor={Colors.charcoal[500]}
+                placeholderTextColor={Colors.textMuted}
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
                   setErrorMessage(null);
                 }}
+                onBlur={() => setEmailTouched(true)}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 autoComplete="email"
+                editable={!loading}
               />
             </View>
+            {emailError ? (
+              <Text style={styles.fieldErrorText}>{emailError}</Text>
+            ) : null}
           </View>
 
+          {/* Password Field */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>PASSWORD</Text>
-            <View style={styles.inputContainer}>
+            <View
+              style={[
+                styles.inputContainer,
+                passwordError ? styles.inputContainerError : null,
+              ]}
+            >
               <Ionicons
                 name="lock-closed-outline"
                 size={20}
-                color={Colors.textMuted}
+                color={passwordError ? '#DC2626' : Colors.textMuted}
                 style={styles.inputIcon}
               />
               <TextInput
                 style={styles.input}
                 placeholder="••••••••••••"
-                placeholderTextColor={Colors.charcoal[500]}
+                placeholderTextColor={Colors.textMuted}
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
                   setErrorMessage(null);
                 }}
+                onBlur={() => setPasswordTouched(true)}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
+                editable={!loading}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -195,37 +246,40 @@ export default function LoginScreen() {
                 />
               </TouchableOpacity>
             </View>
+            {passwordError ? (
+              <Text style={styles.fieldErrorText}>{passwordError}</Text>
+            ) : null}
           </View>
 
           <PrimaryButton
-            title="SIGN IN"
+            title="SIGN IN TO OPERATIONS"
             onPress={handleLogin}
             loading={loading}
             style={styles.loginButton}
           />
         </View>
 
-        {/* Server Config Toggle */}
+        {/* Server Config Accordion for Emulators / Physical Devices */}
         <View style={styles.serverSection}>
           <TouchableOpacity
             style={styles.serverToggle}
             onPress={() => setShowServerConfig(!showServerConfig)}
           >
-            <Ionicons name="server-outline" size={16} color={Colors.textMuted} />
-            <Text style={styles.serverToggleText}>
-              Backend: {serverUrl}
+            <Ionicons name="server-outline" size={16} color={Colors.textSecondary} />
+            <Text style={styles.serverToggleText} numberOfLines={1}>
+              API Target: {serverUrl}
             </Text>
             <Ionicons
               name={showServerConfig ? 'chevron-up' : 'chevron-down'}
               size={16}
-              color={Colors.textMuted}
+              color={Colors.textSecondary}
             />
           </TouchableOpacity>
 
           {showServerConfig ? (
             <View style={styles.serverInputBox}>
               <Text style={styles.serverInputLabel}>
-                API BASE URL (Use host Wi-Fi IP for phone, 10.0.2.2 for emulator)
+                API BASE URL (Auto-detected per platform)
               </Text>
               <TextInput
                 style={styles.serverInput}
@@ -238,27 +292,29 @@ export default function LoginScreen() {
                 autoCorrect={false}
               />
 
-              {/* Quick Presets */}
+              {/* Quick Preset Buttons */}
               <View style={styles.presetRow}>
                 <TouchableOpacity
                   style={styles.presetChip}
                   onPress={() => {
-                    const url = 'http://10.138.26.167:8000';
+                    const host = getAutoDetectedHostIp();
+                    const url = host ? `http://${host}:8001` : 'http://10.138.26.167:8001';
                     setServerUrl(url);
                     handleTestConnection(url);
                   }}
                 >
-                  <Text style={styles.presetChipText}>Wi-Fi (:8000)</Text>
+                  <Text style={styles.presetChipText}>Wi-Fi Relay (:8001)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.presetChip}
                   onPress={() => {
-                    const url = 'http://10.138.26.167:8001';
+                    const host = getAutoDetectedHostIp();
+                    const url = host ? `http://${host}:8000` : 'http://10.138.26.167:8000';
                     setServerUrl(url);
                     handleTestConnection(url);
                   }}
                 >
-                  <Text style={styles.presetChipText}>Relay (:8001)</Text>
+                  <Text style={styles.presetChipText}>Direct (:8000)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.presetChip}
@@ -305,21 +361,21 @@ export default function LoginScreen() {
                       styles.statusPill,
                       {
                         backgroundColor: connectionStatus.ok
-                          ? 'rgba(34, 197, 94, 0.15)'
-                          : 'rgba(239, 68, 68, 0.15)',
-                        borderColor: connectionStatus.ok ? '#22C55E' : '#EF4444',
+                          ? '#DCFCE7'
+                          : '#FEE2E2',
+                        borderColor: connectionStatus.ok ? '#16A34A' : '#DC2626',
                       },
                     ]}
                   >
                     <Ionicons
                       name={connectionStatus.ok ? 'checkmark-circle' : 'alert-circle'}
                       size={14}
-                      color={connectionStatus.ok ? '#22C55E' : '#EF4444'}
+                      color={connectionStatus.ok ? '#16A34A' : '#DC2626'}
                     />
                     <Text
                       style={[
                         styles.statusPillText,
-                        { color: connectionStatus.ok ? '#4ADE80' : '#FCA5A5' },
+                        { color: connectionStatus.ok ? '#15803D' : '#B91C1C' },
                       ]}
                       numberOfLines={1}
                     >
@@ -332,9 +388,11 @@ export default function LoginScreen() {
           ) : null}
         </View>
 
+        {/* Security & Access Notice */}
         <View style={styles.footer}>
+          <Ionicons name="shield-checkmark-outline" size={14} color={Colors.textMuted} />
           <Text style={styles.footerText}>
-            Pharmatrix Fleet &copy; 2026. Authorized Personnel Only.
+            Authorized driver operations only. Session auditable under CDSCO compliance rules.
           </Text>
         </View>
       </ScrollView>
@@ -349,7 +407,8 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    padding: Spacing.xl,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.xxl,
     justifyContent: 'center',
   },
   header: {
@@ -357,23 +416,19 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   logoBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+    width: 68,
+    height: 68,
+    borderRadius: Radius.xl,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.md,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
+    ...Shadows.button,
   },
   brandTitle: {
     fontSize: Typography.sizes.xl,
     fontWeight: Typography.weights.black,
-    color: Colors.white,
+    color: Colors.textPrimary,
     letterSpacing: 2,
   },
   brandSubtitle: {
@@ -393,31 +448,33 @@ const styles = StyleSheet.create({
   },
   errorBox: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEE2E2',
     borderWidth: 1,
-    borderColor: '#EF4444',
+    borderColor: '#FCA5A5',
     borderRadius: Radius.md,
     padding: Spacing.md,
     marginBottom: Spacing.lg,
-    gap: Spacing.sm,
   },
   errorText: {
-    flex: 1,
     fontSize: Typography.sizes.sm,
-    color: '#FCA5A5',
+    color: '#B91C1C',
+    lineHeight: 18,
+    fontWeight: Typography.weights.medium,
   },
-  form: {
+  errorActionText: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.primaryDark,
+    fontWeight: Typography.weights.bold,
+    textDecorationLine: 'underline',
+  },
+  formCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
     padding: Spacing.xl,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    ...Shadows.card,
   },
   inputGroup: {
     marginBottom: Spacing.lg,
@@ -425,140 +482,155 @@ const styles = StyleSheet.create({
   label: {
     fontSize: Typography.sizes.xs,
     fontWeight: Typography.weights.bold,
-    color: Colors.ivory,
-    letterSpacing: 1,
+    color: Colors.textPrimary,
     marginBottom: Spacing.xs,
+    letterSpacing: 0.5,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background,
-    borderRadius: Radius.md,
-    borderWidth: 1,
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
     borderColor: Colors.cardBorder,
-    height: 52,
+    borderRadius: Radius.md,
+    height: 50,
     paddingHorizontal: Spacing.md,
+  },
+  inputContainerError: {
+    borderColor: '#DC2626',
+    backgroundColor: '#FEF2F2',
   },
   inputIcon: {
     marginRight: Spacing.sm,
   },
   input: {
     flex: 1,
-    color: Colors.white,
+    color: Colors.textPrimary,
     fontSize: Typography.sizes.md,
   },
   eyeButton: {
     padding: Spacing.xs,
+  },
+  fieldErrorText: {
+    fontSize: 11,
+    color: '#DC2626',
+    marginTop: 4,
+    fontWeight: Typography.weights.medium,
   },
   loginButton: {
     marginTop: Spacing.sm,
   },
   serverSection: {
     marginTop: Spacing.xl,
-    alignItems: 'center',
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+    backgroundColor: Colors.surface,
+    overflow: 'hidden',
   },
   serverToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    padding: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: Colors.separatorSubtle,
+    gap: Spacing.sm,
   },
   serverToggleText: {
+    flex: 1,
     fontSize: Typography.sizes.xs,
-    color: Colors.textMuted,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.semibold,
   },
   serverInputBox: {
-    width: '100%',
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
     padding: Spacing.md,
-    marginTop: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: Colors.cardBorder,
   },
   serverInputLabel: {
     fontSize: 10,
-    color: Colors.primary,
     fontWeight: Typography.weights.bold,
-    marginBottom: Spacing.xs,
+    color: Colors.textSecondary,
+    marginBottom: 6,
   },
   serverInput: {
-    backgroundColor: Colors.background,
-    borderRadius: Radius.sm,
+    height: 40,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    color: Colors.white,
+    borderRadius: Radius.sm,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
     fontSize: Typography.sizes.sm,
-  },
-  errorActionText: {
-    color: Colors.primary,
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
+    marginBottom: Spacing.sm,
   },
   presetRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.xs,
-    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   presetChip: {
-    backgroundColor: Colors.surfaceAlt,
-    paddingHorizontal: Spacing.sm,
     paddingVertical: 5,
-    borderRadius: Radius.full,
+    paddingHorizontal: 9,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.infoSurface,
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderColor: '#BFDBFE',
   },
   presetChipText: {
-    color: Colors.textSecondary,
     fontSize: 11,
-    fontWeight: Typography.weights.medium,
+    color: Colors.primaryDark,
+    fontWeight: Typography.weights.semibold,
   },
   testRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    marginTop: Spacing.sm,
   },
   testButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.surfaceAlt,
-    paddingHorizontal: Spacing.md,
     paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: Colors.primary,
+    backgroundColor: Colors.surface,
   },
   testButtonText: {
-    color: Colors.primary,
-    fontSize: Typography.sizes.xs,
+    fontSize: 11,
     fontWeight: Typography.weights.bold,
+    color: Colors.primary,
   },
   statusPill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
     borderRadius: Radius.sm,
     borderWidth: 1,
   },
   statusPillText: {
     fontSize: 11,
-    fontWeight: Typography.weights.medium,
+    fontWeight: Typography.weights.bold,
   },
   footer: {
-    marginTop: Spacing.xl,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: Spacing.xl,
+    paddingHorizontal: Spacing.md,
   },
   footerText: {
-    fontSize: Typography.sizes.xs,
+    fontSize: 11,
     color: Colors.textMuted,
     textAlign: 'center',
+    lineHeight: 16,
+    flex: 1,
   },
 });

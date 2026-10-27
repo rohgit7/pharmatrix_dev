@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Radius, Typography } from '@/constants/theme';
 import { RouteStatus, RouteStopStatus } from '@/types/api';
 
 interface StatusBadgeProps {
@@ -14,48 +14,48 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
       case 'COMPLETED':
       case 'COLLECTED':
         return {
-          bg: 'rgba(34, 197, 94, 0.15)',
-          border: Colors.forest[500],
-          text: Colors.forest[400],
+          bg: '#DCFCE7',
+          border: '#16A34A',
+          text: '#15803D',
           label: 'Completed',
         };
       case 'IN_PROGRESS':
         return {
-          bg: 'rgba(180, 199, 242, 0.15)',
-          border: Colors.primary,
-          text: Colors.ice,
+          bg: '#DBEAFE',
+          border: '#2563EB',
+          text: '#1D4ED8',
           label: 'In Progress',
         };
       case 'ARRIVED':
         return {
-          bg: 'rgba(118, 144, 239, 0.15)',
+          bg: '#E5EBFF',
           border: Colors.primary,
-          text: Colors.palette.periwinkle[200],
+          text: '#3730A3',
           label: 'Arrived',
         };
       case 'PENDING':
       case 'ASSIGNED':
       case 'READY':
         return {
-          bg: 'rgba(244, 172, 69, 0.15)',
-          border: Colors.amber,
-          text: Colors.palette.amber[300],
+          bg: '#FEF3C7',
+          border: '#D97706',
+          text: '#92400E',
           label: status === 'ASSIGNED' ? 'Assigned' : 'Pending',
         };
       case 'FAILED':
       case 'CANCELLED':
       case 'REJECTED':
         return {
-          bg: 'rgba(239, 68, 68, 0.15)',
-          border: '#EF4444',
-          text: '#F87171',
+          bg: '#FEE2E2',
+          border: '#DC2626',
+          text: '#B91C1C',
           label: status === 'FAILED' ? 'Failed' : 'Cancelled',
         };
       default:
         return {
-          bg: 'rgba(90, 84, 75, 0.15)',
-          border: Colors.charcoal[600],
-          text: Colors.charcoal[300],
+          bg: '#F3ECE3',
+          border: '#8C8476',
+          text: '#5A544B',
           label: status,
         };
     }
@@ -72,8 +72,8 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
         {
           backgroundColor: config.bg,
           borderColor: config.border,
-          paddingVertical: isSmall ? 2 : isLarge ? 6 : 4,
-          paddingHorizontal: isSmall ? 8 : isLarge ? 14 : 10,
+          paddingVertical: isSmall ? 2 : isLarge ? 5 : 3,
+          paddingHorizontal: isSmall ? 8 : isLarge ? 12 : 10,
         },
       ]}
     >
@@ -83,7 +83,7 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
           styles.text,
           {
             color: config.text,
-            fontSize: isSmall ? Typography.sizes.xs : isLarge ? Typography.sizes.md : Typography.sizes.sm,
+            fontSize: isSmall ? 10 : isLarge ? Typography.sizes.sm : 12,
           },
         ]}
       >
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   text: {
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.bold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

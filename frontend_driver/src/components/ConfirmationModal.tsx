@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Radius, Spacing, Typography, Shadows } from '@/constants/theme';
 import { PrimaryButton } from './PrimaryButton';
 
 interface ConfirmationModalProps {
@@ -52,7 +52,7 @@ export function ConfirmationModal({
                   styles.iconWrap,
                   {
                     backgroundColor: isDanger
-                      ? 'rgba(239, 68, 68, 0.15)'
+                      ? 'rgba(239, 68, 68, 0.12)'
                       : Colors.primaryLight,
                   },
                 ]}
@@ -60,7 +60,7 @@ export function ConfirmationModal({
                 <Ionicons
                   name={isDanger ? 'alert-circle' : 'help-circle'}
                   size={32}
-                  color={isDanger ? '#EF4444' : Colors.primary}
+                  color={isDanger ? '#DC2626' : Colors.primary}
                 />
               </View>
 
@@ -96,7 +96,7 @@ export function ConfirmationModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(32, 30, 28, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xl,
@@ -104,17 +104,13 @@ const styles = StyleSheet.create({
   dialog: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: Colors.cardBorder,
     padding: Spacing.xl,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
+    ...Shadows.card,
   },
   iconWrap: {
     width: 60,
@@ -127,7 +123,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
-    color: Colors.white,
+    color: Colors.textPrimary,
     textAlign: 'center',
     marginBottom: Spacing.sm,
   },
@@ -149,12 +145,12 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    backgroundColor: Colors.surfaceAlt,
+    backgroundColor: '#F3ECE3',
     justifyContent: 'center',
     alignItems: 'center',
   },
   cancelText: {
-    color: Colors.textSecondary,
+    color: Colors.textPrimary,
     fontSize: Typography.sizes.md,
     fontWeight: Typography.weights.semibold,
   },

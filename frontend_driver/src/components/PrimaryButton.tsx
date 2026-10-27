@@ -7,14 +7,14 @@ import {
   TouchableOpacityProps,
   View,
 } from 'react-native';
-import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Radius, Spacing, Typography, Shadows } from '@/constants/theme';
 
 interface PrimaryButtonProps extends TouchableOpacityProps {
   title: string;
   variant?: 'primary' | 'secondary' | 'danger' | 'outline';
   loading?: boolean;
   icon?: React.ReactNode;
-  size?: 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export function PrimaryButton({
@@ -33,35 +33,35 @@ export function PrimaryButton({
   const isOutline = variant === 'outline';
 
   const getBackgroundColor = () => {
-    if (disabled) return Colors.charcoal[800];
+    if (disabled) return '#F5F5F4';
     if (isPrimary) return Colors.primary;
-    if (isSecondary) return Colors.charcoal[800];
+    if (isSecondary) return Colors.infoSurface;
     if (isDanger) return '#DC2626';
     if (isOutline) return 'transparent';
     return Colors.primary;
   };
 
   const getTextColor = () => {
-    if (disabled) return Colors.charcoal[500];
-    if (isPrimary) return Colors.charcoal[950];
-    if (isDanger || isSecondary) return Colors.white;
-    if (isOutline) return Colors.primary;
-    return Colors.charcoal[950];
+    if (disabled) return '#A8A29E';
+    if (isPrimary || isDanger) return '#FFFFFF';
+    if (isSecondary || isOutline) return Colors.primaryDark;
+    return '#FFFFFF';
   };
 
   const getBorderColor = () => {
-    if (disabled) return Colors.charcoal[700];
+    if (disabled) return '#E7DFD5';
     if (isOutline) return Colors.primary;
-    if (isSecondary) return Colors.cardBorder;
-    if (isDanger) return '#EF4444';
-    return 'transparent';
+    if (isSecondary) return '#BFDBFE';
+    if (isDanger) return '#DC2626';
+    return Colors.primary;
   };
 
-  const height = size === 'lg' ? 54 : 44;
+  const height = size === 'lg' ? 52 : size === 'md' ? 44 : 36;
+  const fontSize = size === 'sm' ? Typography.sizes.sm : Typography.sizes.md;
 
   return (
     <TouchableOpacity
-      activeOpacity={0.8}
+      activeOpacity={0.82}
       disabled={disabled || loading}
       style={[
         styles.button,
@@ -70,6 +70,7 @@ export function PrimaryButton({
           borderColor: getBorderColor(),
           height,
         },
+        isPrimary && !disabled ? Shadows.button : null,
         style,
       ]}
       {...props}
@@ -79,7 +80,7 @@ export function PrimaryButton({
       ) : (
         <View style={styles.content}>
           {icon ? <View style={styles.iconContainer}>{icon}</View> : null}
-          <Text style={[styles.text, { color: getTextColor() }]}>{title}</Text>
+          <Text style={[styles.text, { color: getTextColor(), fontSize }]}>{title}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -88,16 +89,11 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    paddingHorizontal: Spacing.lg,
   },
   content: {
     flexDirection: 'row',
@@ -108,8 +104,7 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
   },
   text: {
-    fontSize: Typography.sizes.md,
     fontWeight: Typography.weights.bold,
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
 });

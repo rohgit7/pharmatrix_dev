@@ -6,15 +6,16 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "pharmatrix-driver",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pharmatrix.driver"
     },
     "android": {
       "package": "com.pharmatrix.driver",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
-        "backgroundColor": "#151411",
+        "backgroundColor": "#FDFBF8",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -33,7 +34,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#151411",
+          "backgroundColor": "#FDFBF8",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 120
         }
@@ -56,7 +57,10 @@
         {
           "photosPermission": "Pharmatrix requires photo access to attach proof of waste collection."
         }
-      ]
+      ],
+      "expo-sharing",
+      "expo-image",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true

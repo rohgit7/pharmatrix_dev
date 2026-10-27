@@ -156,13 +156,17 @@ def scan_pickup_qr(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    stop = verify_qr(
+    result = verify_qr(
         db=db,
         user=current_user,
         route_id=route_id,
         stop_id=stop_id,
         qr_token=data.qr_token,
     )
+    if isinstance(result, tuple):
+        stop, otp = result
+    else:
+        stop, otp = result, None
 
     return {
         "message": "Pickup QR verified",
@@ -170,6 +174,7 @@ def scan_pickup_qr(
         "status": stop.execution_status,
         "arrived_at": stop.arrived_at,
         "otp_required": True,
+        "otp": otp,
     }
 
 @router.post(

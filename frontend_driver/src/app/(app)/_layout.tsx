@@ -10,7 +10,7 @@ export default function AppLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.charcoal[400],
+        tabBarInactiveTintColor: Colors.textMuted,
         tabBarStyle: {
           backgroundColor: Colors.surface,
           borderTopColor: Colors.cardBorder,
@@ -20,19 +20,20 @@ export default function AppLayout() {
           paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: Typography.sizes.xs,
-          fontWeight: Typography.weights.semibold,
+          fontSize: 11,
+          fontWeight: Typography.weights.bold,
+          letterSpacing: 0.3,
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: 'Home',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'speedometer' : 'speedometer-outline'}
-              size={24}
+              name={focused ? 'home' : 'home-outline'}
+              size={22}
               color={color as string}
             />
           ),
@@ -41,11 +42,24 @@ export default function AppLayout() {
       <Tabs.Screen
         name="route"
         options={{
-          title: 'Today Route',
+          title: 'Routes',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'map' : 'map-outline'}
-              size={24}
+              size={22}
+              color={color as string}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="pickups"
+        options={{
+          title: 'Pickups',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? 'cube' : 'cube-outline'}
+              size={22}
               color={color as string}
             />
           ),
@@ -54,11 +68,11 @@ export default function AppLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: 'Exceptions',
+          title: 'Activity',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'alert-circle' : 'alert-circle-outline'}
-              size={24}
+              name={focused ? 'time' : 'time-outline'}
+              size={22}
               color={color as string}
             />
           ),
@@ -71,7 +85,7 @@ export default function AppLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? 'person' : 'person-outline'}
-              size={24}
+              size={22}
               color={color as string}
             />
           ),

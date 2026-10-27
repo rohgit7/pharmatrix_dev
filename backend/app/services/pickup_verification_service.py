@@ -5,10 +5,12 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models.enums import PickupStatus
+from app.models.enums import PickupStatus, UserRole
 from app.models.pickup import Pickup
 from app.models.user import User
-
+from app.models.driver import Driver
+from app.models.route import Route
+from app.models.route_stop import RouteStop
 
 
 def get_customer_pickup(
@@ -19,10 +21,7 @@ def get_customer_pickup(
     pickup = (
         db.query(Pickup)
         .filter(
-            Pickup.id == pickup_id,
-            Pickup.customer.has(
-                user_id=user.id
-            ),
+            Pickup.public_id == pickup_id,
         )
         .first()
     )
@@ -31,6 +30,39 @@ def get_customer_pickup(
         raise HTTPException(
             status_code=404,
             detail="Pickup not found",
+        )
+
+    if user.role == UserRole.CUSTOMER:
+        if not pickup.customer or pickup.customer.user_id != user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Not authorized to access this pickup",
+            )
+    elif user.role == UserRole.DRIVER:
+        driver = db.query(Driver).filter(Driver.user_id == user.id).first()
+        if not driver:
+            raise HTTPException(
+                status_code=403,
+                detail="Driver profile not found",
+            )
+        stop = (
+            db.query(RouteStop)
+            .join(Route, Route.id == RouteStop.route_id)
+            .filter(
+                RouteStop.pickup_id == pickup.id,
+                Route.driver_id == driver.id,
+            )
+            .first()
+        )
+        if not stop:
+            raise HTTPException(
+                status_code=403,
+                detail="Driver is not assigned to this pickup",
+            )
+    elif user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to access this pickup",
         )
 
     return pickup
@@ -92,6 +124,7 @@ def request_otp(
             now - pickup.otp_last_requested_at
         ).total_seconds()
         < OTP_REQUEST_COOLDOWN_SECONDS
+        and user.role not in {UserRole.DRIVER, UserRole.ADMIN}
     ):
         raise HTTPException(
             status_code=429,

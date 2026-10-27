@@ -34,6 +34,8 @@ class DriverRouteStopResponse(BaseModel):
     arrival_time: datetime | None = None
     departure_time: datetime | None = None
     proof_uploaded: bool
+    qr_verified: bool = False
+    otp_verified: bool = False
     execution_status: RouteStopStatus
     failure_reason: str | None = None
 

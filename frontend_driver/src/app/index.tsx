@@ -22,7 +22,7 @@ export default function IndexScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.logoBadge}>
-        <Ionicons name="medical" size={44} color={Colors.charcoal[950]} />
+        <Ionicons name="medical" size={44} color={Colors.white} />
       </View>
       <Text style={styles.title}>PHARMATRIX</Text>
       <Text style={styles.subtitle}>DRIVER OPERATIONS</Text>
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: Typography.sizes.xxl,
     fontWeight: Typography.weights.black,
-    color: Colors.white,
+    color: Colors.textPrimary,
     letterSpacing: 2,
   },
   subtitle: {
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: Typography.sizes.sm,
-    color: Colors.textMuted,
+    color: Colors.textSecondary,
     marginTop: Spacing.md,
   },
 });

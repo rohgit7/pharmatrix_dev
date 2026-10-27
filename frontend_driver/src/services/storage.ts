@@ -37,7 +37,8 @@ async function deleteItem(key: string): Promise<void> {
 
 export const TokenStorage = {
   getAccessToken: async (): Promise<string | null> => {
-    return getItem(ACCESS_TOKEN_KEY);
+    const item = await getItem(ACCESS_TOKEN_KEY);
+    return item ?? null;
   },
 
   setAccessToken: async (token: string): Promise<void> => {
@@ -45,7 +46,8 @@ export const TokenStorage = {
   },
 
   getRefreshToken: async (): Promise<string | null> => {
-    return getItem(REFRESH_TOKEN_KEY);
+    const item = await getItem(REFRESH_TOKEN_KEY);
+    return item ?? null;
   },
 
   setRefreshToken: async (token: string): Promise<void> => {
@@ -58,7 +60,8 @@ export const TokenStorage = {
   },
 
   getCustomApiBaseUrl: async (): Promise<string | null> => {
-    return getItem(API_BASE_URL_KEY);
+    const item = await getItem(API_BASE_URL_KEY);
+    return item ?? null;
   },
 
   setCustomApiBaseUrl: async (url: string): Promise<void> => {

@@ -17,65 +17,55 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 
 export default function ScanQrModal() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ stopId: string; routeId: string }>();
+  const params = useLocalSearchParams<{ stopId: string; routeId: string; pickupCode?: string }>();
   const stopId = Number(params.stopId);
   const routeId = Number(params.routeId);
+  const pickupCode = params.pickupCode;
 
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [scanned, setScanned] = useState(false);
-  const [manualCode, setManualCode] = useState('');
+  const [manualCode, setManualCode] = useState(pickupCode || '');
   const [showManualInput, setShowManualInput] = useState(false);
 
   const scanQrMutation = useScanQr();
 
-  const handleBarcodeScanned = async ({ data }: { data: string }) => {
-    if (scanned || scanQrMutation.isPending) return;
-    setScanned(true);
-
-    try {
-      await scanQrMutation.mutateAsync({
-        routeId,
-        stopId,
-        qrToken: data.trim(),
-      });
-      Alert.alert('Verified', 'Customer Pickup QR verified successfully!', [
-        {
-          text: 'Continue to OTP',
-          onPress: () => router.back(),
-        },
-      ]);
-    } catch (err: any) {
-      Alert.alert('Verification Failed', err.message || 'Invalid QR code.', [
-        {
-          text: 'Scan Again',
-          onPress: () => setScanned(false),
-        },
-      ]);
-    }
-  };
-
-  const handleManualSubmit = async () => {
-    if (!manualCode.trim()) {
+  const handleVerifyToken = async (token: string) => {
+    if (!token.trim()) {
       Alert.alert('Required', 'Please enter the QR token string.');
       return;
     }
 
     try {
-      await scanQrMutation.mutateAsync({
+      const res = await scanQrMutation.mutateAsync({
         routeId,
         stopId,
-        qrToken: manualCode.trim(),
+        qrToken: token.trim(),
       });
-      Alert.alert('Verified', 'Customer Pickup QR verified successfully!', [
-        {
-          text: 'Continue',
-          onPress: () => router.back(),
-        },
-      ]);
+      const otpMsg = res.otp ? `\n\nCustomer Handshake OTP: ${res.otp}` : '';
+      Alert.alert(
+        'QR Verified',
+        `Customer Pickup QR verified successfully!${otpMsg}`,
+        [
+          {
+            text: 'Continue to Customer Handshake',
+            onPress: () => router.back(),
+          },
+        ]
+      );
     } catch (err: any) {
-      Alert.alert('Failed', err.message || 'Invalid token.');
+      Alert.alert('Verification Failed', err.message || 'Invalid QR code or manifest reference.');
     }
+  };
+
+  const handleBarcodeScanned = async ({ data }: { data: string }) => {
+    if (scanned || scanQrMutation.isPending) return;
+    setScanned(true);
+    await handleVerifyToken(data);
+  };
+
+  const handleManualSubmit = async () => {
+    await handleVerifyToken(manualCode);
   };
 
   if (!permission) {
@@ -93,15 +83,15 @@ export default function ScanQrModal() {
         <Ionicons name="camera-outline" size={56} color={Colors.primary} />
         <Text style={styles.permissionTitle}>Camera Permission Required</Text>
         <Text style={styles.permissionDesc}>
-          Pharmatrix needs camera access to scan customer biomedical waste pickup QR codes.
+          Pharmatrix needs camera access to scan customer waste container QR codes.
         </Text>
         <PrimaryButton
           title="GRANT CAMERA ACCESS"
           onPress={requestPermission}
           style={{ marginTop: Spacing.xl, width: '100%', maxWidth: 300 }}
         />
-        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
-          <Text style={styles.closeButtonText}>Cancel & Go Back</Text>
+        <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()}>
+          <Text style={styles.closeBtnText}>Cancel & Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -118,12 +108,11 @@ export default function ScanQrModal() {
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
       />
 
-      {/* Camera Overlay */}
+      {/* Overlay */}
       <View style={styles.overlay}>
-        {/* Top Controls */}
         <View style={styles.topBar}>
           <TouchableOpacity
-            style={styles.circleButton}
+            style={styles.circleBtn}
             onPress={() => router.back()}
           >
             <Ionicons name="close" size={24} color={Colors.white} />
@@ -132,7 +121,7 @@ export default function ScanQrModal() {
           <Text style={styles.headerTitle}>SCAN PICKUP QR</Text>
 
           <TouchableOpacity
-            style={styles.circleButton}
+            style={styles.circleBtn}
             onPress={() => setTorch(!torch)}
           >
             <Ionicons
@@ -144,8 +133,8 @@ export default function ScanQrModal() {
         </View>
 
         {/* Viewfinder Frame */}
-        <View style={styles.viewfinderContainer}>
-          <View style={styles.viewfinderFrame}>
+        <View style={styles.viewfinderBox}>
+          <View style={styles.frame}>
             <View style={[styles.corner, styles.cornerTL]} />
             <View style={[styles.corner, styles.cornerTR]} />
             <View style={[styles.corner, styles.cornerBL]} />
@@ -155,27 +144,25 @@ export default function ScanQrModal() {
               <ActivityIndicator size="large" color={Colors.primary} />
             ) : null}
           </View>
-          <Text style={styles.instructionText}>
-            Align the customer's QR code within the frame
-          </Text>
+          <Text style={styles.instructionText}>Align container QR code inside frame</Text>
         </View>
 
-        {/* Bottom Options */}
+        {/* Bottom Bar */}
         <View style={styles.bottomBar}>
           {showManualInput ? (
-            <View style={styles.manualInputCard}>
-              <Text style={styles.manualInputLabel}>ENTER QR VERIFICATION TOKEN</Text>
+            <View style={styles.manualCard}>
+              <Text style={styles.manualLabel}>ENTER QR VERIFICATION TOKEN</Text>
               <TextInput
-                style={styles.manualTextInput}
+                style={styles.manualInput}
                 placeholder="Paste or type token string"
                 placeholderTextColor={Colors.textMuted}
                 value={manualCode}
                 onChangeText={setManualCode}
                 autoCapitalize="none"
               />
-              <View style={styles.manualButtonRow}>
+              <View style={styles.manualBtnRow}>
                 <TouchableOpacity
-                  style={styles.cancelManualButton}
+                  style={styles.cancelManualBtn}
                   onPress={() => setShowManualInput(false)}
                 >
                   <Text style={styles.cancelManualText}>Cancel</Text>
@@ -190,13 +177,28 @@ export default function ScanQrModal() {
               </View>
             </View>
           ) : (
-            <TouchableOpacity
-              style={styles.manualTriggerButton}
-              onPress={() => setShowManualInput(true)}
-            >
-              <Ionicons name="keypad-outline" size={18} color={Colors.primary} />
-              <Text style={styles.manualTriggerText}>Trouble scanning? Enter token manually</Text>
-            </TouchableOpacity>
+            <View style={styles.actionButtonGroup}>
+              {pickupCode ? (
+                <TouchableOpacity
+                  style={styles.quickVerifyCodeBtn}
+                  onPress={() => handleVerifyToken(pickupCode)}
+                  disabled={scanQrMutation.isPending}
+                >
+                  <Ionicons name="checkmark-circle" size={18} color={Colors.white} />
+                  <Text style={styles.quickVerifyCodeText}>
+                    {scanQrMutation.isPending ? 'Verifying...' : `Verify Code: ${pickupCode}`}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+
+              <TouchableOpacity
+                style={styles.manualTriggerBtn}
+                onPress={() => setShowManualInput(true)}
+              >
+                <Ionicons name="keypad-outline" size={18} color={Colors.primary} />
+                <Text style={styles.manualTriggerText}>Enter QR Token Manually</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       </View>
@@ -219,31 +221,28 @@ const styles = StyleSheet.create({
   permissionTitle: {
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.bold,
-    color: Colors.white,
+    color: Colors.textPrimary,
     marginTop: Spacing.md,
-    textAlign: 'center',
   },
   permissionDesc: {
     fontSize: Typography.sizes.sm,
     color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
-    marginTop: Spacing.sm,
-    maxWidth: 300,
+    marginTop: Spacing.xs,
+    maxWidth: 280,
   },
-  closeButton: {
+  closeBtn: {
     marginTop: Spacing.lg,
     padding: Spacing.md,
   },
-  closeButtonText: {
+  closeBtnText: {
     color: Colors.textMuted,
-    fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.bold,
   },
   overlay: {
     flex: 1,
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     paddingVertical: Spacing.xl,
   },
   topBar: {
@@ -259,33 +258,29 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.black,
     letterSpacing: 1.5,
   },
-  circleButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(31, 29, 26, 0.85)',
+  circleBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  viewfinderContainer: {
+  viewfinderBox: {
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  viewfinderFrame: {
-    width: 260,
-    height: 260,
+  frame: {
+    width: 250,
+    height: 250,
     borderRadius: Radius.lg,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   corner: {
     position: 'absolute',
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     borderColor: Colors.primary,
   },
   cornerTL: {
@@ -293,49 +288,64 @@ const styles = StyleSheet.create({
     left: 0,
     borderTopWidth: 4,
     borderLeftWidth: 4,
-    borderTopLeftRadius: 10,
+    borderTopLeftRadius: 8,
   },
   cornerTR: {
     top: 0,
     right: 0,
     borderTopWidth: 4,
     borderRightWidth: 4,
-    borderTopRightRadius: 10,
+    borderTopRightRadius: 8,
   },
   cornerBL: {
     bottom: 0,
     left: 0,
     borderBottomWidth: 4,
     borderLeftWidth: 4,
-    borderBottomLeftRadius: 10,
+    borderBottomLeftRadius: 8,
   },
   cornerBR: {
     bottom: 0,
     right: 0,
     borderBottomWidth: 4,
     borderRightWidth: 4,
-    borderBottomRightRadius: 10,
+    borderBottomRightRadius: 8,
   },
   instructionText: {
     color: Colors.white,
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
     marginTop: Spacing.xl,
-    textAlign: 'center',
-    backgroundColor: 'rgba(31, 29, 26, 0.85)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: Radius.full,
   },
   bottomBar: {
     paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.lg,
   },
-  manualTriggerButton: {
+  actionButtonGroup: {
+    gap: Spacing.sm,
+  },
+  quickVerifyCodeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(31, 29, 26, 0.95)',
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.xs,
+  },
+  quickVerifyCodeText: {
+    color: Colors.white,
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+  },
+  manualTriggerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     gap: Spacing.xs,
@@ -345,49 +355,44 @@ const styles = StyleSheet.create({
   manualTriggerText: {
     color: Colors.primary,
     fontSize: Typography.sizes.sm,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.bold,
   },
-  manualInputCard: {
+  manualCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
   },
-  manualInputLabel: {
+  manualLabel: {
     fontSize: 10,
     fontWeight: Typography.weights.bold,
     color: Colors.primary,
     marginBottom: Spacing.xs,
   },
-  manualTextInput: {
+  manualInput: {
     backgroundColor: Colors.background,
     borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    color: Colors.white,
+    color: Colors.textPrimary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     fontSize: Typography.sizes.sm,
     marginBottom: Spacing.md,
   },
-  manualButtonRow: {
+  manualBtnRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
   },
-  cancelManualButton: {
+  cancelManualBtn: {
     flex: 1,
     height: 44,
     borderRadius: Radius.md,
-    backgroundColor: Colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    backgroundColor: Colors.separatorSubtle,
     justifyContent: 'center',
     alignItems: 'center',
   },
   cancelManualText: {
     color: Colors.textMuted,
-    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.semibold,
   },
 });

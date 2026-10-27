@@ -114,6 +114,8 @@ export interface DriverRouteStopResponse {
   arrival_time?: string | null;
   departure_time?: string | null;
   proof_uploaded: boolean;
+  qr_verified?: boolean;
+  otp_verified?: boolean;
   execution_status: RouteStopStatus;
   failure_reason?: string | null;
 }
@@ -165,6 +167,7 @@ export interface VerifyQRResponse {
   status: RouteStopStatus;
   arrived_at?: string;
   otp_required: boolean;
+  otp?: string | null;
 }
 
 export interface VerifyOTPRequest {
@@ -225,3 +228,22 @@ export interface ApiErrorDetail {
 export interface ApiErrorResponse {
   detail: string | ApiErrorDetail[];
 }
+
+export interface RequestOTPResponse {
+  pickup_id: string;
+  otp?: string;
+  expires_at: string;
+  message: string;
+}
+
+export interface PickupVerificationResponse {
+  pickup_id: string;
+  pickup_code: string;
+  verification_token: string;
+  qr_verified: boolean;
+  qr_verified_at: string | null;
+  otp_verified: boolean;
+  otp_verified_at: string | null;
+  otp_expires_at: string | null;
+}
+

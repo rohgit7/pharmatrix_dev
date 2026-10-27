@@ -1,15 +1,17 @@
 import { ApiClient, ApiError, getDefaultApiBaseUrl } from '../src/services/api';
 import { TokenStorage } from '../src/services/storage';
 
+const getFetchMock = (): jest.Mock => (globalThis as any).fetch;
+
 describe('ApiClient & Endpoint Integrations', () => {
   beforeEach(async () => {
     await TokenStorage.clearTokens();
     await TokenStorage.clearCustomApiBaseUrl();
-    (global as any).fetch = jest.fn();
+    (globalThis as any).fetch = jest.fn();
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
   });
 
   test('resolves default API base URL correctly', () => {
@@ -26,7 +28,7 @@ describe('ApiClient & Endpoint Integrations', () => {
       user_id: 'user-uuid-123',
     };
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    getFetchMock().mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => mockResponse,
@@ -34,7 +36,7 @@ describe('ApiClient & Endpoint Integrations', () => {
 
     const res = await ApiClient.login('driver@pharmatrix.local', 'password123');
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(getFetchMock()).toHaveBeenCalledWith(
       expect.stringContaining('/api/auth/login'),
       expect.objectContaining({
         method: 'POST',
@@ -51,7 +53,7 @@ describe('ApiClient & Endpoint Integrations', () => {
   test('attaches Authorization Bearer header when token is stored', async () => {
     await TokenStorage.setAccessToken('auth-token-xyz');
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    getFetchMock().mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => ({ id: 1, role: 'DRIVER', is_active: true }),
@@ -59,20 +61,20 @@ describe('ApiClient & Endpoint Integrations', () => {
 
     await ApiClient.getMe();
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(getFetchMock()).toHaveBeenCalledWith(
       expect.stringContaining('/api/auth/me'),
       expect.objectContaining({
         headers: expect.any(Headers),
       })
     );
 
-    const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+    const callArgs = getFetchMock().mock.calls[0];
     const headers = callArgs[1].headers as Headers;
     expect(headers.get('Authorization')).toBe('Bearer auth-token-xyz');
   });
 
   test('parses FastAPI error detail string cleanly', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    getFetchMock().mockResolvedValueOnce({
       ok: false,
       status: 400,
       json: async () => ({ detail: 'Route cannot be started from status DRAFT' }),
@@ -84,7 +86,7 @@ describe('ApiClient & Endpoint Integrations', () => {
   });
 
   test('parses FastAPI validation error array cleanly', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    getFetchMock().mockResolvedValueOnce({
       ok: false,
       status: 422,
       json: async () => ({
@@ -102,7 +104,7 @@ describe('ApiClient & Endpoint Integrations', () => {
   test('clears token on 401 Unauthorized', async () => {
     await TokenStorage.setAccessToken('expired-token');
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    getFetchMock().mockResolvedValueOnce({
       ok: false,
       status: 401,
       json: async () => ({ detail: 'Invalid or expired token' }),
@@ -115,7 +117,7 @@ describe('ApiClient & Endpoint Integrations', () => {
   });
 
   test('scanPickupQr dispatches correct payload', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    getFetchMock().mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => ({
@@ -128,7 +130,7 @@ describe('ApiClient & Endpoint Integrations', () => {
 
     const res = await ApiClient.scanPickupQr(10, 501, 'qr-token-test-12345');
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(getFetchMock()).toHaveBeenCalledWith(
       expect.stringContaining('/api/driver/routes/10/stops/501/scan-qr'),
       expect.objectContaining({
         method: 'POST',
@@ -140,7 +142,7 @@ describe('ApiClient & Endpoint Integrations', () => {
   });
 
   test('verifyPickupOtp dispatches correct 6-digit payload', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    getFetchMock().mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => ({
@@ -153,7 +155,7 @@ describe('ApiClient & Endpoint Integrations', () => {
 
     const res = await ApiClient.verifyPickupOtp(10, 501, '123456');
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(getFetchMock()).toHaveBeenCalledWith(
       expect.stringContaining('/api/driver/routes/10/stops/501/verify-otp'),
       expect.objectContaining({
         method: 'POST',
@@ -164,7 +166,7 @@ describe('ApiClient & Endpoint Integrations', () => {
   });
 
   test('completeStop dispatches weight and optional notes', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    getFetchMock().mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => ({
@@ -177,7 +179,7 @@ describe('ApiClient & Endpoint Integrations', () => {
 
     const res = await ApiClient.completeStop(10, 501, 14.5, '2 boxes collected');
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(getFetchMock()).toHaveBeenCalledWith(
       expect.stringContaining('/api/driver/routes/10/stops/501/complete'),
       expect.objectContaining({
         method: 'POST',
@@ -191,7 +193,7 @@ describe('ApiClient & Endpoint Integrations', () => {
   });
 
   test('failStop dispatches reason to log operational exception', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    getFetchMock().mockResolvedValueOnce({
       ok: true,
       status: 200,
       json: async () => ({
@@ -204,7 +206,7 @@ describe('ApiClient & Endpoint Integrations', () => {
 
     const res = await ApiClient.failStop(10, 501, 'Customer unavailable');
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(getFetchMock()).toHaveBeenCalledWith(
       expect.stringContaining('/api/driver/routes/10/stops/501/fail'),
       expect.objectContaining({
         method: 'POST',
@@ -213,5 +215,56 @@ describe('ApiClient & Endpoint Integrations', () => {
     );
     expect(res.status).toBe('FAILED');
     expect(res.reason).toBe('Customer unavailable');
+  });
+
+  test('requestPickupOtp requests OTP from verification endpoint', async () => {
+    getFetchMock().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        pickup_id: '1f818c3d-d8d5-45e7-9079-f99180d9634f',
+        otp: '654321',
+        expires_at: '2026-10-26T12:00:00Z',
+        message: 'OTP generated',
+      }),
+    });
+
+    const res = await ApiClient.requestPickupOtp('1f818c3d-d8d5-45e7-9079-f99180d9634f');
+
+    expect(getFetchMock()).toHaveBeenCalledWith(
+      expect.stringContaining('/api/pickups/1f818c3d-d8d5-45e7-9079-f99180d9634f/verification/request-otp'),
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+    expect(res.otp).toBe('654321');
+  });
+
+  test('getPickupVerification fetches verification status', async () => {
+    getFetchMock().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        pickup_id: '1f818c3d-d8d5-45e7-9079-f99180d9634f',
+        pickup_code: 'PK-001',
+        verification_token: 'token-abc',
+        qr_verified: true,
+        qr_verified_at: '2026-10-26T11:00:00Z',
+        otp_verified: false,
+        otp_verified_at: null,
+        otp_expires_at: '2026-10-26T12:00:00Z',
+      }),
+    });
+
+    const res = await ApiClient.getPickupVerification('1f818c3d-d8d5-45e7-9079-f99180d9634f');
+
+    expect(getFetchMock()).toHaveBeenCalledWith(
+      expect.stringContaining('/api/pickups/1f818c3d-d8d5-45e7-9079-f99180d9634f/verification'),
+      expect.objectContaining({
+        method: 'GET',
+      })
+    );
+    expect(res.pickup_code).toBe('PK-001');
+    expect(res.qr_verified).toBe(true);
   });
 });

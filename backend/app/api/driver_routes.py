@@ -107,6 +107,12 @@ def get_today_route(
                     proof_uploaded=(
                         getattr(stop, "proof_storage_path", None) is not None
                     ),
+                    qr_verified=(
+                        getattr(pickup, "qr_verified_at", None) is not None
+                    ),
+                    otp_verified=(
+                        getattr(pickup, "otp_verified_at", None) is not None
+                    ),
                     execution_status=stop.execution_status,
                     failure_reason=getattr(stop, "failure_reason", None),
                 )
@@ -140,6 +146,8 @@ def get_today_route(
                     departure_time=stop.departure_time,
 
                     proof_uploaded=False,
+                    qr_verified=True,
+                    otp_verified=True,
                     execution_status=stop.execution_status,
                     failure_reason=getattr(stop, "failure_reason", None),
                 )

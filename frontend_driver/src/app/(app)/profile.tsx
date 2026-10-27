@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,14 +12,14 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Radius, Spacing, Typography, Shadows } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
 import { useTodayRoute } from '@/hooks/useDriverRoute';
 import { Card } from '@/components/Card';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { TokenStorage } from '@/services/storage';
-import { getDefaultApiBaseUrl, getEffectiveApiBaseUrl } from '@/services/api';
+import { getDefaultApiBaseUrl, getEffectiveApiBaseUrl, ApiClient } from '@/services/api';
 
 export default function DriverProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -32,7 +32,7 @@ export default function DriverProfileScreen() {
   const [testingHealth, setTestingHealth] = useState(false);
   const [healthStatus, setHealthStatus] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     (async () => {
       const current = await getEffectiveApiBaseUrl();
       setCustomApiUrl(current);
@@ -44,16 +44,15 @@ export default function DriverProfileScreen() {
     setHealthStatus(null);
     try {
       const url = customApiUrl.trim().replace(/\/+$/, '');
-      const res = await fetch(`${url}/health`, { method: 'GET' });
+      const res = await ApiClient.checkHealth(url);
       if (res.ok) {
-        const json = await res.json();
-        setHealthStatus(`Connected: ${json.service || 'Pharmatrix Backend'}`);
+        setHealthStatus('Connected: 200 OK');
         await TokenStorage.setCustomApiBaseUrl(url);
       } else {
-        setHealthStatus(`Server error: status ${res.status}`);
+        setHealthStatus(`Error: ${res.error || 'Server error'}`);
       }
     } catch (err: any) {
-      setHealthStatus(`Connection failed: ${err.message || 'Host unreachable'}`);
+      setHealthStatus(`Failed: ${err.message || 'Host unreachable'}`);
     } finally {
       setTestingHealth(false);
     }
@@ -74,142 +73,185 @@ export default function DriverProfileScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
+      {/* Top Header */}
       <View style={styles.topHeader}>
         <Text style={styles.headerTitle}>DRIVER PROFILE</Text>
-        <Text style={styles.headerSubtitle}>ACCOUNT & SYSTEM STATUS</Text>
+        <Text style={styles.headerSubtitle}>CREDENTIALS & FLEET ASSIGNMENT</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Profile Card */}
+        {/* Profile Identity Card */}
         <Card style={styles.profileCard} accentColor={Colors.primary}>
           <View style={styles.avatarRow}>
             <View style={styles.avatarCircle}>
-              <Ionicons name="person" size={36} color={Colors.charcoal[950]} />
+              <Ionicons name="person" size={32} color={Colors.white} />
             </View>
             <View style={{ flex: 1, marginLeft: Spacing.md }}>
               <Text style={styles.driverName}>{driver?.name || user?.name || 'Driver'}</Text>
               <Text style={styles.driverIdBadge}>
-                EMPLOYEE ID: {driver?.employee_id || 'N/A'}
+                EMPLOYEE ID: {driver?.employee_id || 'EMP-DRV'}
               </Text>
             </View>
             <View style={styles.statusPill}>
+              <View style={styles.statusDot} />
               <Text style={styles.statusPillText}>{driver?.status || 'ACTIVE'}</Text>
             </View>
           </View>
 
           <View style={styles.infoDivider} />
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>EMAIL</Text>
-            <Text style={styles.infoValue}>{driver?.email || user?.email || 'N/A'}</Text>
-          </View>
+          <View style={styles.detailsGrid}>
+            <View style={styles.detailRow}>
+              <Ionicons name="mail-outline" size={16} color={Colors.primary} />
+              <Text style={styles.detailLabel}>Email:</Text>
+              <Text style={styles.detailValue}>{driver?.email || user?.email || 'N/A'}</Text>
+            </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>PHONE</Text>
-            <Text style={styles.infoValue}>{driver?.phone || 'N/A'}</Text>
-          </View>
+            <View style={styles.detailRow}>
+              <Ionicons name="call-outline" size={16} color={Colors.primary} />
+              <Text style={styles.detailLabel}>Phone:</Text>
+              <Text style={styles.detailValue}>{driver?.phone || 'N/A'}</Text>
+            </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>LICENSE NUMBER</Text>
-            <Text style={styles.infoValue}>{driver?.license_number || 'N/A'}</Text>
-          </View>
+            <View style={styles.detailRow}>
+              <Ionicons name="card-outline" size={16} color={Colors.primary} />
+              <Text style={styles.detailLabel}>License:</Text>
+              <Text style={styles.detailValue}>{driver?.license_number || 'N/A'}</Text>
+            </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>LICENSE EXPIRY</Text>
-            <Text style={styles.infoValue}>
-              {driver?.license_expiry ? String(driver.license_expiry) : 'N/A'}
-            </Text>
+            <View style={styles.detailRow}>
+              <Ionicons name="calendar-outline" size={16} color={Colors.primary} />
+              <Text style={styles.detailLabel}>License Expiry:</Text>
+              <Text style={styles.detailValue}>{driver?.license_expiry || 'Active / Verified'}</Text>
+            </View>
           </View>
         </Card>
 
-        {/* Assigned Vehicle Card */}
-        <Card style={styles.vehicleCard}>
-          <View style={styles.cardHeaderRow}>
-            <Ionicons name="car" size={22} color={Colors.primary} />
-            <Text style={styles.cardSectionTitle}>TODAY'S VEHICLE ASSIGNMENT</Text>
+        {/* Assigned Vehicle & Route Card */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="car-outline" size={20} color={Colors.primary} />
+            <Text style={styles.cardTitle}>Assigned Fleet Vehicle</Text>
           </View>
 
-          {route?.vehicle_registration_number ? (
-            <View style={styles.vehicleDetailsBox}>
-              <Text style={styles.regNumberLabel}>REGISTRATION NUMBER</Text>
-              <Text style={styles.regNumberValue}>
-                {route.vehicle_registration_number}
-              </Text>
-              <Text style={styles.vehicleMetaText}>
-                Assigned on Route {route.route_code}
+          <View style={styles.vehicleInfoBox}>
+            <View style={styles.vehicleRow}>
+              <Text style={styles.vehicleLabel}>Registration Number:</Text>
+              <Text style={styles.vehicleVal}>
+                {route?.vehicle_registration_number || 'No Vehicle Assigned'}
               </Text>
             </View>
-          ) : (
-            <View style={styles.noVehicleBox}>
-              <Text style={styles.noVehicleText}>No vehicle assigned to today's run.</Text>
+
+            <View style={styles.vehicleRow}>
+              <Text style={styles.vehicleLabel}>Duty Status:</Text>
+              <Text style={[styles.vehicleVal, { color: driver?.is_available ? '#16A34A' : '#D97706' }]}>
+                {driver?.is_available ? 'Available / Standby' : 'Active On Route'}
+              </Text>
             </View>
-          )}
+
+            <View style={styles.vehicleRow}>
+              <Text style={styles.vehicleLabel}>Active Route:</Text>
+              <Text style={styles.vehicleVal}>{route?.route_code || 'None'}</Text>
+            </View>
+          </View>
         </Card>
 
-        {/* Backend Endpoint Settings */}
-        <Card style={styles.apiCard}>
-          <View style={styles.cardHeaderRow}>
-            <Ionicons name="server-outline" size={20} color={Colors.amber} />
-            <Text style={styles.cardSectionTitle}>API SERVER CONFIGURATION</Text>
+        {/* Connection & Network Diagnostics */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="server-outline" size={20} color={Colors.primary} />
+            <Text style={styles.cardTitle}>Backend Server Configuration</Text>
           </View>
 
-          <Text style={styles.apiDesc}>
-            For field testing on Android via Expo Go, ensure this points to your backend machine's LAN IP.
+          <Text style={styles.serverDesc}>
+            Current API Endpoint: {customApiUrl}
           </Text>
 
-          <TextInput
-            style={styles.apiInput}
-            value={customApiUrl}
-            onChangeText={setCustomApiUrl}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          <View style={styles.serverInputRow}>
+            <TextInput
+              style={styles.serverInput}
+              value={customApiUrl}
+              onChangeText={setCustomApiUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="http://10.0.2.2:8000"
+            />
+          </View>
 
-          {healthStatus ? (
-            <Text style={styles.healthStatusText}>{healthStatus}</Text>
-          ) : null}
-
-          <View style={styles.apiActionRow}>
+          <View style={styles.serverActionsRow}>
             <TouchableOpacity
               style={styles.testBtn}
               onPress={handleTestConnection}
               disabled={testingHealth}
             >
               {testingHealth ? (
-                <ActivityIndicator size="small" color="#000" />
+                <ActivityIndicator size="small" color={Colors.white} />
               ) : (
-                <Text style={styles.testBtnText}>TEST HEALTH</Text>
+                <>
+                  <Ionicons name="pulse" size={14} color={Colors.white} />
+                  <Text style={styles.testBtnText}>Test Health</Text>
+                </>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.resetBtn} onPress={handleResetUrl}>
-              <Text style={styles.resetBtnText}>RESET DEFAULT</Text>
+              <Text style={styles.resetBtnText}>Reset to Default</Text>
             </TouchableOpacity>
           </View>
+
+          {healthStatus ? (
+            <View
+              style={[
+                styles.healthBanner,
+                {
+                  backgroundColor: healthStatus.includes('Connected')
+                    ? '#DCFCE7'
+                    : '#FEE2E2',
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.healthBannerText,
+                  {
+                    color: healthStatus.includes('Connected')
+                      ? '#15803D'
+                      : '#B91C1C',
+                  },
+                ]}
+              >
+                {healthStatus}
+              </Text>
+            </View>
+          ) : null}
         </Card>
 
         {/* Sign Out Button */}
         <PrimaryButton
-          title="SIGN OUT"
+          title="LOGOUT FROM OPERATIONS"
           variant="danger"
-          icon={<Ionicons name="log-out-outline" size={20} color="#FFF" />}
           onPress={() => setShowLogoutConfirm(true)}
-          style={{ marginTop: Spacing.xl }}
+          icon={<Ionicons name="log-out-outline" size={18} color={Colors.white} />}
+          style={{ marginTop: Spacing.sm }}
         />
 
-        <View style={styles.appVersionSection}>
-          <Text style={styles.versionText}>Pharmatrix Driver App v1.0.0</Text>
-          <Text style={styles.securityNote}>End-to-End Encrypted Operational Session</Text>
+        {/* Compliance Footer */}
+        <View style={styles.footer}>
+          <Ionicons name="shield-checkmark" size={14} color={Colors.textMuted} />
+          <Text style={styles.footerText}>
+            Pharmatrix Fleet Operations &copy; 2026. CDSCO Compliant Waste Custody Protocol.
+          </Text>
         </View>
       </ScrollView>
 
-      {/* Confirmation Modal */}
+      {/* Logout Confirmation */}
       <ConfirmationModal
         visible={showLogoutConfirm}
-        title="Sign Out?"
-        message="Are you sure you want to log out of your driver session? Any cached authentication tokens will be securely cleared."
-        confirmText="Sign Out"
         variant="danger"
+        title="Sign Out of Operations"
+        message="Are you sure you want to end your driver session? Any cached authentication tokens will be securely wiped."
+        confirmText="SIGN OUT"
+        cancelText="CANCEL"
         onConfirm={handleSignOut}
         onCancel={() => setShowLogoutConfirm(false)}
       />
@@ -220,25 +262,26 @@ export default function DriverProfileScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.navyDark,
+    backgroundColor: Colors.background,
   },
   topHeader: {
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.navy,
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.cardBorder,
+    ...Shadows.subtle,
   },
   headerTitle: {
     fontSize: Typography.sizes.lg,
     fontWeight: Typography.weights.black,
-    color: Colors.white,
+    color: Colors.textPrimary,
     letterSpacing: 1,
   },
   headerSubtitle: {
-    fontSize: 10,
-    color: Colors.amber,
+    fontSize: 11,
     fontWeight: Typography.weights.bold,
+    color: Colors.primary,
     letterSpacing: 1,
     marginTop: 2,
   },
@@ -247,180 +290,188 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxl * 2,
   },
   profileCard: {
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   avatarRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   avatarCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    ...Shadows.button,
   },
   driverName: {
     fontSize: Typography.sizes.md,
-    fontWeight: Typography.weights.black,
-    color: Colors.white,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
   },
   driverIdBadge: {
-    fontSize: 10,
-    fontWeight: Typography.weights.bold,
-    color: Colors.primary,
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontWeight: Typography.weights.semibold,
     marginTop: 2,
   },
   statusPill: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#DCFCE7',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
     borderRadius: Radius.full,
     borderWidth: 1,
-    borderColor: Colors.forest[500],
+    borderColor: '#86EFAC',
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#16A34A',
   },
   statusPillText: {
-    color: Colors.forest[400],
     fontSize: 10,
     fontWeight: Typography.weights.bold,
+    color: '#15803D',
   },
   infoDivider: {
     height: 1,
-    backgroundColor: Colors.cardBorder,
+    backgroundColor: Colors.cardBorderSubtle,
     marginVertical: Spacing.md,
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
+  detailsGrid: {
+    gap: Spacing.sm,
   },
-  infoLabel: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    fontWeight: Typography.weights.bold,
-  },
-  infoValue: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.white,
-    fontWeight: Typography.weights.semibold,
-  },
-  vehicleCard: {
-    marginBottom: Spacing.lg,
-  },
-  cardHeaderRow: {
+  detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: 8,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textSecondary,
+    width: 95,
+  },
+  detailValue: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
+  },
+  sectionCard: {
+    marginBottom: Spacing.md,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginBottom: Spacing.sm,
   },
-  cardSectionTitle: {
-    fontSize: 11,
+  cardTitle: {
+    fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.bold,
-    color: Colors.white,
-    letterSpacing: 1,
+    color: Colors.textPrimary,
   },
-  vehicleDetailsBox: {
-    backgroundColor: Colors.background,
+  vehicleInfoBox: {
+    backgroundColor: Colors.infoSurface,
     borderRadius: Radius.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
+    borderColor: '#BFDBFE',
+    gap: Spacing.xs,
   },
-  regNumberLabel: {
-    fontSize: 9,
-    color: Colors.primary,
-    fontWeight: Typography.weights.bold,
-  },
-  regNumberValue: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.black,
-    color: Colors.white,
-    marginTop: 2,
-  },
-  vehicleMetaText: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    marginTop: 4,
-  },
-  noVehicleBox: {
-    padding: Spacing.md,
+  vehicleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  noVehicleText: {
-    color: Colors.textMuted,
-    fontSize: Typography.sizes.xs,
+  vehicleLabel: {
+    fontSize: 12,
+    fontWeight: Typography.weights.semibold,
+    color: Colors.textSecondary,
   },
-  apiCard: {
-    marginBottom: Spacing.lg,
+  vehicleVal: {
+    fontSize: 12,
+    fontWeight: Typography.weights.bold,
+    color: Colors.textPrimary,
   },
-  apiDesc: {
+  serverDesc: {
     fontSize: 11,
     color: Colors.textSecondary,
-    lineHeight: 16,
     marginBottom: Spacing.sm,
   },
-  apiInput: {
-    backgroundColor: Colors.background,
-    borderRadius: Radius.sm,
+  serverInputRow: {
+    marginBottom: Spacing.sm,
+  },
+  serverInput: {
+    height: 42,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    color: Colors.white,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.background,
     fontSize: Typography.sizes.sm,
+    color: Colors.textPrimary,
   },
-  healthStatusText: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.primary,
-    marginTop: Spacing.xs,
-    fontWeight: Typography.weights.semibold,
-  },
-  apiActionRow: {
+  serverActionsRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
-    marginTop: Spacing.sm,
   },
   testBtn: {
-    flex: 1,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.sm,
-    height: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  testBtnText: {
-    color: Colors.charcoal[950],
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
-  },
-  resetBtn: {
-    flex: 1,
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: Radius.sm,
-    height: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.cardBorder,
-  },
-  resetBtnText: {
-    color: Colors.white,
-    fontSize: Typography.sizes.xs,
-    fontWeight: Typography.weights.bold,
-  },
-  appVersionSection: {
-    marginTop: Spacing.xl,
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: Colors.primary,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: Radius.sm,
   },
-  versionText: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.textMuted,
+  testBtnText: {
+    fontSize: 11,
+    fontWeight: Typography.weights.bold,
+    color: Colors.white,
+  },
+  resetBtn: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: Radius.sm,
+    backgroundColor: '#F3ECE3',
+  },
+  resetBtnText: {
+    fontSize: 11,
     fontWeight: Typography.weights.semibold,
+    color: Colors.textPrimary,
   },
-  securityNote: {
-    fontSize: 10,
-    color: Colors.charcoal[500],
+  healthBanner: {
+    marginTop: Spacing.sm,
+    padding: Spacing.xs,
+    borderRadius: Radius.sm,
+  },
+  healthBannerText: {
+    fontSize: 11,
+    fontWeight: Typography.weights.bold,
+    textAlign: 'center',
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+  },
+  footerText: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 16,
+    flex: 1,
   },
 });

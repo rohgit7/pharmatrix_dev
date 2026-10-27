@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import secrets
 import hashlib
 from fastapi import HTTPException
@@ -92,10 +92,19 @@ def verify_qr(
             detail="Pickup stop has no pickup",
         )
 
-    if not secrets.compare_digest(
+    matches_token = secrets.compare_digest(
         pickup.verification_token,
         qr_token,
-    ):
+    )
+    matches_code = bool(
+        pickup.pickup_code
+        and secrets.compare_digest(
+            pickup.pickup_code,
+            qr_token,
+        )
+    )
+
+    if not (matches_token or matches_code):
         raise HTTPException(
             status_code=403,
             detail="Invalid pickup QR code",
@@ -108,10 +117,17 @@ def verify_qr(
     stop.execution_status = RouteStopStatus.ARRIVED
     stop.arrived_at = now
 
+    # Auto-initialize fresh OTP for customer-driver handshake
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    pickup.otp_hash = hashlib.sha256(otp.encode("utf-8")).hexdigest()
+    pickup.otp_expires_at = now + timedelta(minutes=30)
+    pickup.otp_last_requested_at = now
+    pickup.otp_attempts = 0
+
     db.commit()
     db.refresh(stop)
 
-    return stop
+    return stop, otp
 
 def verify_otp(
     db: Session,

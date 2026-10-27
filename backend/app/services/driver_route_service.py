@@ -45,7 +45,7 @@ def get_driver_route_for_date(
 
     end = start + timedelta(days=1)
 
-    return (
+    route = (
         db.query(Route)
         .options(
             selectinload(Route.stops)
@@ -64,11 +64,43 @@ def get_driver_route_for_date(
             Route.route_date < end,
             Route.status.in_(
                 [
+                    RouteStatus.READY,
                     RouteStatus.ASSIGNED,
                     RouteStatus.IN_PROGRESS,
                 ]
             ),
         )
         .order_by(Route.route_date.asc())
+        .first()
+    )
+
+    if route:
+        return route
+
+    # Fallback: Check if driver has an active uncompleted route from recent days
+    return (
+        db.query(Route)
+        .options(
+            selectinload(Route.stops)
+            .selectinload(RouteStop.pickup)
+            .selectinload(Pickup.location),
+
+            selectinload(Route.stops)
+            .selectinload(RouteStop.warehouse),
+
+            selectinload(Route.vehicle),
+            selectinload(Route.warehouse),
+        )
+        .filter(
+            Route.driver_id == driver.id,
+            Route.status.in_(
+                [
+                    RouteStatus.READY,
+                    RouteStatus.ASSIGNED,
+                    RouteStatus.IN_PROGRESS,
+                ]
+            ),
+        )
+        .order_by(Route.route_date.desc())
         .first()
     )
