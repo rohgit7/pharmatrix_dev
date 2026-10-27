@@ -38,6 +38,7 @@ class DriverRouteStopResponse(BaseModel):
     otp_verified: bool = False
     execution_status: RouteStopStatus
     failure_reason: str | None = None
+    notes: str | None = None
 
 
 class DriverRouteResponse(BaseModel):
@@ -48,6 +49,8 @@ class DriverRouteResponse(BaseModel):
    
     vehicle_id: int | None = None
     vehicle_registration_number: str | None = None
+    vehicle_capacity_kg: float | None = None
+    vehicle_type: str | None = None
 
     warehouse_id: int
     warehouse_name: str

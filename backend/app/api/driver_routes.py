@@ -115,6 +115,7 @@ def get_today_route(
                     ),
                     execution_status=stop.execution_status,
                     failure_reason=getattr(stop, "failure_reason", None),
+                    notes=getattr(pickup, "notes", None) or getattr(location, "address_line_2", None),
                 )
             )
 
@@ -150,6 +151,7 @@ def get_today_route(
                     otp_verified=True,
                     execution_status=stop.execution_status,
                     failure_reason=getattr(stop, "failure_reason", None),
+                    notes="Final terminal offload & custody handover",
                 )
         )
 
@@ -163,6 +165,16 @@ def get_today_route(
         vehicle_registration_number=(
             route.vehicle.registration_number
             if route.vehicle
+            else None
+        ),
+        vehicle_capacity_kg=(
+            float(route.vehicle.capacity_kg)
+            if route.vehicle and route.vehicle.capacity_kg is not None
+            else None
+        ),
+        vehicle_type=(
+            route.vehicle.vehicle_type.value
+            if route.vehicle and route.vehicle.vehicle_type
             else None
         ),
 

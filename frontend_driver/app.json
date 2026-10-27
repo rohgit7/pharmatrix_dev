@@ -1,69 +1,32 @@
 {
   "expo": {
     "name": "Pharmatrix Driver",
-    "slug": "pharmatrix-driver",
+    "slug": "frontend-driver",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "pharmatrix-driver",
     "userInterfaceStyle": "light",
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.pharmatrix.driver"
-    },
-    "android": {
-      "package": "com.pharmatrix.driver",
-      "usesCleartextTraffic": true,
-      "adaptiveIcon": {
-        "backgroundColor": "#FDFBF8",
-        "foregroundImage": "./assets/images/android-icon-foreground.png"
-      },
-      "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION"
-      ]
-    },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
+    "scheme": "pharmatrix-driver",
     "plugins": [
       "expo-router",
       [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#FDFBF8",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 120
-        }
-      ],
-      "expo-secure-store",
-      [
         "expo-camera",
         {
-          "cameraPermission": "Pharmatrix requires camera access to scan customer pickup QR codes."
+          "cameraPermission": "Allow Pharmatrix Driver to access your camera to scan pickup consignment QR codes."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Pharmatrix requires location access for route navigation and stop verification."
+          "locationWhenInUsePermission": "Allow Pharmatrix Driver to access your location for route telemetry and arrival verification."
         }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Pharmatrix requires photo access to attach proof of waste collection."
-        }
-      ],
-      "expo-sharing",
-      "expo-image",
-      "expo-status-bar"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
     }
   }
 }

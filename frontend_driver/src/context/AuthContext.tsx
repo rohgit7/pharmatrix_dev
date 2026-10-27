@@ -1,147 +1,156 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { ApiClient, ApiError } from '@/services/api';
-import { TokenStorage } from '@/services/storage';
-import { DriverMeResponse, UserMeResponse } from '@/types/api';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import api from '../services/api';
+import storage from '../services/storage';
+import { AuthUser, DriverProfile } from '../types/api';
 
 interface AuthContextType {
-  user: UserMeResponse | null;
-  driver: DriverMeResponse | null;
+  user: AuthUser | null;
+  driverProfile: DriverProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  isProfileDrawerOpen: boolean;
+  openProfileDrawer: () => void;
+  closeProfileDrawer: () => void;
+  login: (email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  driver: null,
-  isLoading: true,
-  isAuthenticated: false,
-  login: async () => {},
-  logout: async () => {},
-  refreshProfile: async () => {},
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<UserMeResponse | null>(null);
-  const [driver, setDriver] = useState<DriverMeResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState<boolean>(false);
 
-  const refreshProfile = async () => {
+  const loadSession = useCallback(async () => {
     try {
-      const token = await TokenStorage.getAccessToken();
+      const token = await storage.getItem('access_token');
       if (!token) {
-        setUser(null);
-        setDriver(null);
+        setIsLoading(false);
         return;
       }
 
-      const userMe = await ApiClient.getMe();
-      if (userMe.role !== 'DRIVER') {
-        throw new Error('Access denied: You must be a DRIVER to use this app.');
-      }
-      if (!userMe.is_active) {
-        throw new Error('Your driver account has been deactivated. Contact dispatch.');
-      }
-
-      const driverMe = await ApiClient.getDriverMe();
-      setUser(userMe);
-      setDriver(driverMe);
-    } catch (err) {
-      await TokenStorage.clearTokens();
-      setUser(null);
-      setDriver(null);
-      throw err;
-    }
-  };
-
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
+      // 1. Immediately restore cached user & driver profile if available
       try {
-        const token = await TokenStorage.getAccessToken();
-        if (token) {
-          const userMe = await ApiClient.getMe();
-          if (userMe.role === 'DRIVER' && userMe.is_active) {
-            const driverMe = await ApiClient.getDriverMe();
-            if (isMounted) {
-              setUser(userMe);
-              setDriver(driverMe);
-            }
-          } else {
-            await TokenStorage.clearTokens();
-          }
+        const cachedUserStr = await storage.getItem('user_profile');
+        const cachedDriverStr = await storage.getItem('driver_profile');
+        if (cachedUserStr) {
+          setUser(JSON.parse(cachedUserStr));
         }
-      } catch (err) {
-        await TokenStorage.clearTokens();
-        if (isMounted) {
-          setUser(null);
-          setDriver(null);
+        if (cachedDriverStr) {
+          setDriverProfile(JSON.parse(cachedDriverStr));
         }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+      } catch {
+        // Ignore cache parsing errors
       }
-    })();
 
-    return () => {
-      isMounted = false;
-    };
+      // 2. Validate and refresh user session with backend
+      try {
+        const me = await api.getMe();
+        setUser(me);
+        await storage.setItem('user_profile', JSON.stringify(me));
+
+        try {
+          const driver = await api.getDriverProfile();
+          setDriverProfile(driver);
+          await storage.setItem('driver_profile', JSON.stringify(driver));
+        } catch {
+          // Keep existing or synthesize from user
+          setDriverProfile((prev) => prev || {
+            id: me.id,
+            user_id: me.id,
+            employee_id: `DRV-${me.id.toString().padStart(4, '0')}`,
+            name: me.name || me.email.split('@')[0],
+            email: me.email,
+            phone: '',
+            license_number: '',
+            status: 'ACTIVE',
+            is_available: true,
+          });
+        }
+      } catch (err: any) {
+        // ONLY log out if explicitly rejected with 401
+        if (err?.status === 401) {
+          await storage.clear();
+          setUser(null);
+          setDriverProfile(null);
+        }
+        // If network error / timeout, retain current session so driver isn't kicked off
+      }
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  useEffect(() => {
+    loadSession();
+  }, [loadSession]);
+
+  const login = async (email: string, pass: string) => {
     setIsLoading(true);
     try {
-      const authRes = await ApiClient.login(email.trim(), password);
-      await TokenStorage.setAccessToken(authRes.access_token);
-      if (authRes.refresh_token) {
-        await TokenStorage.setRefreshToken(authRes.refresh_token);
-      }
+      await api.login(email, pass);
+      const me = await api.getMe();
+      setUser(me);
+      await storage.setItem('user_profile', JSON.stringify(me));
 
-      const userMe = await ApiClient.getMe();
-      if (userMe.role !== 'DRIVER') {
-        await TokenStorage.clearTokens();
-        throw new Error('Insufficient permissions: This app is restricted to authorized Pharmatrix drivers.');
+      try {
+        const driver = await api.getDriverProfile();
+        setDriverProfile(driver);
+        await storage.setItem('driver_profile', JSON.stringify(driver));
+      } catch {
+        const fallbackDriver: DriverProfile = {
+          id: me.id,
+          user_id: me.id,
+          employee_id: `DRV-${me.id.toString().padStart(4, '0')}`,
+          name: me.name || me.email.split('@')[0],
+          email: me.email,
+          phone: '',
+          license_number: '',
+          status: 'ACTIVE',
+          is_available: true,
+        };
+        setDriverProfile(fallbackDriver);
+        await storage.setItem('driver_profile', JSON.stringify(fallbackDriver));
       }
-
-      if (!userMe.is_active) {
-        await TokenStorage.clearTokens();
-        throw new Error('Your driver account is inactive. Please contact dispatch or administrator.');
-      }
-
-      const driverMe = await ApiClient.getDriverMe();
-      setUser(userMe);
-      setDriver(driverMe);
-    } catch (err) {
-      await TokenStorage.clearTokens();
-      setUser(null);
-      setDriver(null);
-      throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
   const logout = async () => {
-    setIsLoading(true);
+    await storage.clear();
+    setUser(null);
+    setDriverProfile(null);
+    setIsProfileDrawerOpen(false);
+  };
+
+  const refreshProfile = async () => {
+    if (!user) return;
     try {
-      await TokenStorage.clearTokens();
-      setUser(null);
-      setDriver(null);
-    } finally {
-      setIsLoading(false);
+      const driver = await api.getDriverProfile();
+      setDriverProfile((prev) => ({ ...prev, ...driver }));
+      await storage.setItem('driver_profile', JSON.stringify(driver));
+    } catch {
+      // Ignore
     }
   };
+
+  const openProfileDrawer = () => setIsProfileDrawerOpen(true);
+  const closeProfileDrawer = () => setIsProfileDrawerOpen(false);
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        driver,
+        driverProfile,
         isLoading,
-        isAuthenticated: !!user && !!driver,
+        isAuthenticated: !!user,
+        isProfileDrawerOpen,
+        openProfileDrawer,
+        closeProfileDrawer,
         login,
         logout,
         refreshProfile,
@@ -150,12 +159,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+};
+
+export default AuthContext;
