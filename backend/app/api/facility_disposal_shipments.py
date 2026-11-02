@@ -86,8 +86,7 @@ def receive_shipment(
     shipment = db.scalar(
         select(DisposalShipment)
         .where(
-            DisposalShipment.id == shipment_id,
-            DisposalShipment.facility_id == facility.id,
+            DisposalShipment.public_id == shipment_id,
         )
     )
 
@@ -97,9 +96,33 @@ def receive_shipment(
             detail="Disposal shipment not found",
         )
 
+    if shipment.facility_id != facility.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Access forbidden: Shipment belongs to another facility",
+        )
+
+    # Enforce shipment lifecycle state
+    if shipment.status != DisposalShipmentStatus.IN_TRANSIT:
+        if shipment.status in (DisposalShipmentStatus.RECEIVED, DisposalShipmentStatus.DISCREPANCY):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Duplicate receipt: Shipment {shipment.shipment_code} has already been received (status: {shipment.status.value})",
+            )
+        elif shipment.status == DisposalShipmentStatus.CREATED:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Shipment {shipment.shipment_code} is not in transit (current status: CREATED). It must be dispatched by the warehouse/admin before it can be received.",
+            )
+        else:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Shipment is not in transit: Current status is {shipment.status.value}",
+            )
+
     shipment = receive_disposal_shipment(
         db=db,
-        shipment_id=shipment_id,
+        shipment_id=shipment.id,
         received_items=[
             {
                 "shipment_item_id": item.shipment_item_id,

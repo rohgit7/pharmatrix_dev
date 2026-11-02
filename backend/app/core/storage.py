@@ -46,13 +46,39 @@ supabase_storage: Client = create_client(
 def create_disposal_certificate_signed_url(
     storage_path: str,
     expires_in: int = 3600,
-):
-    return supabase_admin.storage.from_(
-        settings.SUPABASE_DISPOSAL_CERTIFICATE_BUCKET
-    ).create_signed_url(
-        storage_path,
-        expires_in,
+) -> str:
+    supabase = get_supabase_admin()
+
+    response = (
+        supabase.storage
+        .from_(settings.SUPABASE_DISPOSAL_CERTIFICATE_BUCKET)
+        .create_signed_url(
+            storage_path,
+            expires_in,
+        )
     )
+
+    if not response:
+        raise RuntimeError(
+            "Unable to create disposal certificate signed URL"
+        )
+
+    if isinstance(response, dict):
+        signed_url = (
+            response.get("signedURL")
+            or response.get("signedUrl")
+        )
+
+        if signed_url:
+            return signed_url
+
+    if hasattr(response, "signed_url"):
+        return response.signed_url
+
+    raise RuntimeError(
+        "Supabase did not return a signed URL"
+    )
+
 
 
 def create_customer_document_signed_url(

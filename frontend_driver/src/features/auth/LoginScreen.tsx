@@ -383,9 +383,6 @@ export const LoginScreen: React.FC = () => {
                 activeOpacity={0.75}
               >
                 <Ionicons name="key-outline" size={14} color="#3B52B6" />
-                <Text style={styles.quickFillText}>
-                  Auto-fill Driver #1 (driver1@gmail.com / driver123)
-                </Text>
               </TouchableOpacity>
 
               {/* Security Footnote */}

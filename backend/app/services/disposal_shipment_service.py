@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 import secrets
+from uuid import UUID
 from app.services.operational_exception_service import (
     create_operational_exception,
 )
@@ -44,12 +45,23 @@ def generate_shipment_code() -> str:
 
 def dispatch_disposal_shipment(
     db: Session,
-    shipment_id: int,
+    shipment_id: int | UUID,
 ) -> DisposalShipment:
+
+    if isinstance(shipment_id, UUID):
+        filter_clause = DisposalShipment.public_id == shipment_id
+    elif isinstance(shipment_id, int):
+        filter_clause = DisposalShipment.id == shipment_id
+    else:
+        try:
+            val_uuid = UUID(str(shipment_id))
+            filter_clause = DisposalShipment.public_id == val_uuid
+        except (ValueError, AttributeError):
+            filter_clause = DisposalShipment.id == int(shipment_id)
 
     shipment = db.scalar(
         select(DisposalShipment)
-        .where(DisposalShipment.public_id == shipment_id)
+        .where(filter_clause)
         .with_for_update()
     )
 
@@ -86,15 +98,26 @@ def dispatch_disposal_shipment(
 
 def receive_disposal_shipment(
     db: Session,
-    shipment_id: int,
+    shipment_id: int | UUID,
     received_items: list[dict],
     notes: str | None = None,
 ) -> DisposalShipment:
 
+    if isinstance(shipment_id, UUID):
+        filter_clause = DisposalShipment.public_id == shipment_id
+    elif isinstance(shipment_id, int):
+        filter_clause = DisposalShipment.id == shipment_id
+    else:
+        try:
+            val_uuid = UUID(str(shipment_id))
+            filter_clause = DisposalShipment.public_id == val_uuid
+        except (ValueError, AttributeError):
+            filter_clause = DisposalShipment.id == int(shipment_id)
+
     shipment = db.scalar(
         select(DisposalShipment)
         .options(selectinload(DisposalShipment.items))
-        .where(DisposalShipment.id == shipment_id)
+        .where(filter_clause)
         .with_for_update()
     )
 

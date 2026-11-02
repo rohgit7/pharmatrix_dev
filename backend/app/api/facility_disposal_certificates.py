@@ -118,7 +118,6 @@ async def upload_certificate(
         select(DisposalShipment)
         .where(
             DisposalShipment.public_id == shipment_id,
-            DisposalShipment.facility_id == facility.id,
         )
     )
 
@@ -126,6 +125,12 @@ async def upload_certificate(
         raise HTTPException(
             status_code=404,
             detail="Disposal shipment not found",
+        )
+
+    if shipment.facility_id != facility.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Access forbidden: Shipment belongs to another facility",
         )
 
     certificate = await upload_disposal_certificate(

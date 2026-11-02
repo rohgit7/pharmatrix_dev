@@ -53,7 +53,7 @@ def get_disposal_shipment(
     shipment = (
         db.query(DisposalShipment)
         .options(joinedload(DisposalShipment.items))
-        .filter(DisposalShipment.id == shipment_id)
+        .filter(DisposalShipment.public_id == shipment_id)
         .first()
     )
     if not shipment:
@@ -106,7 +106,7 @@ def update_shipment(
     shipment = (
         db.query(DisposalShipment)
         .options(joinedload(DisposalShipment.items))
-        .filter(DisposalShipment.id == shipment_id)
+        .filter(DisposalShipment.public_id == shipment_id)
         .first()
     )
     if not shipment:
@@ -153,7 +153,7 @@ def delete_shipment(
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.ADMIN)),
 ):
-    shipment = db.query(DisposalShipment).filter(DisposalShipment.id == shipment_id).first()
+    shipment = db.query(DisposalShipment).filter(DisposalShipment.public_id == shipment_id).first()
     if not shipment:
         raise HTTPException(
             status_code=404,
