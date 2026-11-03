@@ -22,7 +22,12 @@ export interface RouteContextType {
   error: string | null;
   refreshRoute: () => Promise<void>;
   startRoute: () => Promise<void>;
-  arriveAtStop: (stopId: number) => Promise<void>;
+  arriveAtStop: (
+    stopId: number,
+    latitude?: number,
+    longitude?: number,
+    accuracyMeters?: number
+  ) => Promise<void>;
   scanQR: (stopId: number, qrToken: string) => Promise<any>;
   verifyOTP: (stopId: number, otp: string) => Promise<any>;
   completeStop: (
@@ -140,11 +145,16 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const arriveAtStop = async (stopId: number) => {
+  const arriveAtStop = async (
+    stopId: number,
+    latitude?: number,
+    longitude?: number,
+    accuracyMeters?: number
+  ) => {
     if (!route) return;
     setActionLoading(true);
     try {
-      await api.arriveAtStop(route.id, stopId);
+      await api.arriveAtStop(route.id, stopId, latitude, longitude, accuracyMeters);
       await fetchRoute();
     } finally {
       setActionLoading(false);

@@ -36,6 +36,7 @@ ALLOWED_CONTENT_TYPES = {
 def generate_certificate_code() -> str:
     return f"DC-{secrets.token_hex(4).upper()}"
 
+
 def delete_certificate_file(
     storage_path: str,
 ) -> None:
@@ -51,6 +52,8 @@ def delete_certificate_file(
             f"Failed to delete orphaned storage file "
             f"{storage_path}: {exc}"
         )
+
+
 async def upload_disposal_certificate(
     db: Session,
     shipment_id: int,
@@ -95,6 +98,8 @@ async def upload_disposal_certificate(
         )
 
     content_type = file.content_type
+    if content_type == "image/jpg":
+        content_type = "image/jpeg"
 
     if content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
@@ -151,16 +156,28 @@ async def upload_disposal_certificate(
     )
 
     try:
-        supabase_admin.storage.from_(
-            settings.SUPABASE_DISPOSAL_CERTIFICATE_BUCKET
-        ).upload(
-            storage_path,
-            contents,
-            {
-                "content-type": content_type,
-                "upsert": False,
-            },
-        )
+        try:
+            supabase_admin.storage.from_(
+                settings.SUPABASE_DISPOSAL_CERTIFICATE_BUCKET
+            ).upload(
+                storage_path,
+                contents,
+                {
+                    "content-type": content_type,
+                    "upsert": False,
+                },
+            )
+        except TypeError:
+            supabase_admin.storage.from_(
+                settings.SUPABASE_DISPOSAL_CERTIFICATE_BUCKET
+            ).upload(
+                storage_path,
+                contents,
+                {
+                    "content-type": content_type,
+                    "upsert": "false",
+                },
+            )
     except Exception as exc:
         raise HTTPException(
             status_code=500,

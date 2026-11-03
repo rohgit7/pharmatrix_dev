@@ -259,7 +259,7 @@ export const DisposalShipments: React.FC = () => {
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           {row.status === 'CREATED' && (
             <button
-              onClick={() => dispatchMutation.mutate(row.id.toString())}
+              onClick={() => dispatchMutation.mutate(row.public_id || row.id.toString())}
               disabled={dispatchMutation.isPending}
               className="px-2.5 py-1 text-[11px] font-bold rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs inline-flex items-center gap-1"
             >

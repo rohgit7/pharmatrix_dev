@@ -23,6 +23,27 @@ router = APIRouter(
 )
 
 
+def _find_disposal_shipment(db: Session, shipment_id: str) -> DisposalShipment | None:
+    query = db.query(DisposalShipment).options(joinedload(DisposalShipment.items))
+    try:
+        val_uuid = UUID(str(shipment_id))
+        shipment = query.filter(DisposalShipment.public_id == val_uuid).first()
+        if shipment:
+            return shipment
+    except (ValueError, AttributeError):
+        pass
+
+    try:
+        val_int = int(shipment_id)
+        shipment = query.filter(DisposalShipment.id == val_int).first()
+        if shipment:
+            return shipment
+    except (ValueError, TypeError):
+        pass
+
+    return query.filter(DisposalShipment.shipment_code == str(shipment_id)).first()
+
+
 @router.get(
     "",
     response_model=list[DisposalShipmentResponse],
@@ -46,16 +67,11 @@ def list_disposal_shipments(
     response_model=DisposalShipmentResponse,
 )
 def get_disposal_shipment(
-    shipment_id: UUID,
+    shipment_id: str,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.ADMIN)),
 ):
-    shipment = (
-        db.query(DisposalShipment)
-        .options(joinedload(DisposalShipment.items))
-        .filter(DisposalShipment.public_id == shipment_id)
-        .first()
-    )
+    shipment = _find_disposal_shipment(db, shipment_id)
     if not shipment:
         raise HTTPException(
             status_code=404,
@@ -98,17 +114,12 @@ def create_shipment(
     response_model=DisposalShipmentResponse,
 )
 def update_shipment(
-    shipment_id: UUID,
+    shipment_id: str,
     payload: DisposalShipmentUpdate,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.ADMIN)),
 ):
-    shipment = (
-        db.query(DisposalShipment)
-        .options(joinedload(DisposalShipment.items))
-        .filter(DisposalShipment.public_id == shipment_id)
-        .first()
-    )
+    shipment = _find_disposal_shipment(db, shipment_id)
     if not shipment:
         raise HTTPException(
             status_code=404,
@@ -129,7 +140,7 @@ def update_shipment(
     response_model=DisposalShipmentResponse,
 )
 def dispatch_shipment(
-    shipment_id: UUID,
+    shipment_id: str,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.ADMIN)),
 ):
@@ -149,11 +160,11 @@ def dispatch_shipment(
     status_code=status.HTTP_200_OK,
 )
 def delete_shipment(
-    shipment_id: UUID,
+    shipment_id: str,
     db: Session = Depends(get_db),
     current_user=Depends(require_role(UserRole.ADMIN)),
 ):
-    shipment = db.query(DisposalShipment).filter(DisposalShipment.public_id == shipment_id).first()
+    shipment = _find_disposal_shipment(db, shipment_id)
     if not shipment:
         raise HTTPException(
             status_code=404,
@@ -162,4 +173,4 @@ def delete_shipment(
 
     db.delete(shipment)
     db.commit()
-    return {"message": "Disposal shipment removed successfully"}
+    return {"message": "Disposal shipment removed successfully"}

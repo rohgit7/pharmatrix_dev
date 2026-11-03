@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radii, spacing, typography } from '../../theme';
 import { RouteStop } from '../../types/api';
+import { createPickupQrPayload, generateQrMatrix } from '../../utils/qr';
 
 interface QRTagCardProps {
   stop: RouteStop | null;
@@ -12,7 +13,9 @@ interface QRTagCardProps {
   tamperSealAffixed: boolean;
   onToggleTamperSeal: () => void;
   onScanPress: () => void;
+  onQuickVerify?: () => void;
   onPrintPress: () => void;
+  onProceedToOTP?: () => void;
 }
 
 export const QRTagCard: React.FC<QRTagCardProps> = ({
@@ -22,98 +25,108 @@ export const QRTagCard: React.FC<QRTagCardProps> = ({
   tamperSealAffixed,
   onToggleTamperSeal,
   onScanPress,
+  onQuickVerify,
   onPrintPress,
+  onProceedToOTP,
 }) => {
   const code = stop?.pickup_code ? `#${stop.pickup_code}` : 'Consignment';
 
+  // Compute actual dynamic QR matrix based on real pickup metadata
+  const { matrix, size } = useMemo(() => {
+    if (!stop) return { matrix: [], size: 0 };
+    const payload = createPickupQrPayload(stop);
+    return generateQrMatrix(payload);
+  }, [stop?.id, stop?.pickup_code, stop?.pickup_id]);
+
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, qrVerified && styles.cardVerified]}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-          <View style={styles.pulseDot} />
-          <Text style={styles.title}>STAGE B • QR TAG & CONTAINER SEAL</Text>
+        <View style={styles.headerLeft}>
+          <View style={[styles.qrIconBox, qrVerified && styles.qrIconBoxVerified]}>
+            <Ionicons
+              name={qrVerified ? 'checkmark-circle' : 'qr-code-outline'}
+              size={18}
+              color={qrVerified ? '#FFFFFF' : '#3B52B6'}
+            />
+          </View>
+          <View>
+            <Text style={styles.stepTitle}>STEP 3: QR TAG & TAMPER SEAL</Text>
+            <Text style={styles.subTitle}>Chain-of-custody scannable manifest</Text>
+          </View>
         </View>
 
         <TouchableOpacity style={styles.printBtn} onPress={onPrintPress} activeOpacity={0.7}>
-          <Ionicons name="print-outline" size={13} color={colors.onPrimaryContainer} />
-          <Text style={styles.printText}>Print (Zebra BT Ready)</Text>
+          <Ionicons name="print-outline" size={13} color="#3B52B6" />
+          <Text style={styles.printText}>Print Slip</Text>
         </TouchableOpacity>
       </View>
 
       {/* QR Code and Tag Sync Info */}
       <View style={styles.syncBox}>
-        {/* Vector Stylized QR Code matching Stitch SVG */}
+        {/* Dynamic Scannable QR Code Vector */}
         <View style={styles.qrCodeFrame}>
-          <Svg width={76} height={76} viewBox="0 0 100 100">
-            {/* Top Left Marker */}
-            <Rect x="5" y="5" width="28" height="28" rx="2" fill="#201E1C" />
-            <Rect x="9" y="9" width="20" height="20" rx="1" fill="#FFFFFF" />
-            <Rect x="13" y="13" width="12" height="12" rx="1" fill="#201E1C" />
-
-            {/* Top Right Marker */}
-            <Rect x="67" y="5" width="28" height="28" rx="2" fill="#201E1C" />
-            <Rect x="71" y="9" width="20" height="20" rx="1" fill="#FFFFFF" />
-            <Rect x="75" y="13" width="12" height="12" rx="1" fill="#201E1C" />
-
-            {/* Bottom Left Marker */}
-            <Rect x="5" y="67" width="28" height="28" rx="2" fill="#201E1C" />
-            <Rect x="9" y="71" width="20" height="20" rx="1" fill="#FFFFFF" />
-            <Rect x="13" y="75" width="12" height="12" rx="1" fill="#201E1C" />
-
-            {/* Data Modules */}
-            <Rect x="38" y="8" width="8" height="8" fill="#201E1C" />
-            <Rect x="50" y="8" width="8" height="8" fill="#201E1C" />
-            <Rect x="38" y="20" width="8" height="8" fill="#201E1C" />
-            <Rect x="50" y="24" width="8" height="8" fill="#201E1C" />
-            <Rect x="8" y="38" width="8" height="8" fill="#201E1C" />
-            <Rect x="20" y="38" width="8" height="8" fill="#201E1C" />
-
-            {/* Stitch Signature Center Blue Accent */}
-            <Rect x="38" y="38" width="10" height="10" fill="#4158B1" />
-
-            <Rect x="52" y="38" width="8" height="8" fill="#201E1C" />
-            <Rect x="66" y="38" width="8" height="8" fill="#201E1C" />
-            <Rect x="80" y="38" width="12" height="8" fill="#201E1C" />
-            <Rect x="38" y="52" width="8" height="8" fill="#201E1C" />
-            <Rect x="50" y="52" width="14" height="8" fill="#201E1C" />
-            <Rect x="68" y="52" width="8" height="8" fill="#201E1C" />
-            <Rect x="38" y="66" width="8" height="8" fill="#201E1C" />
-            <Rect x="50" y="66" width="8" height="8" fill="#201E1C" />
-            <Rect x="66" y="66" width="12" height="8" fill="#201E1C" />
-            <Rect x="82" y="66" width="10" height="10" fill="#201E1C" />
-            <Rect x="38" y="80" width="12" height="12" fill="#201E1C" />
-            <Rect x="54" y="80" width="8" height="8" fill="#201E1C" />
-            <Rect x="68" y="80" width="10" height="10" fill="#201E1C" />
-            <Rect x="82" y="80" width="10" height="10" fill="#201E1C" />
-          </Svg>
+          {size > 0 && matrix.length > 0 ? (
+            <Svg width={78} height={78} viewBox={`0 0 ${size + 4} ${size + 4}`}>
+              <Rect width="100%" height="100%" fill="#FFFFFF" />
+              {matrix.map((val, idx) => {
+                if (!val) return null;
+                const y = Math.floor(idx / size) + 2;
+                const x = (idx % size) + 2;
+                return <Rect key={idx} x={x} y={y} width={1} height={1} fill="#201E1C" />;
+              })}
+            </Svg>
+          ) : (
+            <Ionicons name="qr-code" size={54} color="#201E1C" />
+          )}
         </View>
 
         {/* Sync Info Column */}
         <View style={styles.syncInfoCol}>
-          <Text style={styles.verifiedLabel}>VERIFIED CHAIN-OF-CUSTODY</Text>
+          <Text style={styles.verifiedLabel}>CHAIN-OF-CUSTODY MANIFEST</Text>
           <Text style={styles.barcodeText} numberOfLines={1}>
             {code}
           </Text>
           <Text style={styles.detailsText} numberOfLines={1}>
-            {stop?.pickup_code || 'Consignment'} • {totalWeight.toFixed(1)} kg Total
+            {stop?.customer_name || 'Clinic'} • {totalWeight.toFixed(1)} kg Verified
           </Text>
 
-          <TouchableOpacity
-            style={[styles.statusPill, qrVerified && styles.statusPillVerified]}
-            onPress={onScanPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={qrVerified ? 'checkmark-circle' : 'qr-code-outline'}
-              size={12}
-              color={qrVerified ? colors.success : colors.primaryDark}
-            />
-            <Text style={[styles.statusPillText, qrVerified && styles.statusPillTextVerified]}>
-              {qrVerified ? 'Tag Generated & Synced' : 'Scan & Verify QR'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.tagStatusRow}>
+            <View style={[styles.statusPill, qrVerified && styles.statusPillVerified]}>
+              <Ionicons
+                name={qrVerified ? 'checkmark-circle' : 'time-outline'}
+                size={12}
+                color={qrVerified ? colors.success : '#8A8279'}
+              />
+              <Text style={[styles.statusPillText, qrVerified && styles.statusPillTextVerified]}>
+                {qrVerified ? 'QR Verified & Synced' : 'Awaiting Tag Scan'}
+              </Text>
+            </View>
+          </View>
         </View>
+      </View>
+
+      {/* Verification Actions */}
+      <View style={styles.actionButtonsRow}>
+        <TouchableOpacity
+          style={styles.scanBtn}
+          onPress={onScanPress}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="camera" size={16} color="#FFFFFF" />
+          <Text style={styles.scanBtnText}>Scan with Camera</Text>
+        </TouchableOpacity>
+
+        {onQuickVerify && (
+          <TouchableOpacity
+            style={styles.quickMatchBtn}
+            onPress={onQuickVerify}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="flash-outline" size={15} color="#3B52B6" />
+            <Text style={styles.quickMatchBtnText}>Quick Match Tag</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Tamper Seal Checkbox */}
@@ -124,11 +137,13 @@ export const QRTagCard: React.FC<QRTagCardProps> = ({
       >
         <View style={styles.sealLeft}>
           <View style={styles.lockIconBox}>
-            <Ionicons name="lock-closed" size={16} color={colors.primaryDark} />
+            <Ionicons name="lock-closed" size={16} color="#3B52B6" />
           </View>
           <View style={styles.sealTextCol}>
-            <Text style={styles.sealTitle}>Container sealed and tamper-tag affixed</Text>
-            <Text style={styles.sealSub}>Tamper seal affixed to {stop?.pickup_code || 'container'} & verified</Text>
+            <Text style={styles.sealTitle}>Container sealed & tamper-tag affixed</Text>
+            <Text style={styles.sealSub}>
+              Regulatory tamper seal locked to {stop?.pickup_code || 'drum'}
+            </Text>
           </View>
         </View>
 
@@ -136,158 +151,220 @@ export const QRTagCard: React.FC<QRTagCardProps> = ({
           {tamperSealAffixed && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
         </View>
       </TouchableOpacity>
+
+      {/* Proceed to OTP button */}
+      {onProceedToOTP && qrVerified && (
+        <TouchableOpacity
+          style={styles.proceedBtn}
+          onPress={onProceedToOTP}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.proceedBtnText}>Next: Customer OTP Signoff</Text>
+          <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: radii.xl,
     padding: spacing.md,
     borderWidth: 1.5,
-    borderColor: 'rgba(123, 145, 238, 0.6)',
-    shadowColor: colors.ink,
+    borderColor: '#EADFD0',
+    shadowColor: '#201E1C',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 2,
     gap: 12,
   },
+  cardVerified: {
+    borderColor: '#C6F6D5',
+    backgroundColor: '#FAFDF9',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerTitleRow: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primaryDark,
+  qrIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.md,
+    backgroundColor: '#E5EBFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  title: {
-    ...typography.labelSm,
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.primaryDark,
+  qrIconBoxVerified: {
+    backgroundColor: colors.success,
+  },
+  stepTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#201E1C',
     letterSpacing: 0.5,
+  },
+  subTitle: {
+    fontSize: 11,
+    color: '#757683',
+    fontWeight: '500',
   },
   printBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primaryTint,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: radii.full,
+    backgroundColor: '#E5EBFF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(123, 145, 238, 0.4)',
+    borderColor: 'rgba(59, 82, 182, 0.25)',
   },
   printText: {
-    ...typography.labelSm,
-    fontSize: 10,
-    color: colors.onPrimaryContainer,
+    fontSize: 11,
     fontWeight: '700',
+    color: '#3B52B6',
   },
   syncBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceLow,
-    padding: 10,
+    gap: 12,
+    backgroundColor: '#FDFBF8',
+    padding: 12,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    gap: 12,
+    borderColor: '#EADFD0',
   },
   qrCodeFrame: {
-    width: 84,
-    height: 84,
+    width: 82,
+    height: 82,
     backgroundColor: '#FFFFFF',
     borderRadius: radii.md,
-    padding: 4,
+    borderWidth: 1,
+    borderColor: '#EADFD0',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    overflow: 'hidden',
   },
   syncInfoCol: {
     flex: 1,
     gap: 2,
   },
   verifiedLabel: {
-    ...typography.labelSm,
-    fontSize: 9,
-    fontWeight: '700',
-    color: colors.textOutline,
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#757683',
     letterSpacing: 0.5,
   },
   barcodeText: {
-    ...typography.headlineSm,
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.onPrimaryContainer,
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#201E1C',
+    letterSpacing: 0.5,
   },
   detailsText: {
-    ...typography.bodySm,
-    fontSize: 11,
-    color: colors.textSecondary,
+    fontSize: 12,
+    color: '#5C554E',
     fontWeight: '500',
+  },
+  tagStatusRow: {
+    marginTop: 4,
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primaryTint,
+    backgroundColor: '#F2E7D7',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radii.full,
     alignSelf: 'flex-start',
-    marginTop: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(123, 145, 238, 0.4)',
   },
   statusPillVerified: {
-    backgroundColor: colors.successContainer,
-    borderColor: 'rgba(30, 142, 90, 0.3)',
+    backgroundColor: '#E8F5E9',
   },
   statusPillText: {
-    ...typography.labelSm,
-    fontSize: 9,
-    color: colors.primaryDark,
+    fontSize: 10,
     fontWeight: '700',
+    color: '#5C554E',
   },
   statusPillTextVerified: {
     color: colors.success,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  scanBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#3B52B6',
+    height: 44,
+    borderRadius: radii.lg,
+    shadowColor: '#3B52B6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  scanBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  quickMatchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#E5EBFF',
+    height: 44,
+    paddingHorizontal: 14,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 82, 182, 0.3)',
+  },
+  quickMatchBtnText: {
+    color: '#3B52B6',
+    fontSize: 12,
+    fontWeight: '700',
   },
   sealBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(229, 235, 255, 0.5)',
-    padding: 10,
+    backgroundColor: '#FDFBF8',
+    padding: 12,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: 'rgba(123, 145, 238, 0.3)',
+    borderColor: '#EADFD0',
   },
   sealBoxActive: {
-    borderColor: colors.primaryAction,
+    borderColor: '#C6F6D5',
+    backgroundColor: '#F0FDF4',
   },
   sealLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     flex: 1,
   },
   lockIconBox: {
     width: 28,
     height: 28,
-    borderRadius: radii.md,
-    backgroundColor: colors.primaryTint,
+    borderRadius: 14,
+    backgroundColor: '#E5EBFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -295,15 +372,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sealTitle: {
-    ...typography.labelMd,
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: colors.onPrimaryContainer,
+    color: '#201E1C',
   },
   sealSub: {
-    ...typography.bodySm,
-    fontSize: 10,
-    color: colors.textSecondary,
+    fontSize: 10.5,
+    color: '#757683',
     marginTop: 1,
   },
   checkbox: {
@@ -311,14 +386,29 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: colors.primaryAction,
-    backgroundColor: '#FFFFFF',
+    borderColor: '#A8A29E',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
   checkboxActive: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
+    backgroundColor: colors.success,
+    borderColor: colors.success,
+  },
+  proceedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#201E1C',
+    height: 44,
+    borderRadius: radii.lg,
+    marginTop: 2,
+  },
+  proceedBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
 

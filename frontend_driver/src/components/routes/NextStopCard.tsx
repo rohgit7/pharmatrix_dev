@@ -145,8 +145,8 @@ export const NextStopCard: React.FC<NextStopCardProps> = ({
               : isWarehouse
               ? 'Proceed to Terminal Handover →'
               : isArrived
-              ? 'Arrived (Proceed to Verification) →'
-              : 'I Have Arrived at Stop (Auto-Advance) →'}
+              ? '✓ Arrived at Facility • Open Pickups Pipeline →'
+              : '📍 Stamp Location Reached & Check In →'}
           </Text>
         </TouchableOpacity>
         <View style={styles.geofenceNote}>

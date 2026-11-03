@@ -9,17 +9,17 @@ from fastapi import (
     UploadFile,
 )
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.auth import require_role
 from app.core.database import get_db
+from app.models.enums import DisposalShipmentStatus
 from app.models.facility import Facility
 from app.models.user import UserRole
 from app.schemas.disposal_certificate import DisposalCertificateResponse
 from app.services.disposal_certificate_service import (
     upload_disposal_certificate,
 )
-from app.core.storage import create_signed_storage_url
 from app.core.storage import create_disposal_certificate_signed_url
 from app.models.disposal_certificate import DisposalCertificate
 from app.models.disposal_shipment import DisposalShipment
@@ -29,6 +29,53 @@ router = APIRouter(
     prefix="/api/facility/disposal-certificates",
     tags=["Facility Disposal Certificates"],
 )
+
+
+@router.get(
+    "/",
+    response_model=list[DisposalCertificateResponse],
+)
+def list_facility_certificates(
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role(UserRole.FACILITY)),
+):
+    facility = db.scalar(
+        select(Facility)
+        .where(Facility.user_id == current_user.id)
+    )
+
+    if not facility:
+        raise HTTPException(
+            status_code=404,
+            detail="Facility profile not found",
+        )
+
+    certificates = db.scalars(
+        select(DisposalCertificate)
+        .join(DisposalCertificate.shipment)
+        .options(joinedload(DisposalCertificate.shipment))
+        .where(DisposalShipment.facility_id == facility.id)
+        .order_by(DisposalCertificate.uploaded_at.desc())
+    ).unique().all()
+
+    return [
+        DisposalCertificateResponse(
+            id=cert.id,
+            public_id=cert.public_id,
+            certificate_code=cert.certificate_code,
+            shipment_id=cert.shipment.public_id,
+            certificate_number=cert.certificate_number,
+            storage_path=cert.storage_path,
+            file_name=cert.file_name,
+            content_type=cert.content_type,
+            issued_at=cert.issued_at,
+            uploaded_at=cert.uploaded_at,
+            notes=cert.notes,
+        )
+        for cert in certificates
+        if cert.shipment
+    ]
+
 
 @router.get(
     "/{shipment_id}/url",
@@ -78,23 +125,18 @@ def get_certificate_url(
         "expires_in": 3600,
     }
 
+
 @router.post(
     "/{shipment_id}",
     response_model=DisposalCertificateResponse,
 )
 async def upload_certificate(
     shipment_id: UUID,
-
     certificate_number: str = Form(...),
-
     issued_at: datetime = Form(...),
-
     notes: str | None = Form(None),
-
     file: UploadFile = File(...),
-
     db: Session = Depends(get_db),
-
     current_user=Depends(
         require_role(UserRole.FACILITY)
     ),
@@ -111,8 +153,6 @@ async def upload_certificate(
             status_code=404,
             detail="Facility profile not found",
         )
-
-    from app.models.disposal_shipment import DisposalShipment
 
     shipment = db.scalar(
         select(DisposalShipment)
@@ -132,6 +172,18 @@ async def upload_certificate(
             status_code=403,
             detail="Access forbidden: Shipment belongs to another facility",
         )
+
+    # If disposal completion was already recorded in Disposal Management (status DISPOSED)
+    # and no certificate exists yet, allow certificate upload by transitioning through RECEIVED.
+    existing_cert = db.scalar(
+        select(DisposalCertificate).where(DisposalCertificate.shipment_id == shipment.id)
+    )
+    if (
+        shipment.status == DisposalShipmentStatus.DISPOSED
+        and existing_cert is None
+    ):
+        shipment.status = DisposalShipmentStatus.RECEIVED
+        db.flush()
 
     certificate = await upload_disposal_certificate(
         db=db,

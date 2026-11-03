@@ -6,8 +6,10 @@ from app.core.rate_limiter import limiter
 from app.core.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.route_execution import (
+    ArriveAtStopRequest,
     CompletePickupRequest,
     FailStopRequest,
+    UploadProofBase64Request,
 )
 from app.services.route_execution_service import (
     arrive_at_stop,
@@ -27,6 +29,7 @@ from app.services.pickup_verification_driver_service import (
 
 from app.services.collection_proof_service import (
     upload_collection_proof,
+    upload_collection_proof_base64,
 )
 
 from app.services.collection_proof_service import (
@@ -81,14 +84,22 @@ def start_route_endpoint(
 def arrive_at_stop_endpoint(
     route_id: int,
     stop_id: int,
+    data: ArriveAtStopRequest | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    latitude = data.latitude if data else None
+    longitude = data.longitude if data else None
+    accuracy_meters = data.accuracy_meters if data else None
+
     stop = arrive_at_stop(
         db=db,
         user=current_user,
         route_id=route_id,
         stop_id=stop_id,
+        latitude=latitude,
+        longitude=longitude,
+        accuracy_meters=accuracy_meters,
     )
 
     return {
@@ -220,6 +231,31 @@ async def upload_collection_proof_endpoint(
         route_id=route_id,
         stop_id=stop_id,
         file=file,
+    )
+
+    return {
+        "message": "Collection proof uploaded successfully",
+        "stop_id": stop.id,
+        "proof_uploaded": True,
+        "proof_uploaded_at": stop.proof_uploaded_at,
+    }
+
+@router.post(
+    "/{route_id}/stops/{stop_id}/proof-base64",
+)
+def upload_collection_proof_base64_endpoint(
+    route_id: int,
+    stop_id: int,
+    data: UploadProofBase64Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    stop = upload_collection_proof_base64(
+        db=db,
+        user=current_user,
+        route_id=route_id,
+        stop_id=stop_id,
+        image_base64=data.image_base64,
     )
 
     return {

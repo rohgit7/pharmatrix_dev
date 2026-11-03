@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Platform, Alert } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radii, spacing, typography } from '../../theme';
+import { parsePickupQrPayload } from '../../utils/qr';
 
 interface CameraScannerModalProps {
   visible: boolean;
@@ -24,7 +25,11 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   const handleBarcodeScanned = ({ data }: { data: string }) => {
     if (hasScanned) return;
     setHasScanned(true);
-    onScanned(data);
+
+    const parsed = parsePickupQrPayload(data);
+    const codeToSend = parsed.pickupCode || parsed.pickupId || data;
+
+    onScanned(codeToSend);
     setTimeout(() => {
       setHasScanned(false);
       onClose();
@@ -32,9 +37,11 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   };
 
   const handleManualSubmit = () => {
-    const code = manualCode.trim() || expectedCode || '';
-    if (code) {
-      onScanned(code);
+    const raw = manualCode.trim() || expectedCode || '';
+    if (raw) {
+      const parsed = parsePickupQrPayload(raw);
+      const codeToSend = parsed.pickupCode || parsed.pickupId || raw;
+      onScanned(codeToSend);
       onClose();
     }
   };

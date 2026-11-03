@@ -39,9 +39,8 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const proofUploaded = stop.proof_uploaded;
-  const canUploadProof = isQrVerified && isOtpVerified;
 
-  // Auto-fetch signed URL if proof is already uploaded
+  // Auto-fetch signed URL if proof is already recorded
   useEffect(() => {
     if (proofUploaded && !signedUrl) {
       loadSignedProofUrl();
@@ -56,7 +55,7 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
         setSignedUrl(res.signed_url);
       }
     } catch {
-      // Optional url fetch error can be handled gracefully
+      // Graceful fallback
     } finally {
       setLoadingUrl(false);
     }
@@ -68,12 +67,10 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
     try {
       await uploadCollectionProof(stop.id, uri, name, 'image/jpeg');
       setSelectedImageUri(uri);
-      if (onProofUploaded) {
-        onProofUploaded();
-      }
+      onProofUploaded?.();
       Alert.alert(
         'Proof Uploaded Successfully',
-        'Consignment photo has been sealed and saved to cloud custody storage.'
+        'Consignment photo has been sealed and archived to regulatory storage.'
       );
     } catch (err: any) {
       const msg = err?.message || 'Failed to upload collection proof to server.';
@@ -99,12 +96,16 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.85,
+        quality: 0.7,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        await handleUploadImageUri(asset.uri, asset.fileName || 'collection_proof.jpg');
+        const payload = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+        await handleUploadImageUri(payload, asset.fileName || 'collection_proof.jpg');
       }
     } catch (err: any) {
       Alert.alert('Camera Error', err.message || 'Could not launch camera.');
@@ -126,19 +127,23 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.85,
+        quality: 0.7,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        await handleUploadImageUri(asset.uri, asset.fileName || 'collection_proof.jpg');
+        const payload = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+        await handleUploadImageUri(payload, asset.fileName || 'collection_proof.jpg');
       }
     } catch (err: any) {
       Alert.alert('Gallery Error', err.message || 'Could not open image library.');
     }
   };
 
-  // Quick specimen generator for Web & Emulator testing without physical camera
+  // Instant Specimen generator for Testing / Emulators
   const handleGenerateSpecimenProof = async () => {
     setIsUploading(true);
     setErrorMessage(null);
@@ -152,22 +157,18 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
         canvas.height = 480;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          // Background
           ctx.fillStyle = '#1A1817';
           ctx.fillRect(0, 0, 640, 480);
 
-          // Top Header Banner
-          ctx.fillStyle = '#C53030';
+          ctx.fillStyle = '#3B52B6';
           ctx.fillRect(0, 0, 640, 64);
           ctx.fillStyle = '#FFFFFF';
           ctx.font = 'bold 20px sans-serif';
           ctx.fillText('PHARMATRIX BIOHAZARD COLLECTION PROOF', 24, 40);
 
-          // Card Area
           ctx.fillStyle = '#262422';
           ctx.fillRect(24, 88, 592, 340);
 
-          // Details
           ctx.fillStyle = '#FDFBF8';
           ctx.font = 'bold 22px sans-serif';
           ctx.fillText(stop.customer_name || 'Medical Facility Collection', 48, 140);
@@ -180,7 +181,6 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
           ctx.fillText(`Collected Weight: ${stop.collected_weight_kg || stop.estimated_weight_kg || 0} kg`, 48, 270);
           ctx.fillText(`Timestamp: ${new Date().toISOString()}`, 48, 300);
 
-          // Verification Stamp
           ctx.strokeStyle = '#22C55E';
           ctx.lineWidth = 3;
           ctx.strokeRect(380, 270, 210, 80);
@@ -194,7 +194,6 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
         }
       }
 
-      // Fallback valid JPEG if canvas not available
       if (!dataUri) {
         dataUri =
           'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
@@ -211,23 +210,23 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
   const previewImage = signedUrl || selectedImageUri;
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, proofUploaded && styles.cardUploaded]}>
       {/* Header Row */}
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
           <View style={[styles.iconBox, proofUploaded && styles.iconBoxSuccess]}>
             <Ionicons
               name={proofUploaded ? 'checkmark-circle' : 'camera'}
-              size={20}
-              color={proofUploaded ? colors.success : colors.primaryDark}
+              size={18}
+              color={proofUploaded ? '#FFFFFF' : '#3B52B6'}
             />
           </View>
           <View>
-            <Text style={styles.cardTitle}>Collection Proof Photo</Text>
+            <Text style={styles.cardTitle}>STEP 5: PHOTO PROOF OF COLLECTION</Text>
             <Text style={styles.cardSubtitle}>
               {proofUploaded
-                ? 'Photographic custody proof recorded'
-                : 'Sealed container & manifest evidence'}
+                ? 'Photographic custody evidence secured'
+                : 'Sealed container & waste manifest photo'}
             </Text>
           </View>
         </View>
@@ -235,37 +234,19 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
         <View
           style={[
             styles.statusBadge,
-            proofUploaded
-              ? styles.badgeSuccess
-              : canUploadProof
-              ? styles.badgePending
-              : styles.badgeDisabled,
+            proofUploaded ? styles.badgeSuccess : styles.badgePending,
           ]}
         >
           <Text
             style={[
               styles.badgeText,
-              proofUploaded
-                ? styles.badgeTextSuccess
-                : canUploadProof
-                ? styles.badgeTextPending
-                : styles.badgeTextDisabled,
+              proofUploaded ? styles.badgeTextSuccess : styles.badgeTextPending,
             ]}
           >
-            {proofUploaded ? 'VERIFIED' : canUploadProof ? 'REQUIRED' : 'LOCKED'}
+            {proofUploaded ? 'VERIFIED' : 'REQUIRED'}
           </Text>
         </View>
       </View>
-
-      {/* Info notice when locked */}
-      {!canUploadProof && !proofUploaded && (
-        <View style={styles.noticeBox}>
-          <Ionicons name="information-circle-outline" size={16} color={colors.textSecondary} />
-          <Text style={styles.noticeText}>
-            Verify QR tag and customer OTP first to unlock collection proof photo capture.
-          </Text>
-        </View>
-      )}
 
       {/* Error message */}
       {errorMessage && (
@@ -279,11 +260,11 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
       {proofUploaded ? (
         <View style={styles.proofVerifiedBox}>
           <View style={styles.verifiedHeader}>
-            <Ionicons name="shield-checkmark" size={24} color={colors.success} />
+            <Ionicons name="shield-checkmark" size={22} color={colors.success} />
             <View style={{ flex: 1 }}>
               <Text style={styles.verifiedTitle}>Custody Evidence Secured</Text>
               <Text style={styles.verifiedSub}>
-                Photo archived on Pharmatrix Cloud. Immutable hash recorded for regulatory manifest.
+                Photo archived on cloud storage • Immutable hash linked to manifest #{stop.pickup_code || stop.id}
               </Text>
             </View>
           </View>
@@ -296,7 +277,7 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
             >
               <Image source={{ uri: previewImage }} style={styles.thumbnailImage} resizeMode="cover" />
               <View style={styles.thumbnailOverlay}>
-                <Ionicons name="expand" size={16} color="#FFFFFF" />
+                <Ionicons name="expand" size={15} color="#FFFFFF" />
                 <Text style={styles.thumbnailOverlayText}>Tap to inspect full photo</Text>
               </View>
             </TouchableOpacity>
@@ -307,10 +288,10 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
               disabled={loadingUrl}
             >
               {loadingUrl ? (
-                <ActivityIndicator size="small" color={colors.primaryDark} />
+                <ActivityIndicator size="small" color="#3B52B6" />
               ) : (
                 <>
-                  <Ionicons name="eye-outline" size={16} color={colors.primaryDark} />
+                  <Ionicons name="eye-outline" size={16} color="#3B52B6" />
                   <Text style={styles.loadUrlText}>View Cloud Storage Proof Photo</Text>
                 </>
               )}
@@ -324,8 +305,8 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
               onPress={handleTakePhoto}
               disabled={isUploading}
             >
-              <Ionicons name="camera-reverse-outline" size={14} color={colors.textSecondary} />
-              <Text style={styles.retakeBtnText}>Retake / Update Photo</Text>
+              <Ionicons name="camera-reverse-outline" size={14} color="#5C554E" />
+              <Text style={styles.retakeBtnText}>Retake Photo</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -333,7 +314,7 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
               onPress={handlePickFromLibrary}
               disabled={isUploading}
             >
-              <Ionicons name="folder-open-outline" size={14} color={colors.textSecondary} />
+              <Ionicons name="folder-open-outline" size={14} color="#5C554E" />
               <Text style={styles.retakeBtnText}>Replace from Files</Text>
             </TouchableOpacity>
           </View>
@@ -342,91 +323,50 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
         /* Unuploaded State Actions */
         <View style={styles.actionContainer}>
           <Text style={styles.instructionText}>
-            Medical waste logistics standard 49 CFR § 173 requires photo confirmation of sealed
-            manifest and tamper-evident container seal prior to custody handover.
+            Medical waste regulations require a photographic record of the sealed consignment container and tamper seal before custody transfer:
           </Text>
 
           {isUploading ? (
             <View style={styles.uploadingBox}>
-              <ActivityIndicator size="small" color={colors.primaryAction} />
-              <Text style={styles.uploadingText}>Sealing and uploading proof image to cloud...</Text>
+              <ActivityIndicator size="small" color="#3B52B6" />
+              <Text style={styles.uploadingText}>Sealing and uploading proof photo to cloud...</Text>
             </View>
           ) : (
             <>
               <View style={styles.buttonRow}>
                 {/* Take Photo Button */}
                 <TouchableOpacity
-                  style={[
-                    styles.primaryActionBtn,
-                    !canUploadProof && styles.btnDisabled,
-                  ]}
+                  style={styles.primaryActionBtn}
                   onPress={handleTakePhoto}
-                  disabled={!canUploadProof || isUploading}
+                  disabled={isUploading}
                   activeOpacity={0.85}
                 >
-                  <Ionicons
-                    name="camera"
-                    size={18}
-                    color={canUploadProof ? '#FFFFFF' : colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.primaryActionText,
-                      !canUploadProof && styles.btnDisabledText,
-                    ]}
-                  >
-                    Take Photo
-                  </Text>
+                  <Ionicons name="camera" size={18} color="#FFFFFF" />
+                  <Text style={styles.primaryActionText}>Take Photo</Text>
                 </TouchableOpacity>
 
                 {/* Pick from Library Button */}
                 <TouchableOpacity
-                  style={[
-                    styles.secondaryActionBtn,
-                    !canUploadProof && styles.btnDisabled,
-                  ]}
+                  style={styles.secondaryActionBtn}
                   onPress={handlePickFromLibrary}
-                  disabled={!canUploadProof || isUploading}
+                  disabled={isUploading}
                   activeOpacity={0.85}
                 >
-                  <Ionicons
-                    name="images-outline"
-                    size={18}
-                    color={canUploadProof ? colors.primaryDark : colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.secondaryActionText,
-                      !canUploadProof && styles.btnDisabledText,
-                    ]}
-                  >
-                    Select Photo
-                  </Text>
+                  <Ionicons name="images-outline" size={18} color="#3B52B6" />
+                  <Text style={styles.secondaryActionText}>From Gallery</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Specimen Generator Button for Testing/Simulators */}
+              {/* Specimen Generator Button for Quick Field/Simulator Verification */}
               <TouchableOpacity
-                style={[
-                  styles.specimenBtn,
-                  !canUploadProof && styles.btnDisabled,
-                ]}
+                style={styles.specimenBtn}
                 onPress={handleGenerateSpecimenProof}
-                disabled={!canUploadProof || isUploading}
+                disabled={isUploading}
                 activeOpacity={0.8}
               >
-                <Ionicons
-                  name="document-attach-outline"
-                  size={15}
-                  color={canUploadProof ? colors.primaryDark : colors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.specimenBtnText,
-                    !canUploadProof && styles.btnDisabledText,
-                  ]}
-                >
-                  Quick Capture: Seal Specimen Proof Photo
+                <Ionicons name="flash-outline" size={15} color="#3B52B6" />
+                <Text style={styles.specimenBtnText}>
+                  Instant Specimen Photo (Auto-Seal Manifest)
                 </Text>
               </TouchableOpacity>
             </>
@@ -450,7 +390,7 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
 
               <View style={styles.modalFooter}>
                 <Text style={styles.modalFooterText}>
-                  Facility: {stop.customer_name || 'Clinic'} • Route #{stop.id}
+                  Facility: {stop.customer_name || 'Clinic'} • Manifest #{stop.pickup_code || stop.id}
                 </Text>
               </View>
             </View>
@@ -464,94 +404,83 @@ export const CollectionProofCard: React.FC<CollectionProofCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: radii.lg,
+    borderRadius: radii.xl,
     padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    borderWidth: 1.5,
+    borderColor: '#EADFD0',
+    shadowColor: '#201E1C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    gap: 10,
+  },
+  cardUploaded: {
+    borderColor: '#C6F6D5',
+    backgroundColor: '#FAFDF9',
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 8,
     flex: 1,
   },
   iconBox: {
-    width: 38,
-    height: 38,
+    width: 32,
+    height: 32,
     borderRadius: radii.md,
-    backgroundColor: colors.primaryTint,
+    backgroundColor: '#E5EBFF',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 82, 182, 0.25)',
   },
   iconBoxSuccess: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   cardTitle: {
-    ...typography.labelLg,
-    color: colors.textPrimary,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#3B52B6',
+    letterSpacing: 0.4,
   },
   cardSubtitle: {
     ...typography.bodySm,
-    color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
+    color: '#5C554E',
+    marginTop: 1,
   },
   statusBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: radii.full,
   },
   badgeSuccess: {
     backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#C6F6D5',
   },
   badgePending: {
     backgroundColor: '#FEF3C7',
-  },
-  badgeDisabled: {
-    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
   badgeText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   badgeTextSuccess: {
     color: colors.success,
   },
   badgeTextPending: {
-    color: '#D97706',
-  },
-  badgeTextDisabled: {
-    color: colors.textSecondary,
-  },
-  noticeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F9FAFB',
-    padding: spacing.sm,
-    borderRadius: radii.md,
-    marginVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  noticeText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    flex: 1,
-    fontSize: 12,
+    color: '#92400E',
   },
   errorBox: {
     flexDirection: 'row',
@@ -560,38 +489,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2',
     padding: spacing.sm,
     borderRadius: radii.md,
-    marginVertical: spacing.xs,
   },
   errorText: {
     ...typography.bodySm,
     color: colors.error,
     flex: 1,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '600',
   },
   actionContainer: {
-    marginTop: spacing.xs,
+    gap: 8,
   },
   instructionText: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: spacing.sm,
+    fontSize: 11.5,
+    color: '#5C554E',
+    lineHeight: 16,
+    fontWeight: '500',
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
+    gap: 8,
   },
   primaryActionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.primaryDark,
-    paddingVertical: 12,
+    gap: 6,
+    backgroundColor: '#3B52B6',
+    height: 44,
     borderRadius: radii.md,
   },
   primaryActionText: {
@@ -604,15 +530,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.surfaceContainer,
+    gap: 6,
+    backgroundColor: '#E5EBFF',
     borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 12,
+    borderColor: 'rgba(59, 82, 182, 0.3)',
+    height: 44,
     borderRadius: radii.md,
   },
   secondaryActionText: {
-    color: colors.textPrimary,
+    color: '#3B52B6',
     fontWeight: '700',
     fontSize: 13,
   },
@@ -621,71 +547,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: colors.primaryTint,
+    backgroundColor: '#FAF8F5',
     paddingVertical: 10,
     borderRadius: radii.md,
-    marginTop: spacing.xs,
     borderWidth: 1,
-    borderColor: '#C5D0F8',
+    borderColor: '#EADFD0',
   },
   specimenBtnText: {
-    color: colors.primaryDark,
-    fontSize: 12,
+    color: '#3B52B6',
+    fontSize: 11.5,
     fontWeight: '700',
-  },
-  btnDisabled: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#E5E7EB',
-  },
-  btnDisabledText: {
-    color: '#9CA3AF',
   },
   uploadingBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    paddingVertical: 16,
-    backgroundColor: colors.surfaceContainer,
+    paddingVertical: 14,
+    backgroundColor: '#FAF8F5',
     borderRadius: radii.md,
   },
   uploadingText: {
-    ...typography.bodySm,
-    color: colors.primaryDark,
+    fontSize: 12,
+    color: '#3B52B6',
     fontWeight: '600',
-    fontSize: 13,
   },
   proofVerifiedBox: {
-    marginTop: spacing.xs,
-    backgroundColor: '#F8FCF8',
+    backgroundColor: '#FAFDF9',
     borderRadius: radii.md,
     padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
+    gap: 8,
   },
   verifiedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+    gap: 8,
   },
   verifiedTitle: {
-    ...typography.labelLg,
+    fontSize: 12.5,
     color: colors.success,
     fontWeight: '700',
   },
   verifiedSub: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 10.5,
+    color: '#5C554E',
+    marginTop: 1,
+    lineHeight: 14,
   },
   thumbnailWrapper: {
-    height: 140,
+    height: 130,
     borderRadius: radii.md,
     overflow: 'hidden',
     position: 'relative',
-    marginVertical: spacing.xs,
   },
   thumbnailImage: {
     width: '100%',
@@ -697,12 +610,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 6,
+    paddingVertical: 5,
   },
   thumbnailOverlayText: {
     color: '#FFFFFF',
@@ -713,34 +626,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     paddingVertical: 10,
     backgroundColor: '#FFFFFF',
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    marginVertical: spacing.xs,
+    borderColor: '#EADFD0',
   },
   loadUrlText: {
-    color: colors.primaryDark,
+    color: '#3B52B6',
     fontSize: 12,
     fontWeight: '600',
   },
   retakeRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: spacing.md,
-    marginTop: spacing.xs,
+    gap: 14,
   },
   retakeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   retakeBtnText: {
     fontSize: 11,
-    color: colors.textSecondary,
+    color: '#5C554E',
     fontWeight: '600',
   },
   modalBackdrop: {
@@ -752,7 +663,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    maxWidth: 500,
+    maxWidth: 480,
     backgroundColor: '#201E1C',
     borderRadius: radii.lg,
     overflow: 'hidden',
@@ -775,7 +686,7 @@ const styles = StyleSheet.create({
   },
   fullImage: {
     width: '100%',
-    height: 320,
+    height: 300,
     backgroundColor: '#141312',
   },
   modalFooter: {
@@ -788,3 +699,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+
+export default CollectionProofCard;

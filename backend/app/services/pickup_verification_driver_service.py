@@ -56,7 +56,7 @@ def verify_qr(
             detail="QR verification is only for pickup stops",
         )
 
-    if stop.execution_status not in {RouteStopStatus.PENDING, RouteStopStatus.ARRIVED}:
+    if stop.execution_status not in {RouteStopStatus.PENDING, RouteStopStatus.ARRIVED, RouteStopStatus.IN_PROGRESS}:
         raise HTTPException(
             status_code=400,
             detail="Pickup stop is neither pending nor arrived",
@@ -92,19 +92,49 @@ def verify_qr(
             detail="Pickup stop has no pickup",
         )
 
-    matches_token = secrets.compare_digest(
-        pickup.verification_token,
-        qr_token,
+    # Parse JSON payload or extract token
+    token_to_match = qr_token.strip()
+    if token_to_match.startswith("{") and token_to_match.endswith("}"):
+        try:
+            import json
+            payload = json.loads(token_to_match)
+            token_to_match = (
+                payload.get("pickup_code")
+                or payload.get("code")
+                or payload.get("verification_token")
+                or payload.get("token")
+                or payload.get("pickup_id")
+                or payload.get("public_id")
+                or token_to_match
+            )
+            token_to_match = str(token_to_match).strip()
+        except Exception:
+            pass
+
+    matches_token = bool(
+        pickup.verification_token
+        and secrets.compare_digest(
+            pickup.verification_token,
+            token_to_match,
+        )
     )
     matches_code = bool(
         pickup.pickup_code
         and secrets.compare_digest(
             pickup.pickup_code,
-            qr_token,
+            token_to_match,
         )
     )
+    matches_public_id = bool(
+        pickup.public_id
+        and secrets.compare_digest(
+            str(pickup.public_id),
+            token_to_match,
+        )
+    )
+    matches_id = str(pickup.id) == token_to_match
 
-    if not (matches_token or matches_code):
+    if not (matches_token or matches_code or matches_public_id or matches_id):
         raise HTTPException(
             status_code=403,
             detail="Invalid pickup QR code",

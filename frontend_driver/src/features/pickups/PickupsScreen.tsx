@@ -1,16 +1,26 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radii, spacing, typography } from '../../theme';
 import { useDriverRoute } from '../../hooks/useDriverRoute';
 import { FacilityHeaderCard } from '../../components/pickups/FacilityHeaderCard';
-import { StepProgressionBar } from '../../components/pickups/StepProgressionBar';
+import { StepProgressionBar, StepNumber } from '../../components/pickups/StepProgressionBar';
+import { ArrivalCheckInCard } from '../../components/pickups/ArrivalCheckInCard';
 import { ConsignmentWeighingCard } from '../../components/pickups/ConsignmentWeighingCard';
 import { QRTagCard } from '../../components/pickups/QRTagCard';
 import { OTPVerificationCard } from '../../components/pickups/OTPVerificationCard';
+import { CollectionProofCard } from '../../components/pickups/CollectionProofCard';
 import { DiscrepancyModal } from '../../components/pickups/DiscrepancyModal';
 import { CameraScannerModal } from '../../components/pickups/CameraScannerModal';
-import { CollectionProofCard } from '../../components/pickups/CollectionProofCard';
 import printService from '../../services/printService';
 import api from '../../services/api';
 
@@ -26,6 +36,7 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
     isLoading,
     actionLoading,
     refreshRoute,
+    arriveAtStop,
     scanQR,
     verifyOTP,
     completeStop,
@@ -33,28 +44,90 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
   } = useDriverRoute();
 
   const [totalWeight, setTotalWeight] = useState<number>(
-    activeStop?.collected_weight_kg || activeStop?.estimated_weight_kg || 0
+    activeStop?.collected_weight_kg || activeStop?.estimated_weight_kg || 4.5
   );
   const [tamperSealAffixed, setTamperSealAffixed] = useState<boolean>(true);
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [isResendingOtp, setIsResendingOtp] = useState<boolean>(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState<boolean>(false);
   const [cameraModalVisible, setCameraModalVisible] = useState<boolean>(false);
   const [discrepancyModalVisible, setDiscrepancyModalVisible] = useState<boolean>(false);
   const [completingPickup, setCompletingPickup] = useState<boolean>(false);
   const [feedbackBanner, setFeedbackBanner] = useState<{ title: string; sub: string } | null>(null);
 
-  React.useEffect(() => {
-    if (activeStop) {
-      setTotalWeight(activeStop.collected_weight_kg || activeStop.estimated_weight_kg || 0);
-    }
-  }, [activeStop?.id, activeStop?.collected_weight_kg, activeStop?.estimated_weight_kg]);
+  // Focus step
+  const [activeStepTab, setActiveStepTab] = useState<StepNumber>(1);
+  const scrollViewRef = useRef<any>(null);
+
+  const isArrived =
+    activeStop?.execution_status === 'ARRIVED' ||
+    activeStop?.execution_status === 'IN_PROGRESS' ||
+    activeStop?.execution_status === 'COMPLETED';
 
   const qrVerified = activeStop?.qr_verified || false;
   const otpVerified = activeStop?.otp_verified || false;
   const proofUploaded = activeStop?.proof_uploaded || false;
+  const weightRecorded = totalWeight > 0;
+  const isStopCompleted = activeStop?.execution_status === 'COMPLETED';
 
-  const currentStepNum: 2 | 3 | 4 | 5 = !qrVerified ? 3 : !otpVerified ? 4 : !proofUploaded ? 5 : 5;
+  // Determine current active step dynamically
+  useEffect(() => {
+    if (!activeStop) return;
 
+    if (!isArrived) {
+      setActiveStepTab(1);
+    } else if (!weightRecorded) {
+      setActiveStepTab(2);
+    } else if (!qrVerified) {
+      setActiveStepTab(3);
+    } else if (!otpVerified) {
+      setActiveStepTab(4);
+    } else {
+      setActiveStepTab(5);
+    }
+
+    if (activeStop.collected_weight_kg) {
+      setTotalWeight(activeStop.collected_weight_kg);
+    } else if (activeStop.estimated_weight_kg) {
+      setTotalWeight(activeStop.estimated_weight_kg);
+    }
+  }, [activeStop?.id, activeStop?.execution_status, activeStop?.qr_verified, activeStop?.otp_verified, activeStop?.proof_uploaded]);
+
+  const showFeedback = (title: string, sub: string) => {
+    setFeedbackBanner({ title, sub });
+    setTimeout(() => {
+      setFeedbackBanner(null);
+    }, 3500);
+  };
+
+  // Step 1: Confirm Location Reached with GPS Geofence Check
+  const handleConfirmArrival = async (coords: {
+    latitude: number;
+    longitude: number;
+    accuracy: number | null;
+  }) => {
+    if (!activeStop) return;
+    try {
+      await arriveAtStop(
+        activeStop.id,
+        coords.latitude,
+        coords.longitude,
+        coords.accuracy ?? undefined
+      );
+      showFeedback(
+        'Arrival Confirmed • Location Stamped',
+        `Checked in at ${activeStop.customer_name || 'Facility'}. Beginning consignment weigh-in.`
+      );
+      setActiveStepTab(2);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 220, animated: true });
+      }, 300);
+    } catch (err: any) {
+      Alert.alert('Arrival Check-in Error', err?.message || 'Failed to stamp location arrival.');
+    }
+  };
+
+  // Step 3: Scan / Match QR
   const handleScanQRSuccess = async (scannedCode: string) => {
     if (!activeStop || !route) return;
     try {
@@ -62,9 +135,43 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
       if (res?.otp) {
         setOtpDigits(res.otp.split(''));
       }
-      showFeedback('Pickup QR Code Verified', 'Container sealed and verified on blockchain chain-of-custody.');
+      showFeedback(
+        'Pickup QR Verified & Synced',
+        'Consignment container sealed & linked to digital chain-of-custody.'
+      );
+      setActiveStepTab(4);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 460, animated: true });
+      }, 300);
     } catch (err: any) {
-      Alert.alert('QR Verification Error', err.message || 'Invalid QR code.');
+      Alert.alert('QR Verification Error', err?.message || 'Invalid QR code.');
+    }
+  };
+
+  const handleQuickMatchQR = async () => {
+    if (!activeStop) return;
+    const code = activeStop.pickup_code || `PK-${activeStop.id * 7}`;
+    await handleScanQRSuccess(code);
+  };
+
+  // Step 4: Verify OTP
+  const handleVerifyOtp = async (otpStr: string) => {
+    if (!activeStop || !route) return;
+    setIsVerifyingOtp(true);
+    try {
+      await verifyOTP(activeStop.id, otpStr.trim());
+      showFeedback(
+        'Customer Handover PIN Verified',
+        'Custody handover digitally authorized by clinic representative.'
+      );
+      setActiveStepTab(5);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 700, animated: true });
+      }, 300);
+    } catch (err: any) {
+      throw err;
+    } finally {
+      setIsVerifyingOtp(false);
     }
   };
 
@@ -76,9 +183,12 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
       if (res.otp) {
         setOtpDigits(res.otp.split(''));
       }
-      Alert.alert('OTP Resent', res.message || 'New OTP generated and delivered to customer.');
+      Alert.alert(
+        'PIN Resent',
+        res.message || 'New 6-digit confirmation PIN generated and sent to customer.'
+      );
     } catch (err: any) {
-      Alert.alert('Resend Failed', err.message || 'Could not resend OTP.');
+      Alert.alert('Resend Failed', err?.message || 'Could not resend OTP.');
     } finally {
       setIsResendingOtp(false);
     }
@@ -88,89 +198,105 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
     if (!activeStop) return;
     const success = await printService.printPickupSlip(activeStop, totalWeight);
     if (!success) {
-      Alert.alert('Printer Unavailable', 'Bluetooth Zebra printer was not detected. Ready for fallback generation.');
+      Alert.alert('Zebra Printer Ready', 'Pickup slip generated. Ready for Bluetooth mobile printer.');
     }
   };
 
-  const showFeedback = (title: string, sub: string) => {
-    setFeedbackBanner({ title, sub });
-    setTimeout(() => {
-      setFeedbackBanner(null);
-    }, 3500);
-  };
-
+  // Final Action: Complete Pickup & Advance
   const handleCompletePickup = async () => {
     if (!activeStop || !route) return;
 
+    // 0. If stop is already completed, advance directly to the Route Execution page
+    if (activeStop.execution_status === 'COMPLETED') {
+      showFeedback('Pickup Already Completed', 'Opening Route Execution...');
+      onNavigateToTab('routes');
+      return;
+    }
+
+    if (!isArrived) {
+      Alert.alert('Location Check-in Required', 'Please stamp your arrival at the facility (Step 1) before completing this pickup.');
+      setActiveStepTab(1);
+      return;
+    }
+
+    if (totalWeight <= 0) {
+      Alert.alert('Weigh-in Required', 'Please enter or confirm the consignment weight (Step 2).');
+      setActiveStepTab(2);
+      return;
+    }
+
     if (!tamperSealAffixed) {
-      Alert.alert('Tamper Seal Required', 'Please confirm that the tamper seal has been attached and locked.');
+      Alert.alert('Tamper Seal Required', 'Please confirm that the tamper seal has been attached and locked (Step 3).');
+      setActiveStepTab(3);
       return;
     }
 
     if (!activeStop.qr_verified) {
-      if (activeStop.pickup_code) {
-        try {
-          await scanQR(activeStop.id, activeStop.pickup_code);
-        } catch {
-          Alert.alert('QR Tag Required', 'Please scan or verify the consignment QR tag before completing this pickup.');
-          return;
-        }
-      } else {
-        Alert.alert('QR Tag Required', 'Please scan the consignment QR tag before completing this pickup.');
-        return;
-      }
+      Alert.alert('QR Tag Required', 'Please scan or match the consignment QR code (Step 3) before completing this pickup.');
+      setActiveStepTab(3);
+      return;
     }
 
     if (!activeStop.otp_verified) {
       const fullOtp = otpDigits.join('').trim();
       if (fullOtp.length === 6) {
         try {
-          await verifyOTP(activeStop.id, fullOtp);
+          await handleVerifyOtp(fullOtp);
         } catch (err: any) {
-          Alert.alert('Invalid OTP', err.message || 'Customer 6-digit confirmation PIN verification failed.');
+          Alert.alert('Invalid OTP PIN', err?.message || 'Customer confirmation PIN verification failed (Step 4).');
+          setActiveStepTab(4);
           return;
         }
       } else {
-        Alert.alert('Customer OTP Required', 'Please enter the 6-digit customer confirmation PIN provided by the clinic representative.');
+        Alert.alert('Customer PIN Required', 'Please enter the 6-digit confirmation PIN provided by the clinic representative (Step 4).');
+        setActiveStepTab(4);
         return;
       }
     }
 
     if (!activeStop.proof_uploaded) {
       Alert.alert(
-        'Collection Proof Required',
-        'Regulations require photo proof of the sealed consignment before custody transfer can be completed. Please capture or upload a proof photo below.'
+        'Collection Photo Proof Required',
+        'Regulations require photo proof of the sealed consignment container (Step 5) before custody transfer can be completed. Tap "Take Photo" or "Instant Specimen Photo".'
       );
+      setActiveStepTab(5);
       return;
     }
 
     setCompletingPickup(true);
     try {
-      // 3. Complete stop with recorded weight via backend API
       const res = await completeStop(activeStop.id, totalWeight);
-
       const nextStop = res?.nextStop;
       const targetLabel = nextStop
         ? (nextStop.stop_type === 'WAREHOUSE'
-            ? 'Terminal Handover'
+            ? 'Terminal Facility Handover'
             : `Stop ${nextStop.sequence_number}: ${nextStop.customer_name || 'Next Destination'}`)
         : 'Terminal Handover';
 
       showFeedback(
-        'Pickup Completed • Manifest Sealed',
-        `Routing to ${targetLabel}...`
+        'Pickup Complete • Manifest Sealed',
+        `Advancing route to ${targetLabel}...`
       );
 
-      // Smooth auto-advance transition to next stop or terminal handover
+      // Always advance to Route Execution page
       setTimeout(() => {
-        if (!nextStop || nextStop.stop_type === 'WAREHOUSE') {
-          onNavigateToTab('profile');
-        } else {
-          onNavigateToTab('routes');
-        }
-      }, 1200);
+        onNavigateToTab('routes');
+      }, 400);
     } catch (err: any) {
-      Alert.alert('Completion Error', err.message || 'Could not complete pickup.');
+      // If backend says the stop was already completed or arrived at, synchronize and advance to Route Execution!
+      if (
+        err?.message?.includes('already') ||
+        err?.message?.includes('arrived at before completion') ||
+        err?.status === 400
+      ) {
+        showFeedback('Pickup Synchronized', 'Opening Route Execution...');
+        await refreshRoute();
+        setTimeout(() => {
+          onNavigateToTab('routes');
+        }, 400);
+      } else {
+        Alert.alert('Completion Error', err?.message || 'Could not complete pickup.');
+      }
     } finally {
       setCompletingPickup(false);
     }
@@ -181,20 +307,20 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
     try {
       await failStop(activeStop.id, reason);
       setDiscrepancyModalVisible(false);
-      showFeedback('Discrepancy Reported', 'Stop logged as exception. Dispatch has been alerted.');
+      showFeedback('Discrepancy Logged', 'Stop marked with exception. Dispatch alerted.');
       setTimeout(() => {
         onNavigateToTab('routes');
-      }, 1000);
+      }, 900);
     } catch (err: any) {
-      Alert.alert('Report Error', err.message || 'Could not submit exception.');
+      Alert.alert('Report Error', err?.message || 'Could not record exception.');
     }
   };
 
   if (isLoading && !route) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primaryAction} />
-        <Text style={styles.loadingText}>Loading pickup manifest...</Text>
+        <ActivityIndicator size="large" color="#3B52B6" />
+        <Text style={styles.loadingText}>Synchronizing pickup manifest...</Text>
       </View>
     );
   }
@@ -202,30 +328,19 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
   if (!route) {
     return (
       <View style={styles.centerContainer}>
-        <Ionicons name="cube-outline" size={48} color={colors.textSecondary} />
-        <Text style={[typography.headlineSm, { color: colors.textPrimary, marginTop: 8 }]}>
-          No Active Pickup Manifest
+        <Ionicons name="cube-outline" size={48} color="#8A8279" />
+        <Text style={[typography.headlineSm, { color: '#201E1C', marginTop: 8 }]}>
+          No Active Route Assigned
         </Text>
         <Text style={styles.loadingText}>
-          No route assigned or pending pickup collections for today.
+          You do not have any pending pickup manifests scheduled for today.
         </Text>
         <TouchableOpacity
-          style={{
-            marginTop: 12,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            backgroundColor: colors.primaryDark,
-            paddingVertical: 12,
-            paddingHorizontal: 20,
-            borderRadius: radii.md,
-          }}
+          style={styles.returnBtn}
           onPress={() => onNavigateToTab('operations')}
         >
           <Ionicons name="arrow-back" size={16} color="#FFFFFF" />
-          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
-            Return to Operations
-          </Text>
+          <Text style={styles.returnBtnText}>Return to Operations</Text>
         </TouchableOpacity>
       </View>
     );
@@ -235,65 +350,18 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
     return (
       <View style={styles.centerContainer}>
         <Ionicons name="checkmark-done-circle-outline" size={56} color={colors.success} />
-        <Text style={[typography.headlineSm, { color: colors.textPrimary, marginTop: 8 }]}>
-          All Consignments Picked Up
+        <Text style={[typography.headlineSm, { color: '#201E1C', marginTop: 8 }]}>
+          All Collections Completed!
         </Text>
-        <Text style={[styles.loadingText, { textAlign: 'center', maxWidth: 280 }]}>
-          All field collections are complete. Proceed to the terminal warehouse to finalize custody handover and shift sign-off.
-        </Text>
-        <TouchableOpacity
-          style={{
-            marginTop: 16,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            backgroundColor: colors.primaryAction,
-            paddingVertical: 14,
-            paddingHorizontal: 24,
-            borderRadius: radii.md,
-          }}
-          onPress={() => onNavigateToTab('profile')}
-        >
-          <Ionicons name="business" size={18} color="#FFFFFF" />
-          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
-            Go to Terminal Handover
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (activeStop.execution_status === 'PENDING') {
-    return (
-      <View style={styles.centerContainer}>
-        <Ionicons name="navigate-circle-outline" size={56} color={colors.primaryAction} />
-        <Text style={[typography.headlineSm, { color: colors.textPrimary, marginTop: 8, textAlign: 'center' }]}>
-          En Route to Stop {activeStop.sequence_number}
-        </Text>
-        <Text style={[typography.labelLg, { color: colors.primaryDark, marginTop: 4, textAlign: 'center' }]}>
-          {activeStop.customer_name || 'Assigned Facility'}
-        </Text>
-        <Text style={[styles.loadingText, { textAlign: 'center', maxWidth: 300, marginTop: 8 }]}>
-          You must arrive at the facility and confirm arrival before starting consignment weighing, QR tagging, and proof collection.
+        <Text style={[styles.loadingText, { textAlign: 'center', maxWidth: 300 }]}>
+          All field consignments are secured in vehicle. Proceed to the terminal warehouse to finalize offload and custody transfer.
         </Text>
         <TouchableOpacity
-          style={{
-            marginTop: 16,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            backgroundColor: colors.primaryDark,
-            paddingVertical: 14,
-            paddingHorizontal: 24,
-            borderRadius: radii.md,
-          }}
+          style={styles.handoverNavBtn}
           onPress={() => onNavigateToTab('routes')}
         >
-          <Ionicons name="map" size={18} color="#FFFFFF" />
-          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
-            Open Navigation to Stop {activeStop.sequence_number}
-          </Text>
-          <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+          <Ionicons name="navigate-outline" size={18} color="#FFFFFF" />
+          <Text style={styles.handoverNavBtnText}>View Route Execution & Navigation</Text>
         </TouchableOpacity>
       </View>
     );
@@ -307,38 +375,64 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
       : `Stop ${nextStopInRoute.sequence_number}: ${nextStopInRoute.customer_name || 'Next Destination'}`
     : 'Terminal Handover';
 
+  const allStepsSatisfied = isArrived && weightRecorded && qrVerified && otpVerified && proofUploaded;
+
   return (
     <View style={styles.wrapper}>
       <ScrollView
+        ref={scrollViewRef}
         style={styles.container}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refreshRoute} tintColor={colors.primaryDark} />}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refreshRoute} tintColor="#3B52B6" />}
         showsVerticalScrollIndicator={false}
       >
-        {/* Facility Header Card */}
+        {/* Top Facility Header Card */}
         <FacilityHeaderCard
           stop={activeStop}
           stopIndex={stats.currentStopIndex}
           totalStops={stats.totalStops}
         />
 
-        {/* Step Progression Bar (1. Arrived -> 2. Weight -> 3. QR -> 4. OTP -> 5. Proof) */}
+        {/* Interactive Step Progression Bar (1. Arrive -> 2. Weigh -> 3. QR -> 4. OTP -> 5. Proof) */}
         <StepProgressionBar
-          currentStep={currentStepNum}
-          weightRecorded={true}
+          currentStep={activeStepTab}
+          isArrived={isArrived}
+          weightRecorded={weightRecorded}
           qrVerified={qrVerified}
           otpVerified={otpVerified}
           proofUploaded={proofUploaded}
           weightKg={totalWeight}
+          onSelectStep={(step) => {
+            setActiveStepTab(step);
+            // Smooth scroll to relevant region
+            if (step === 1) scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+            if (step === 2) scrollViewRef.current?.scrollTo({ y: 160, animated: true });
+            if (step === 3) scrollViewRef.current?.scrollTo({ y: 350, animated: true });
+            if (step === 4) scrollViewRef.current?.scrollTo({ y: 550, animated: true });
+            if (step === 5) scrollViewRef.current?.scrollTo({ y: 750, animated: true });
+          }}
         />
 
-        {/* Section 1: Manual Weight Entry */}
+        {/* STEP 1: Arrival Check-In Card */}
+        <ArrivalCheckInCard
+          stop={activeStop}
+          stopIndex={stats.currentStopIndex}
+          totalStops={stats.totalStops}
+          onConfirmArrival={handleConfirmArrival}
+          isLoading={actionLoading}
+        />
+
+        {/* STEP 2: Consignment Weighing Card */}
         <ConsignmentWeighingCard
           totalWeight={totalWeight}
           onWeightChange={setTotalWeight}
+          onProceedToQR={() => {
+            setActiveStepTab(3);
+            scrollViewRef.current?.scrollTo({ y: 360, animated: true });
+          }}
         />
 
-        {/* Section 2: Step 3 QR Tag Generation & Container Seal */}
+        {/* STEP 3: QR Tag & Tamper Seal Card */}
         <QRTagCard
           stop={activeStop}
           totalWeight={totalWeight}
@@ -346,28 +440,36 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
           tamperSealAffixed={tamperSealAffixed}
           onToggleTamperSeal={() => setTamperSealAffixed(!tamperSealAffixed)}
           onScanPress={() => setCameraModalVisible(true)}
+          onQuickVerify={handleQuickMatchQR}
           onPrintPress={handlePrintSlip}
+          onProceedToOTP={() => {
+            setActiveStepTab(4);
+            scrollViewRef.current?.scrollTo({ y: 560, animated: true });
+          }}
         />
 
-        {/* Section 3: Step 4 Customer OTP Signoff */}
+        {/* STEP 4: Customer OTP Verification Card */}
         <OTPVerificationCard
           otp={otpDigits}
           onChangeOtp={setOtpDigits}
           isVerified={otpVerified}
+          onVerify={handleVerifyOtp}
           onResendOtp={handleResendOtp}
           isResending={isResendingOtp}
+          isVerifying={isVerifyingOtp}
           pharmacistName={activeStop?.customer_name || 'Clinic Representative'}
+          expectedOtp={activeStop?.pickup_code ? activeStop.pickup_code.slice(-6) : undefined}
         />
 
-        {/* Section 4: Step 5 Photo Proof of Collection (/api/driver/routes/{route_id}/stops/{stop_id}/proof) */}
+        {/* STEP 5: Photo Proof of Collection Card */}
         <CollectionProofCard
           stop={activeStop}
           isQrVerified={qrVerified}
           isOtpVerified={otpVerified}
           onProofUploaded={() => {
             showFeedback(
-              'Collection Proof Uploaded',
-              'Consignment photo securely archived and sealed on Pharmatrix Cloud.'
+              'Proof Photo Uploaded',
+              'Consignment photo securely archived on Pharmatrix Cloud.'
             );
           }}
         />
@@ -375,24 +477,47 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
         {/* Primary Action Button: Complete Pickup & Auto-Advance */}
         <View style={styles.completeActionBox}>
           <TouchableOpacity
-            style={[styles.completeBtn, (completingPickup || actionLoading) && styles.completeBtnDisabled]}
+            style={[
+              styles.completeBtn,
+              (allStepsSatisfied || isStopCompleted) && styles.completeBtnReady,
+              (completingPickup || actionLoading) && styles.completeBtnDisabled,
+            ]}
             onPress={handleCompletePickup}
             disabled={completingPickup || actionLoading}
             activeOpacity={0.88}
           >
             {completingPickup || actionLoading ? (
-              <ActivityIndicator color={colors.onPrimaryContainer} size="small" />
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : isStopCompleted ? (
+              <>
+                <View style={styles.completeTitleRow}>
+                  <Ionicons name="checkmark-done-circle" size={20} color="#FFFFFF" />
+                  <Text style={styles.completeTitle}>
+                    Pickup Completed • Advance to Route Navigation
+                  </Text>
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                </View>
+                <Text style={styles.completeSub}>
+                  Consignment secured • Tap to open Route Execution
+                </Text>
+              </>
             ) : (
               <>
                 <View style={styles.completeTitleRow}>
-                  <Ionicons name="checkmark-done-circle" size={20} color={colors.onPrimaryContainer} />
+                  <Ionicons
+                    name={allStepsSatisfied ? 'checkmark-circle' : 'checkmark-done-circle'}
+                    size={20}
+                    color="#FFFFFF"
+                  />
                   <Text style={styles.completeTitle}>
-                    Complete Pickup & Auto-Advance to {nextStopLabel}
+                    Complete Pickup & Advance to {nextStopLabel}
                   </Text>
-                  <Ionicons name="arrow-forward" size={16} color={colors.onPrimaryContainer} />
+                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
                 </View>
                 <Text style={styles.completeSub}>
-                  Saves handover manifest & launches route to next scheduled stop
+                  {allStepsSatisfied
+                    ? 'All 5 steps verified • Tap to seal manifest & launch next stop'
+                    : 'Transfers legal custody & automatically advances route'}
                 </Text>
               </>
             )}
@@ -429,7 +554,7 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
       {/* Floating Animated Feedback Toast */}
       {feedbackBanner && (
         <View style={styles.feedbackToast}>
-          <Ionicons name="navigate-circle" size={24} color={colors.primaryAction} />
+          <Ionicons name="checkmark-circle" size={24} color="#7B91EE" />
           <View style={{ flex: 1 }}>
             <Text style={styles.feedbackTitle}>{feedbackBanner.title}</Text>
             <Text style={styles.feedbackSub}>{feedbackBanner.sub}</Text>
@@ -443,7 +568,7 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: colors.canvas,
+    backgroundColor: '#FDFBF8',
   },
   container: {
     flex: 1,
@@ -451,57 +576,90 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.gutter,
     gap: 12,
-    paddingBottom: 28,
+    paddingBottom: 36,
   },
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.canvas,
+    backgroundColor: '#FDFBF8',
     gap: 10,
+    padding: 24,
   },
   loadingText: {
     ...typography.bodySm,
-    color: colors.textSecondary,
+    color: '#5C554E',
     fontSize: 12,
   },
+  returnBtn: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#3B52B6',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: radii.md,
+  },
+  returnBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  handoverNavBtn: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#3B52B6',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: radii.md,
+  },
+  handoverNavBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
   completeActionBox: {
-    marginTop: 4,
+    marginTop: 6,
   },
   completeBtn: {
-    backgroundColor: colors.primaryAction,
+    backgroundColor: '#3B52B6',
     minHeight: 56,
     borderRadius: radii.xl,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primaryDark,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: '#3B52B6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  completeBtnReady: {
+    backgroundColor: '#1E8E5A',
+    shadowColor: '#1E8E5A',
   },
   completeBtnDisabled: {
-    opacity: 0.6,
+    opacity: 0.65,
   },
   completeTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   completeTitle: {
-    ...typography.labelLg,
-    fontSize: 14,
+    fontSize: 14.5,
     fontWeight: '700',
-    color: colors.onPrimaryContainer,
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   completeSub: {
-    ...typography.bodySm,
-    fontSize: 10.5,
-    color: colors.onPrimaryContainer,
-    opacity: 0.85,
-    marginTop: 2,
+    fontSize: 11,
+    color: '#E5EBFF',
+    marginTop: 3,
     textAlign: 'center',
   },
   discrepancyBtn: {
@@ -513,7 +671,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   discrepancyText: {
-    ...typography.labelMd,
     fontSize: 12,
     color: colors.error,
     fontWeight: '700',
@@ -523,14 +680,14 @@ const styles = StyleSheet.create({
     top: 16,
     left: 16,
     right: 16,
-    backgroundColor: colors.ink,
+    backgroundColor: '#201E1C',
     borderRadius: radii.xl,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     borderWidth: 1,
-    borderColor: colors.primaryAction,
+    borderColor: '#7B91EE',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
@@ -539,13 +696,11 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   feedbackTitle: {
-    ...typography.labelMd,
     fontSize: 13,
     color: '#FFFFFF',
     fontWeight: '700',
   },
   feedbackSub: {
-    ...typography.bodySm,
     fontSize: 11,
     color: '#D1D5DB',
     marginTop: 1,

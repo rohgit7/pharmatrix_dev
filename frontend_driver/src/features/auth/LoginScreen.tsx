@@ -12,10 +12,12 @@ import {
   Alert,
   Keyboard,
   TouchableWithoutFeedback,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { getApiBaseUrl, setCustomApiUrl, testApiConnection } from '../../services/api';
 
 export const LoginScreen: React.FC = () => {
   const { login } = useAuth();
@@ -28,16 +30,24 @@ export const LoginScreen: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Server diagnostics
+  const [serverUrl, setServerUrl] = useState<string>(getApiBaseUrl());
+  const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+  const [showServerModal, setShowServerModal] = useState<boolean>(false);
+  const [customUrlInput, setCustomUrlInput] = useState<string>(getApiBaseUrl());
+  const [testingCustomUrl, setTestingCustomUrl] = useState<boolean>(false);
+
   // Keyboard and focus tracking
   const [keyboardVisible, setKeyboardVisible] = useState<boolean>(false);
   const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
 
   const isKeyboardActive = keyboardVisible || focusedField !== null;
-
   const scrollViewRef = useRef<any>(null);
   const passwordInputRef = useRef<any>(null);
 
   useEffect(() => {
+    checkServerConnection();
+
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
@@ -55,9 +65,60 @@ export const LoginScreen: React.FC = () => {
     };
   }, []);
 
+  const checkServerConnection = async (targetUrl?: string) => {
+    setServerStatus('checking');
+    const result = await testApiConnection(targetUrl || serverUrl);
+    setServerStatus(result.ok ? 'online' : 'offline');
+    setServerUrl(result.url);
+  };
+
+  const handleSaveCustomServer = async () => {
+    if (!customUrlInput.trim()) {
+      Alert.alert('Invalid URL', 'Please enter a valid backend URL.');
+      return;
+    }
+    setTestingCustomUrl(true);
+    const cleaned = customUrlInput.trim().replace(/\/+$/, '');
+    const res = await testApiConnection(cleaned);
+    setTestingCustomUrl(false);
+
+    if (res.ok) {
+      await setCustomApiUrl(cleaned);
+      setServerUrl(cleaned);
+      setServerStatus('online');
+      setShowServerModal(false);
+      Alert.alert('Server Connected', `Successfully connected to ${cleaned}`);
+    } else {
+      Alert.alert(
+        'Connection Failed',
+        `Could not connect to ${cleaned} (${res.message}). Do you still want to save this URL?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Save Anyway',
+            onPress: async () => {
+              await setCustomApiUrl(cleaned);
+              setServerUrl(cleaned);
+              setServerStatus('offline');
+              setShowServerModal(false);
+            },
+          },
+        ]
+      );
+    }
+  };
+
+  const handleResetServerUrl = async () => {
+    await setCustomApiUrl(null);
+    const def = getApiBaseUrl();
+    setCustomUrlInput(def);
+    setServerUrl(def);
+    checkServerConnection(def);
+    setShowServerModal(false);
+  };
+
   const handleEmailFocus = () => {
     setFocusedField('email');
-    // Scroll slightly so the email field and title stay comfortably in view
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({ y: 30, animated: true });
     }, 80);
@@ -65,14 +126,12 @@ export const LoginScreen: React.FC = () => {
 
   const handlePasswordFocus = () => {
     setFocusedField('password');
-    // Scroll down so the password field and the Sign In button are clearly in view
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({ y: 110, animated: true });
     }, 80);
   };
 
   const handleInputBlur = () => {
-    // If keyboard is not visible, clear focus
     if (!keyboardVisible) {
       setFocusedField(null);
     }
@@ -92,9 +151,10 @@ export const LoginScreen: React.FC = () => {
     try {
       await login(email.trim(), password);
     } catch (err: any) {
-      setErrorMessage(
-        err?.message || 'Authentication failed. Please verify your driver email and password.'
-      );
+      const msg = err?.message || 'Authentication failed. Please check credentials or network.';
+      setErrorMessage(msg);
+      // Recheck server status on error
+      checkServerConnection();
     } finally {
       setLoading(false);
     }
@@ -122,7 +182,7 @@ export const LoginScreen: React.FC = () => {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.innerWrapper}>
-            {/* Top Header Bar with Safe Area Inset Support */}
+            {/* Top Header Bar */}
             <View
               style={[
                 styles.topBar,
@@ -145,8 +205,18 @@ export const LoginScreen: React.FC = () => {
               >
                 <Ionicons name="arrow-back" size={24} color="#201E1C" />
               </TouchableOpacity>
-              <Text style={styles.topBarTitle}>Sign In</Text>
-              <View style={styles.topBarRightSpacer} />
+              <Text style={styles.topBarTitle}>Driver Sign In</Text>
+              <TouchableOpacity
+                style={styles.serverGearBtn}
+                onPress={() => {
+                  setCustomUrlInput(serverUrl);
+                  setShowServerModal(true);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <View style={[styles.serverDot, serverStatus === 'online' ? styles.dotGreen : serverStatus === 'offline' ? styles.dotRed : styles.dotAmber]} />
+                <Ionicons name="server-outline" size={18} color="#201E1C" />
+              </TouchableOpacity>
             </View>
 
             <ScrollView
@@ -161,7 +231,7 @@ export const LoginScreen: React.FC = () => {
               bounces={false}
               automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
             >
-              {/* Logo Badge - Resizes dynamically when keypad opens */}
+              {/* Logo Badge */}
               <View
                 style={[
                   styles.logoBadgeContainer,
@@ -188,7 +258,7 @@ export const LoginScreen: React.FC = () => {
                 </View>
               </View>
 
-              {/* Heading Section - Automatically compacts */}
+              {/* Heading Section */}
               <View
                 style={[
                   styles.headingSection,
@@ -206,15 +276,44 @@ export const LoginScreen: React.FC = () => {
                 <View style={styles.driverTagRow}>
                   <View style={styles.driverPill}>
                     <Ionicons name="car-outline" size={12} color="#3B52B6" />
-                    <Text style={styles.driverPillText}>DRIVER OPERATIONS LOGIN</Text>
+                    <Text style={styles.driverPillText}>DRIVER OPERATIONS TERMINAL</Text>
                   </View>
                 </View>
                 {!isKeyboardActive && (
                   <Text style={styles.brandSubtitle}>
-                    Sign in with your driver email to continue
+                    Sign in to sync today's route manifest & collections
                   </Text>
                 )}
               </View>
+
+              {/* Server Connection Status Pill */}
+              <TouchableOpacity
+                style={styles.serverStatusPill}
+                onPress={() => {
+                  setCustomUrlInput(serverUrl);
+                  setShowServerModal(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[
+                    styles.statusIndicator,
+                    serverStatus === 'online'
+                      ? styles.statusOnline
+                      : serverStatus === 'offline'
+                      ? styles.statusOffline
+                      : styles.statusChecking,
+                  ]}
+                />
+                <Text style={styles.serverStatusText} numberOfLines={1}>
+                  {serverStatus === 'online'
+                    ? `Connected: ${serverUrl.replace(/^https?:\/\//, '')}`
+                    : serverStatus === 'checking'
+                    ? `Checking: ${serverUrl.replace(/^https?:\/\//, '')}...`
+                    : `Server Unreachable: ${serverUrl.replace(/^https?:\/\//, '')}`}
+                </Text>
+                <Ionicons name="create-outline" size={13} color="#5C554E" />
+              </TouchableOpacity>
 
               {/* Error Banner */}
               {errorMessage && (
@@ -224,14 +323,14 @@ export const LoginScreen: React.FC = () => {
                 </View>
               )}
 
-              {/* Email ID Field */}
+              {/* Email Field */}
               <View
                 style={[
                   styles.fieldBlock,
                   isKeyboardActive && styles.fieldBlockKeyboard,
                 ]}
               >
-                <Text style={styles.fieldLabel}>Email ID</Text>
+                <Text style={styles.fieldLabel}>Driver Email ID</Text>
                 <View
                   style={[
                     styles.inputContainer,
@@ -254,7 +353,7 @@ export const LoginScreen: React.FC = () => {
                     }}
                     onFocus={handleEmailFocus}
                     onBlur={handleInputBlur}
-                    placeholder="driver@pharmatrix.com"
+                    placeholder="driver1@gmail.com"
                     placeholderTextColor="#A89D91"
                     autoCapitalize="none"
                     keyboardType="email-address"
@@ -297,7 +396,7 @@ export const LoginScreen: React.FC = () => {
                     }}
                     onFocus={handlePasswordFocus}
                     onBlur={handleInputBlur}
-                    placeholder="Enter your password"
+                    placeholder="Enter password"
                     placeholderTextColor="#A89D91"
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
@@ -319,7 +418,7 @@ export const LoginScreen: React.FC = () => {
                 </View>
               </View>
 
-              {/* Options Row: Remember me & Forgot password? */}
+              {/* Options Row */}
               <View
                 style={[
                   styles.optionsRow,
@@ -364,16 +463,19 @@ export const LoginScreen: React.FC = () => {
                 activeOpacity={0.88}
               >
                 {loading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <View style={styles.btnContent}>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <Text style={styles.signInBtnText}>Connecting to Server...</Text>
+                  </View>
                 ) : (
                   <View style={styles.btnContent}>
-                    <Text style={styles.signInBtnText}>Sign In</Text>
+                    <Text style={styles.signInBtnText}>Sign In to Terminal</Text>
                     <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* Quick Demo Credential Helper - Accessible inside scrollable area */}
+              {/* Demo Credential Button */}
               <TouchableOpacity
                 style={[
                   styles.quickFillBtn,
@@ -383,6 +485,7 @@ export const LoginScreen: React.FC = () => {
                 activeOpacity={0.75}
               >
                 <Ionicons name="key-outline" size={14} color="#3B52B6" />
+                <Text style={styles.quickFillText}>Auto-Fill Demo Credentials (driver1@gmail.com)</Text>
               </TouchableOpacity>
 
               {/* Security Footnote */}
@@ -398,6 +501,69 @@ export const LoginScreen: React.FC = () => {
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+
+      {/* Server Configuration Modal */}
+      <Modal
+        visible={showServerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowServerModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowServerModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={styles.modalCard}>
+                <View style={styles.modalHeader}>
+                  <View style={styles.modalTitleRow}>
+                    <Ionicons name="server" size={20} color="#3B52B6" />
+                    <Text style={styles.modalTitle}>Backend Server Settings</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setShowServerModal(false)}>
+                    <Ionicons name="close" size={22} color="#201E1C" />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.modalHelpText}>
+                  Specify the IP address of your computer running the FastAPI backend.
+                </Text>
+
+                <View style={styles.serverInputRow}>
+                  <TextInput
+                    style={styles.serverTextInput}
+                    value={customUrlInput}
+                    onChangeText={setCustomUrlInput}
+                    placeholder="http://10.235.154.167:8001"
+                    placeholderTextColor="#A89D91"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.resetBtn}
+                    onPress={handleResetServerUrl}
+                  >
+                    <Text style={styles.resetBtnText}>Auto-Detect</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.testSaveBtn, testingCustomUrl && { opacity: 0.7 }]}
+                    onPress={handleSaveCustomServer}
+                    disabled={testingCustomUrl}
+                  >
+                    {testingCustomUrl ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.testSaveBtnText}>Test & Connect</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 };
@@ -444,8 +610,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#201E1C',
   },
-  topBarRightSpacer: {
+  serverGearBtn: {
     width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  serverDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  dotGreen: {
+    backgroundColor: '#1E8E5A',
+  },
+  dotRed: {
+    backgroundColor: '#DC2626',
+  },
+  dotAmber: {
+    backgroundColor: '#F59E0B',
   },
   scrollContent: {
     flexGrow: 1,
@@ -459,11 +646,11 @@ const styles = StyleSheet.create({
   scrollContentKeyboard: {
     justifyContent: 'flex-start',
     paddingTop: 10,
-    paddingBottom: 120, // Generous bottom padding to allow full scrolling above keypad
+    paddingBottom: 120,
   },
   logoBadgeContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   logoBadgeContainerKeyboard: {
     marginBottom: 6,
@@ -511,10 +698,10 @@ const styles = StyleSheet.create({
   },
   headingSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   headingSectionKeyboard: {
-    marginBottom: 10,
+    marginBottom: 8,
   },
   brandTitle: {
     fontSize: 30,
@@ -548,11 +735,44 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   brandSubtitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '500',
     color: '#5C554E',
     textAlign: 'center',
     marginTop: 2,
+  },
+  serverStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F5EFE6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    alignSelf: 'center',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#EADFD0',
+  },
+  statusIndicator: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  statusOnline: {
+    backgroundColor: '#1E8E5A',
+  },
+  statusOffline: {
+    backgroundColor: '#DC2626',
+  },
+  statusChecking: {
+    backgroundColor: '#F59E0B',
+  },
+  serverStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#363432',
+    maxWidth: 260,
   },
   errorBox: {
     flexDirection: 'row',
@@ -573,7 +793,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fieldBlock: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   fieldBlockKeyboard: {
     marginBottom: 8,
@@ -623,11 +843,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 2,
-    marginBottom: 20,
+    marginBottom: 18,
     paddingHorizontal: 2,
   },
   optionsRowKeyboard: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   rememberRow: {
     flexDirection: 'row',
@@ -698,16 +918,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 12,
-    marginTop: 16,
+    marginTop: 14,
     borderWidth: 1,
     borderColor: '#EADFD0',
   },
   quickFillBtnKeyboard: {
-    marginTop: 10,
-    paddingVertical: 8,
+    marginTop: 8,
+    paddingVertical: 7,
   },
   quickFillText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '600',
     color: '#3B52B6',
   },
@@ -716,7 +936,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 22,
+    marginTop: 20,
   },
   securityText: {
     fontSize: 11,
@@ -724,4 +944,94 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#EADFD0',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#201E1C',
+  },
+  modalHelpText: {
+    fontSize: 12,
+    color: '#5C554E',
+    marginBottom: 14,
+    lineHeight: 17,
+  },
+  serverInputRow: {
+    marginBottom: 16,
+  },
+  serverTextInput: {
+    height: 48,
+    backgroundColor: '#FBF2E6',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: '#201E1C',
+    borderWidth: 1,
+    borderColor: '#EADFD0',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  resetBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5EFE6',
+    borderWidth: 1,
+    borderColor: '#EADFD0',
+  },
+  resetBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#5C554E',
+  },
+  testSaveBtn: {
+    flex: 1.5,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#3B52B6',
+  },
+  testSaveBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 });
+
+export default LoginScreen;

@@ -59,6 +59,7 @@ export interface RouteStop {
   estimated_weight_kg?: number | null;
   collected_weight_kg?: number | null;
   arrival_time?: string | null;
+  arrived_at?: string | null;
   departure_time?: string | null;
   proof_uploaded: boolean;
   qr_verified: boolean;

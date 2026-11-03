@@ -39,8 +39,11 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
     if (route.status === 'ASSIGNED' || route.status === 'READY') {
       await startRoute();
     }
-    // Launch navigation tab
-    onNavigateToTab('routes');
+    if (activeStop?.execution_status === 'ARRIVED' || activeStop?.execution_status === 'IN_PROGRESS') {
+      onNavigateToTab('pickups');
+    } else {
+      onNavigateToTab('routes');
+    }
   };
 
   const handleSelectScheduleStop = (stop: RouteStop) => {

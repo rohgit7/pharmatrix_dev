@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from decimal import Decimal
+from app.optimizer.problem import haversine_m
 
 from app.services.invoice_service import (
     InvoiceError,
@@ -118,6 +119,10 @@ def arrive_at_stop(
     user: User,
     route_id: int,
     stop_id: int,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    accuracy_meters: float | None = None,
+    geofence_radius_meters: float = 200.0,
 ):
     driver, route = get_driver_route(
         db,
@@ -147,9 +152,10 @@ def arrive_at_stop(
             detail="Route stop not found",
         )
 
-    if stop.execution_status not in {
-        RouteStopStatus.PENDING,
-    }:
+    if stop.execution_status == RouteStopStatus.ARRIVED:
+        return stop
+
+    if stop.execution_status != RouteStopStatus.PENDING:
         raise HTTPException(
             status_code=400,
             detail="Stop has already been started or completed",
@@ -180,6 +186,23 @@ def arrive_at_stop(
                 "completed first"
             ),
         )
+
+    # Geospatial location / geofence verification
+    if stop.lat is not None and stop.lng is not None:
+        if latitude is None or longitude is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Driver GPS coordinates are required to arrive at this stop.",
+            )
+        distance = haversine_m((latitude, longitude), (stop.lat, stop.lng))
+        if distance > geofence_radius_meters:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Location verification failed: Driver is {int(distance)}m away from "
+                    f"{stop.location_name or 'assigned stop'}, which exceeds the {int(geofence_radius_meters)}m geofence."
+                ),
+            )
 
     stop.execution_status = RouteStopStatus.ARRIVED
     stop.arrived_at = datetime.now(timezone.utc)
@@ -225,16 +248,20 @@ def complete_stop(
             detail="Route stop not found",
         )
 
+    now = datetime.now(timezone.utc)
+
     if stop.execution_status not in {
         RouteStopStatus.ARRIVED,
         RouteStopStatus.IN_PROGRESS,
     }:
-        raise HTTPException(
-            status_code=400,
-            detail="Stop must be arrived at before completion",
-        )
-
-    now = datetime.now(timezone.utc)
+        if stop.stop_type == RouteStopType.WAREHOUSE:
+            stop.execution_status = RouteStopStatus.ARRIVED
+            stop.arrived_at = now
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Stop must be arrived at before completion",
+            )
 
     # ---------------------------------------------------------
     # PICKUP

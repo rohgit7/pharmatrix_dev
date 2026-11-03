@@ -1,167 +1,181 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radii, typography } from '../../theme';
 
+export type StepNumber = 1 | 2 | 3 | 4 | 5;
+
 interface StepProgressionBarProps {
-  currentStep: 2 | 3 | 4 | 5;
-  weightRecorded?: boolean;
-  qrVerified?: boolean;
-  otpVerified?: boolean;
-  proofUploaded?: boolean;
+  currentStep: StepNumber;
+  isArrived: boolean;
+  weightRecorded: boolean;
+  qrVerified: boolean;
+  otpVerified: boolean;
+  proofUploaded: boolean;
   weightKg?: number;
+  onSelectStep?: (step: StepNumber) => void;
 }
 
 export const StepProgressionBar: React.FC<StepProgressionBarProps> = ({
   currentStep,
+  isArrived,
   weightRecorded = true,
   qrVerified = false,
   otpVerified = false,
   proofUploaded = false,
   weightKg = 0,
+  onSelectStep,
 }) => {
+  const steps: {
+    num: StepNumber;
+    label: string;
+    sub: string;
+    done: boolean;
+    active: boolean;
+    icon: keyof typeof Ionicons.glyphMap;
+  }[] = [
+    {
+      num: 1,
+      label: 'Arrive',
+      sub: isArrived ? 'Checked In' : 'Pending',
+      done: isArrived,
+      active: currentStep === 1,
+      icon: 'location',
+    },
+    {
+      num: 2,
+      label: 'Weigh',
+      sub: weightKg > 0 ? `${weightKg.toFixed(1)}kg` : (weightRecorded ? 'Recorded' : 'Enter kg'),
+      done: weightRecorded && isArrived,
+      active: currentStep === 2,
+      icon: 'speedometer',
+    },
+    {
+      num: 3,
+      label: 'QR Tag',
+      sub: qrVerified ? 'Verified' : 'Scan',
+      done: qrVerified,
+      active: currentStep === 3,
+      icon: 'qr-code',
+    },
+    {
+      num: 4,
+      label: 'OTP PIN',
+      sub: otpVerified ? 'Signed' : 'Enter',
+      done: otpVerified,
+      active: currentStep === 4,
+      icon: 'keypad',
+    },
+    {
+      num: 5,
+      label: 'Proof',
+      sub: proofUploaded ? 'Photo OK' : 'Capture',
+      done: proofUploaded,
+      active: currentStep === 5,
+      icon: 'camera',
+    },
+  ];
+
   return (
     <View style={styles.container}>
-      {/* Step 2: Weigh */}
-      <View style={[styles.stepItem, currentStep === 2 && styles.activeStepItem]}>
-        <View
-          style={[
-            styles.stepCircle,
-            weightRecorded ? styles.doneCircle : currentStep === 2 ? styles.activeCircle : styles.pendingCircle,
-          ]}
-        >
-          {weightRecorded ? (
-            <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-          ) : (
-            <Text style={styles.stepNumText}>2</Text>
+      {steps.map((step, idx) => (
+        <React.Fragment key={step.num}>
+          <TouchableOpacity
+            style={[styles.stepItem, step.active && styles.activeStepItem]}
+            onPress={() => onSelectStep?.(step.num)}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.stepCircle,
+                step.done
+                  ? styles.doneCircle
+                  : step.active
+                  ? styles.activeCircle
+                  : styles.pendingCircle,
+              ]}
+            >
+              {step.done ? (
+                <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+              ) : (
+                <Text
+                  style={[
+                    styles.stepNumText,
+                    step.active && styles.activeNumText,
+                  ]}
+                >
+                  {step.num}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.stepTextCol}>
+              <Text
+                style={[
+                  styles.stepTitle,
+                  step.active && styles.activeStepTitle,
+                ]}
+                numberOfLines={1}
+              >
+                {step.label}
+              </Text>
+              <Text
+                style={[
+                  styles.stepSub,
+                  step.done && styles.doneStepSub,
+                ]}
+                numberOfLines={1}
+              >
+                {step.sub}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {idx < steps.length - 1 && (
+            <Ionicons name="chevron-forward" size={9} color={colors.border} />
           )}
-        </View>
-        <View style={styles.stepTextCol}>
-          <Text style={[styles.stepTitle, currentStep === 2 && styles.activeStepTitle]} numberOfLines={1}>
-            Weigh
-          </Text>
-          <Text style={[styles.stepSub, weightRecorded && styles.doneStepSub]} numberOfLines={1}>
-            {weightKg > 0 ? `${weightKg.toFixed(1)}kg` : (weightRecorded ? 'Recorded' : 'Pending')}
-          </Text>
-        </View>
-      </View>
-
-      <Ionicons name="chevron-forward" size={10} color={colors.border} />
-
-      {/* Step 3: QR Tag */}
-      <View style={[styles.stepItem, currentStep === 3 && styles.activeStepItem]}>
-        <View
-          style={[
-            styles.stepCircle,
-            qrVerified ? styles.doneCircle : currentStep === 3 ? styles.activeCircle : styles.pendingCircle,
-          ]}
-        >
-          {qrVerified ? (
-            <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-          ) : (
-            <Text style={[styles.stepNumText, currentStep === 3 && styles.activeNumText]}>3</Text>
-          )}
-        </View>
-        <View style={styles.stepTextCol}>
-          <Text style={[styles.stepTitle, currentStep === 3 && styles.activeStepTitle]} numberOfLines={1}>
-            QR Tag
-          </Text>
-          <Text style={[styles.stepSub, qrVerified && styles.doneStepSub]} numberOfLines={1}>
-            {qrVerified ? 'Verified' : 'Scan'}
-          </Text>
-        </View>
-      </View>
-
-      <Ionicons name="chevron-forward" size={10} color={colors.border} />
-
-      {/* Step 4: OTP */}
-      <View style={[styles.stepItem, currentStep === 4 && styles.activeStepItem]}>
-        <View
-          style={[
-            styles.stepCircle,
-            otpVerified ? styles.doneCircle : currentStep === 4 ? styles.activeCircle : styles.pendingCircle,
-          ]}
-        >
-          {otpVerified ? (
-            <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-          ) : (
-            <Text style={[styles.stepNumText, currentStep === 4 && styles.activeNumText]}>4</Text>
-          )}
-        </View>
-        <View style={styles.stepTextCol}>
-          <Text style={[styles.stepTitle, currentStep === 4 && styles.activeStepTitle]} numberOfLines={1}>
-            OTP
-          </Text>
-          <Text style={[styles.stepSub, otpVerified && styles.doneStepSub]} numberOfLines={1}>
-            {otpVerified ? 'Valid' : 'Sign'}
-          </Text>
-        </View>
-      </View>
-
-      <Ionicons name="chevron-forward" size={10} color={colors.border} />
-
-      {/* Step 5: Proof Photo */}
-      <View style={[styles.stepItem, currentStep === 5 && styles.activeStepItem]}>
-        <View
-          style={[
-            styles.stepCircle,
-            proofUploaded ? styles.doneCircle : currentStep === 5 ? styles.activeCircle : styles.pendingCircle,
-          ]}
-        >
-          {proofUploaded ? (
-            <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-          ) : (
-            <Text style={[styles.stepNumText, currentStep === 5 && styles.activeNumText]}>5</Text>
-          )}
-        </View>
-        <View style={styles.stepTextCol}>
-          <Text style={[styles.stepTitle, currentStep === 5 && styles.activeStepTitle]} numberOfLines={1}>
-            Proof
-          </Text>
-          <Text style={[styles.stepSub, proofUploaded && styles.doneStepSub]} numberOfLines={1}>
-            {proofUploaded ? 'Photo OK' : 'Capture'}
-          </Text>
-        </View>
-      </View>
+        </React.Fragment>
+      ))}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: radii.xl,
-    padding: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#EADFD0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: colors.ink,
+    shadowColor: '#201E1C',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
-    gap: 4,
+    gap: 2,
   },
   stepItem: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 4,
-    paddingVertical: 3,
+    gap: 4,
+    paddingHorizontal: 3,
+    paddingVertical: 4,
     borderRadius: radii.md,
   },
   activeStepItem: {
-    backgroundColor: colors.primaryTint,
+    backgroundColor: '#E5EBFF',
     borderWidth: 1,
     borderColor: 'rgba(123, 145, 238, 0.4)',
   },
   stepCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -169,19 +183,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   activeCircle: {
-    backgroundColor: colors.primaryDark,
-    borderWidth: 2,
-    borderColor: colors.primaryAction,
+    backgroundColor: '#3B52B6',
+    borderWidth: 1.5,
+    borderColor: '#7B91EE',
   },
   pendingCircle: {
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: '#F5EFE6',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#EADFD0',
   },
   stepNumText: {
     ...typography.labelSm,
-    fontSize: 11,
-    color: colors.textSecondary,
+    fontSize: 10,
+    color: '#8A8279',
     fontWeight: '700',
   },
   activeNumText: {
@@ -192,18 +206,18 @@ const styles = StyleSheet.create({
   },
   stepTitle: {
     ...typography.labelSm,
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: '700',
-    color: colors.ink,
+    color: '#201E1C',
   },
   activeStepTitle: {
-    color: colors.onPrimaryContainer,
+    color: '#3B52B6',
   },
   stepSub: {
     ...typography.bodySm,
-    fontSize: 8.5,
-    color: colors.textSecondary,
-    marginTop: 1,
+    fontSize: 8,
+    color: '#8A8279',
+    marginTop: 0.5,
   },
   doneStepSub: {
     color: colors.success,

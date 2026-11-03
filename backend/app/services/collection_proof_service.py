@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import base64
 from pathlib import Path
 from uuid import uuid4
 
@@ -20,6 +21,7 @@ from app.core.storage import create_signed_storage_url
 
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
     "image/png": ".png",
 }
 
@@ -85,13 +87,15 @@ def get_collection_proof_url(
         "signed_url": signed_url,
     }
 
-async def upload_collection_proof(
+
+def _save_proof_bytes(
     db: Session,
     user,
     route_id: int,
     stop_id: int,
-    file: UploadFile,
-):
+    contents: bytes,
+    content_type: str,
+) -> RouteStop:
     _, route = get_driver_route(
         db,
         user,
@@ -152,40 +156,35 @@ async def upload_collection_proof(
             detail="Customer OTP has not been verified",
         )
 
-    if stop.proof_storage_path:
-        raise HTTPException(
-            status_code=409,
-            detail="Collection proof has already been uploaded",
-        )
+    # Normalize image/jpg -> image/jpeg
+    normalized_content_type = content_type.lower()
+    if normalized_content_type == "image/jpg":
+        normalized_content_type = "image/jpeg"
 
-    if file.content_type not in ALLOWED_CONTENT_TYPES:
+    if normalized_content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=400,
             detail="Only JPG and PNG images are allowed",
         )
 
-    contents = await file.read()
     validate_file_signature(
         contents,
-        file.content_type,
+        normalized_content_type,
     )
+
     def validate_image_signature(
-        contents: bytes,
-        content_type: str,
+        data: bytes,
+        c_type: str,
     ) -> bool:
-        if content_type == "image/jpeg":
-            return contents.startswith(b"\xFF\xD8\xFF")
-
-        if content_type == "image/png":
-            return contents.startswith(
-                b"\x89PNG\r\n\x1a\n"
-            )
-
+        if c_type in {"image/jpeg", "image/jpg"}:
+            return data.startswith(b"\xFF\xD8\xFF")
+        if c_type == "image/png":
+            return data.startswith(b"\x89PNG\r\n\x1a\n")
         return False
 
     if not validate_image_signature(
         contents,
-        file.content_type,
+        normalized_content_type,
     ):
         raise HTTPException(
             status_code=400,
@@ -198,7 +197,7 @@ async def upload_collection_proof(
             detail="File size cannot exceed 10 MB",
         )
 
-    extension = ALLOWED_CONTENT_TYPES[file.content_type]
+    extension = ALLOWED_CONTENT_TYPES[normalized_content_type]
 
     storage_path = (
         f"routes/{route.id}/"
@@ -215,8 +214,8 @@ async def upload_collection_proof(
             storage_path,
             contents,
             {
-                "content-type": file.content_type,
-                "upsert": False,
+                "content-type": normalized_content_type,
+                "upsert": "true",
             },
         )
     except Exception as exc:
@@ -232,3 +231,54 @@ async def upload_collection_proof(
     db.refresh(stop)
 
     return stop
+
+
+async def upload_collection_proof(
+    db: Session,
+    user,
+    route_id: int,
+    stop_id: int,
+    file: UploadFile,
+):
+    contents = await file.read()
+    return _save_proof_bytes(
+        db=db,
+        user=user,
+        route_id=route_id,
+        stop_id=stop_id,
+        contents=contents,
+        content_type=file.content_type or "image/jpeg",
+    )
+
+
+def upload_collection_proof_base64(
+    db: Session,
+    user,
+    route_id: int,
+    stop_id: int,
+    image_base64: str,
+):
+    raw = image_base64.strip()
+    content_type = "image/jpeg"
+    if raw.startswith("data:"):
+        header, _, data = raw.partition(",")
+        if "image/png" in header.lower():
+            content_type = "image/png"
+        raw = data
+
+    try:
+        contents = base64.b64decode(raw)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid base64 image data: {exc}",
+        )
+
+    return _save_proof_bytes(
+        db=db,
+        user=user,
+        route_id=route_id,
+        stop_id=stop_id,
+        contents=contents,
+        content_type=content_type,
+    )
