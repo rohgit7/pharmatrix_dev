@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 
 export type StepNumber = 1 | 2 | 3 | 4 | 5;
 
@@ -32,15 +32,13 @@ export const StepProgressionBar: React.FC<StepProgressionBarProps> = ({
     sub: string;
     done: boolean;
     active: boolean;
-    icon: keyof typeof Ionicons.glyphMap;
   }[] = [
     {
       num: 1,
       label: 'Arrive',
-      sub: isArrived ? 'Checked In' : 'Pending',
+      sub: isArrived ? 'Verified' : 'Pending',
       done: isArrived,
       active: currentStep === 1,
-      icon: 'location',
     },
     {
       num: 2,
@@ -48,7 +46,6 @@ export const StepProgressionBar: React.FC<StepProgressionBarProps> = ({
       sub: weightKg > 0 ? `${weightKg.toFixed(1)}kg` : (weightRecorded ? 'Recorded' : 'Enter kg'),
       done: weightRecorded && isArrived,
       active: currentStep === 2,
-      icon: 'speedometer',
     },
     {
       num: 3,
@@ -56,7 +53,6 @@ export const StepProgressionBar: React.FC<StepProgressionBarProps> = ({
       sub: qrVerified ? 'Verified' : 'Scan',
       done: qrVerified,
       active: currentStep === 3,
-      icon: 'qr-code',
     },
     {
       num: 4,
@@ -64,7 +60,6 @@ export const StepProgressionBar: React.FC<StepProgressionBarProps> = ({
       sub: otpVerified ? 'Signed' : 'Enter',
       done: otpVerified,
       active: currentStep === 4,
-      icon: 'keypad',
     },
     {
       num: 5,
@@ -72,7 +67,6 @@ export const StepProgressionBar: React.FC<StepProgressionBarProps> = ({
       sub: proofUploaded ? 'Photo OK' : 'Capture',
       done: proofUploaded,
       active: currentStep === 5,
-      icon: 'camera',
     },
   ];
 
@@ -132,7 +126,7 @@ export const StepProgressionBar: React.FC<StepProgressionBarProps> = ({
           </TouchableOpacity>
 
           {idx < steps.length - 1 && (
-            <Ionicons name="chevron-forward" size={9} color={colors.border} />
+            <Ionicons name="chevron-forward" size={9} color={colors.secondary} />
           )}
         </React.Fragment>
       ))}
@@ -142,21 +136,18 @@ export const StepProgressionBar: React.FC<StepProgressionBarProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     paddingVertical: 8,
     paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: '#EADFD0',
+    borderColor: colors.secondary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#201E1C',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    marginBottom: spacing.md,
     gap: 2,
+    ...shadows.subtle,
   },
   stepItem: {
     flex: 1,
@@ -165,12 +156,10 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 3,
     paddingVertical: 4,
-    borderRadius: radii.md,
+    borderRadius: radii.sm,
   },
   activeStepItem: {
-    backgroundColor: '#E5EBFF',
-    borderWidth: 1,
-    borderColor: 'rgba(123, 145, 238, 0.4)',
+    backgroundColor: colors.lightAccent,
   },
   stepCircle: {
     width: 20,
@@ -183,19 +172,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
   },
   activeCircle: {
-    backgroundColor: '#3B52B6',
-    borderWidth: 1.5,
-    borderColor: '#7B91EE',
+    backgroundColor: colors.primaryAccent,
   },
   pendingCircle: {
-    backgroundColor: '#F5EFE6',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#EADFD0',
+    borderColor: colors.secondary,
   },
   stepNumText: {
     ...typography.labelSm,
     fontSize: 10,
-    color: '#8A8279',
+    color: colors.textMuted,
     fontWeight: '700',
   },
   activeNumText: {
@@ -206,17 +193,17 @@ const styles = StyleSheet.create({
   },
   stepTitle: {
     ...typography.labelSm,
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#201E1C',
+    color: colors.primary,
   },
   activeStepTitle: {
-    color: '#3B52B6',
+    color: colors.primary,
   },
   stepSub: {
     ...typography.bodySm,
-    fontSize: 8,
-    color: '#8A8279',
+    fontSize: 9,
+    color: colors.textMuted,
     marginTop: 0.5,
   },
   doneStepSub: {

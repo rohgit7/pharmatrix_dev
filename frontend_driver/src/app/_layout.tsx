@@ -14,8 +14,7 @@ import { OperationsScreen } from '../features/home/OperationsScreen';
 import { RoutesScreen } from '../features/routes/RoutesScreen';
 import { PickupsScreen } from '../features/pickups/PickupsScreen';
 import { ProfileScreen } from '../features/handover/ProfileScreen';
-import { RouteStop } from '../types/api';
-import { colors, radii, spacing, typography } from '../theme';
+import { colors, radii, spacing, typography, shadows } from '../theme';
 
 const queryClient = new QueryClient();
 
@@ -28,11 +27,11 @@ function MainNavigator() {
       <View style={styles.splashContainer}>
         <View style={styles.brandBox}>
           <View style={styles.logoBadge}>
-            <Ionicons name="compass" size={40} color="#FFFFFF" />
+            <Ionicons name="cube" size={36} color="#FFFFFF" />
           </View>
           <Text style={styles.splashTitle}>PHARMATRIX</Text>
           <Text style={styles.splashSub}>Driver Logistics Terminal</Text>
-          <ActivityIndicator size="small" color={colors.primaryAction} style={{ marginTop: 24 }} />
+          <ActivityIndicator size="small" color={colors.primaryAccent} style={{ marginTop: 24 }} />
         </View>
       </View>
     );
@@ -81,13 +80,13 @@ function MainNavigator() {
           showPhoneCall={currentTab === 'pickups' || currentTab === 'routes'}
         />
 
-        {/* Current Screen Content */}
+        {/* Screen Content */}
         <View style={styles.screenContainer}>{renderScreen()}</View>
 
         {/* Global Bottom Tab Bar */}
         <BottomTabBar currentTab={currentTab} onTabChange={setCurrentTab} />
 
-        {/* Slide-Out Profile & Telemetry Drawer */}
+        {/* Driver Profile Drawer */}
         <DriverProfileDrawer />
       </View>
     </View>
@@ -111,7 +110,7 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   outerStage: {
     flex: 1,
-    backgroundColor: Platform.select({ web: '#F3ECE2', default: colors.canvas }),
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
@@ -121,12 +120,12 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: 500,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.background,
     overflow: 'hidden',
     position: 'relative',
     borderLeftWidth: Platform.select({ web: 1, default: 0 }),
     borderRightWidth: Platform.select({ web: 1, default: 0 }),
-    borderColor: colors.border,
+    borderColor: colors.secondary,
   },
   screenContainer: {
     flex: 1,
@@ -134,7 +133,7 @@ const styles = StyleSheet.create({
   },
   splashContainer: {
     flex: 1,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
@@ -143,29 +142,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: colors.primaryDark,
+    width: 64,
+    height: 64,
+    borderRadius: radii.lg,
+    backgroundColor: colors.primaryAccent,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
-    shadowColor: colors.primaryDark,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
+    ...shadows.card,
   },
   splashTitle: {
     ...typography.headlineMd,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
-    color: colors.primaryDark,
+    color: colors.primary,
     letterSpacing: 2,
   },
   splashSub: {
     ...typography.bodySm,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     color: colors.textSecondary,
     marginTop: 4,

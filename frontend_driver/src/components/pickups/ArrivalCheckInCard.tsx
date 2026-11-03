@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 import { RouteStop } from '../../types/api';
 import {
   getCurrentDriverLocation,
@@ -53,7 +53,6 @@ export const ArrivalCheckInCard: React.FC<ArrivalCheckInCardProps> = ({
     !isNaN(stop.latitude) &&
     !isNaN(stop.longitude);
 
-  // Refresh driver GPS coordinates
   const refreshLocation = useCallback(async () => {
     if (isArrived) return;
     setGpsLoading(true);
@@ -75,7 +74,7 @@ export const ArrivalCheckInCard: React.FC<ArrivalCheckInCardProps> = ({
         setDistanceMeters(0);
       }
     } catch (err: any) {
-      setGpsError(err?.message || 'Unable to retrieve device GPS coordinates.');
+      setGpsError(err?.message || 'Unable to retrieve GPS coordinates.');
       setDriverCoords(null);
       setDistanceMeters(null);
     } finally {
@@ -83,7 +82,6 @@ export const ArrivalCheckInCard: React.FC<ArrivalCheckInCardProps> = ({
     }
   }, [isArrived, stopHasCoords, stop.latitude, stop.longitude]);
 
-  // Fetch GPS automatically when viewing an un-arrived stop
   useEffect(() => {
     if (!isArrived) {
       refreshLocation();
@@ -107,7 +105,7 @@ export const ArrivalCheckInCard: React.FC<ArrivalCheckInCardProps> = ({
       return;
     }
     if (!isWithinGeofence && stopHasCoords) {
-      return; // Strictly prevented
+      return;
     }
 
     await onConfirmArrival({
@@ -138,25 +136,16 @@ export const ArrivalCheckInCard: React.FC<ArrivalCheckInCardProps> = ({
 
   return (
     <View style={[styles.card, isArrived ? styles.cardArrived : styles.cardPending]}>
-      {/* Top Step Header */}
+      {/* Header */}
       <View style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          <View style={[styles.stepBadge, isArrived ? styles.stepBadgeDone : styles.stepBadgePending]}>
-            <Ionicons
-              name={isArrived ? 'checkmark' : 'navigate'}
-              size={12}
-              color={isArrived ? '#FFFFFF' : '#3B52B6'}
-            />
-            <Text style={[styles.stepBadgeText, isArrived && styles.stepBadgeTextDone]}>
-              STEP 1: GPS GEOFENCE CHECK-IN
-            </Text>
-          </View>
+        <View style={styles.stepBadge}>
+          <Text style={styles.stepBadgeText}>STEP 1: LOCATION ARRIVAL</Text>
         </View>
 
-        <View style={[styles.statusPill, isArrived ? styles.statusPillDone : styles.statusPillPending]}>
-          <View style={[styles.statusDot, isArrived ? styles.dotGreen : styles.dotAmber]} />
+        <View style={[styles.statusPill, isArrived && styles.statusPillDone]}>
+          <View style={[styles.statusDot, isArrived && styles.dotGreen]} />
           <Text style={[styles.statusPillText, isArrived && styles.statusPillTextDone]}>
-            {isArrived ? `Arrived at ${arrivedTimeFormatted || 'Facility'}` : 'Awaiting Arrival Check-In'}
+            {isArrived ? `Arrived ${arrivedTimeFormatted || ''}` : 'Pending Arrival'}
           </Text>
         </View>
       </View>
@@ -165,22 +154,32 @@ export const ArrivalCheckInCard: React.FC<ArrivalCheckInCardProps> = ({
       <View style={styles.facilitySection}>
         <View style={{ flex: 1 }}>
           <Text style={styles.facilityTitle}>{facilityName}</Text>
-          <View style={styles.addressRow}>
-            <Ionicons name="location-outline" size={13} color="#5C554E" />
-            <Text style={styles.addressText} numberOfLines={2}>
-              {stop.address || 'Facility Receiving Entrance'}
-            </Text>
-          </View>
+          {stop.address ? (
+            <View style={styles.addressRow}>
+              <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+              <Text style={styles.addressText} numberOfLines={1}>
+                {stop.address}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.quickActionButtons}>
           {stop.customer_phone ? (
-            <TouchableOpacity style={styles.iconCircleBtn} onPress={handlePhoneCall} activeOpacity={0.7}>
-              <Ionicons name="call" size={17} color="#3B52B6" />
+            <TouchableOpacity
+              style={styles.iconCircleBtn}
+              onPress={handlePhoneCall}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="call-outline" size={16} color={colors.primary} />
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity style={styles.iconCircleBtn} onPress={openNavigation} activeOpacity={0.7}>
-            <Ionicons name="map-outline" size={17} color="#3B52B6" />
+          <TouchableOpacity
+            style={styles.iconCircleBtn}
+            onPress={openNavigation}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="map-outline" size={16} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -188,30 +187,16 @@ export const ArrivalCheckInCard: React.FC<ArrivalCheckInCardProps> = ({
       {/* Arrived Confirmation or Live Geofence Interface */}
       {isArrived ? (
         <View style={styles.arrivedBanner}>
-          <View style={styles.arrivedBannerLeft}>
-            <Ionicons name="shield-checkmark" size={20} color={colors.success} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.arrivedBannerTitle}>Arrival Verified via GPS Geofence</Text>
-              <Text style={styles.arrivedBannerSub}>
-                Coordinates stamped • Facility check-in verified • Proceed to consignment weighing
-              </Text>
-            </View>
-          </View>
+          <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+          <Text style={styles.arrivedBannerTitle}>
+            Arrival verified within {GEOFENCE_RADIUS_METERS}m geofence
+          </Text>
         </View>
       ) : (
         <View style={styles.pendingActionSection}>
-          {/* Live GPS Readout and Geofence Verification Status */}
           <View style={styles.geofenceBox}>
             <View style={styles.geofenceHeader}>
-              <View style={styles.geofenceHeaderLeft}>
-                <Ionicons
-                  name={gpsLoading ? 'sync' : 'radio-outline'}
-                  size={15}
-                  color={isWithinGeofence ? colors.success : '#D97706'}
-                />
-                <Text style={styles.geofenceTitle}>Real-time GPS Distance Check</Text>
-              </View>
-
+              <Text style={styles.geofenceTitle}>GPS Verification</Text>
               <TouchableOpacity
                 onPress={refreshLocation}
                 disabled={gpsLoading}
@@ -219,34 +204,30 @@ export const ArrivalCheckInCard: React.FC<ArrivalCheckInCardProps> = ({
                 activeOpacity={0.7}
               >
                 {gpsLoading ? (
-                  <ActivityIndicator size="small" color="#3B52B6" />
+                  <ActivityIndicator size="small" color={colors.primaryAccent} />
                 ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                    <Ionicons name="refresh" size={12} color="#3B52B6" />
+                  <View style={styles.refreshContent}>
+                    <Ionicons name="refresh" size={12} color={colors.primary} />
                     <Text style={styles.refreshGpsText}>Refresh GPS</Text>
                   </View>
                 )}
               </TouchableOpacity>
             </View>
 
-            {/* GPS Error Alert */}
             {gpsError ? (
               <View style={styles.gpsErrorBox}>
-                <Ionicons name="alert-circle" size={18} color="#DC2626" />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.gpsErrorTitle}>Location Unavailable</Text>
-                  <Text style={styles.gpsErrorSub}>{gpsError}</Text>
-                </View>
+                <Ionicons name="alert-circle-outline" size={16} color={colors.error} />
+                <Text style={styles.gpsErrorText}>{gpsError}</Text>
               </View>
             ) : gpsLoading ? (
               <View style={styles.gpsLoadingBox}>
-                <ActivityIndicator size="small" color="#3B52B6" />
-                <Text style={styles.gpsLoadingText}>Acquiring high-accuracy satellite fix...</Text>
+                <ActivityIndicator size="small" color={colors.primaryAccent} />
+                <Text style={styles.gpsLoadingText}>Locating device...</Text>
               </View>
             ) : (
               <View style={styles.gpsStatsRow}>
                 <View style={styles.statCol}>
-                  <Text style={styles.statLabel}>Distance to Facility</Text>
+                  <Text style={styles.statLabel}>Distance to Site</Text>
                   <Text
                     style={[
                       styles.statVal,
@@ -258,56 +239,29 @@ export const ArrivalCheckInCard: React.FC<ArrivalCheckInCardProps> = ({
                 </View>
 
                 <View style={styles.statCol}>
-                  <Text style={styles.statLabel}>Required Radius</Text>
-                  <Text style={styles.statVal}>&le; {GEOFENCE_RADIUS_METERS} m</Text>
+                  <Text style={styles.statLabel}>Geofence Limit</Text>
+                  <Text style={styles.statVal}>{GEOFENCE_RADIUS_METERS} m</Text>
                 </View>
 
                 <View style={styles.statCol}>
-                  <Text style={styles.statLabel}>GPS Precision</Text>
-                  <Text style={styles.statVal}>
-                    {driverCoords?.accuracy ? `&plusmn;${Math.round(driverCoords.accuracy)}m` : 'Normal'}
+                  <Text style={styles.statLabel}>GPS Status</Text>
+                  <Text style={[styles.statVal, isWithinGeofence && styles.statValSuccess]}>
+                    {isWithinGeofence ? 'In Range' : 'Out of Range'}
                   </Text>
                 </View>
               </View>
             )}
-
-            {/* Geofence Threshold Alert Message */}
-            {!gpsLoading && !gpsError && (
-              <View
-                style={[
-                  styles.geofenceStatusBanner,
-                  isWithinGeofence ? styles.statusBannerSuccess : styles.statusBannerWarning,
-                ]}
-              >
-                <Ionicons
-                  name={isWithinGeofence ? 'checkmark-circle' : 'warning-outline'}
-                  size={16}
-                  color={isWithinGeofence ? '#15803D' : '#B45309'}
-                />
-                <Text
-                  style={[
-                    styles.geofenceStatusText,
-                    isWithinGeofence ? styles.statusTextSuccess : styles.statusTextWarning,
-                  ]}
-                >
-                  {isWithinGeofence
-                    ? `Within ${GEOFENCE_RADIUS_METERS}m geofence. Ready to stamp arrival.`
-                    : `Outside geofence (${distanceMeters}m away). Move closer to facility (&le;${GEOFENCE_RADIUS_METERS}m) to check in.`}
-                </Text>
-              </View>
-            )}
           </View>
 
-          {/* Location Check-in Button */}
+          {/* Action Button */}
           <TouchableOpacity
             style={[
               styles.confirmArrivalBtn,
               !canProceed && styles.btnDisabled,
-              !isWithinGeofence && styles.btnOutsideGeofence,
             ]}
             onPress={handleArrivalPress}
             disabled={!canProceed}
-            activeOpacity={0.88}
+            activeOpacity={0.85}
           >
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
@@ -315,17 +269,14 @@ export const ArrivalCheckInCard: React.FC<ArrivalCheckInCardProps> = ({
               <View style={styles.btnContent}>
                 <Ionicons
                   name={isWithinGeofence ? 'location' : 'lock-closed'}
-                  size={18}
+                  size={16}
                   color="#FFFFFF"
                 />
                 <Text style={styles.confirmArrivalBtnText}>
                   {isWithinGeofence
-                    ? 'Stamp Location Reached & Check In'
+                    ? 'Confirm Location Arrival'
                     : `Outside Geofence (${distanceMeters ?? '...'}m away)`}
                 </Text>
-                {isWithinGeofence && (
-                  <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                )}
               </View>
             )}
           </TouchableOpacity>
@@ -337,58 +288,37 @@ export const ArrivalCheckInCard: React.FC<ArrivalCheckInCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     padding: spacing.md,
-    borderWidth: 1.5,
-    shadowColor: '#201E1C',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    gap: 10,
+    marginBottom: spacing.md,
+    ...shadows.subtle,
   },
   cardPending: {
-    borderColor: '#3B52B6',
-    backgroundColor: '#FAF8F5',
+    borderColor: colors.primaryAccent,
   },
   cardArrived: {
-    borderColor: '#C6F6D5',
-    backgroundColor: '#FFFFFF',
+    borderColor: colors.secondary,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   stepBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+    backgroundColor: colors.lightAccent,
     paddingHorizontal: 8,
-    paddingVertical: 3.5,
-    borderRadius: radii.full,
-  },
-  stepBadgePending: {
-    backgroundColor: '#E5EBFF',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 82, 182, 0.3)',
-  },
-  stepBadgeDone: {
-    backgroundColor: colors.success,
+    paddingVertical: 3,
+    borderRadius: radii.xs,
   },
   stepBadgeText: {
+    ...typography.labelSm,
     fontSize: 10,
-    fontWeight: '800',
-    color: '#3B52B6',
-    letterSpacing: 0.4,
-  },
-  stepBadgeTextDone: {
-    color: '#FFFFFF',
+    fontWeight: '700',
+    color: colors.primary,
   },
   statusPill: {
     flexDirection: 'row',
@@ -397,32 +327,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radii.full,
-  },
-  statusPillPending: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: colors.secondary,
   },
   statusPillDone: {
-    backgroundColor: '#E8F5E9',
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
+    backgroundColor: colors.successContainer,
+    borderColor: 'rgba(22, 163, 74, 0.2)',
   },
   statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-  },
-  dotAmber: {
-    backgroundColor: '#D97706',
+    backgroundColor: colors.warning,
   },
   dotGreen: {
     backgroundColor: colors.success,
   },
   statusPillText: {
+    ...typography.labelSm,
     fontSize: 10,
-    fontWeight: '700',
-    color: '#92400E',
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   statusPillTextDone: {
     color: colors.success,
@@ -431,118 +357,107 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 8,
   },
   facilityTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#201E1C',
-    letterSpacing: -0.3,
+    ...typography.headlineSm,
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.primary,
   },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginTop: 4,
+    gap: 4,
+    marginTop: 2,
   },
   addressText: {
+    ...typography.bodySm,
     fontSize: 12,
-    color: '#5C554E',
-    fontWeight: '500',
+    color: colors.textSecondary,
     flex: 1,
   },
   quickActionButtons: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    gap: 6,
   },
   iconCircleBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#E5EBFF',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 82, 182, 0.2)',
   },
   arrivedBanner: {
-    backgroundColor: '#F0FDF4',
-    padding: 10,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-  },
-  arrivedBannerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    backgroundColor: colors.successContainer,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: radii.md,
   },
   arrivedBannerTitle: {
+    ...typography.bodySm,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.success,
-  },
-  arrivedBannerSub: {
-    fontSize: 10.5,
-    color: '#5C554E',
-    marginTop: 1,
+    flex: 1,
   },
   pendingActionSection: {
     gap: 10,
   },
   geofenceBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: '#EADFD0',
-    borderRadius: radii.lg,
-    padding: 12,
-    gap: 10,
+    borderColor: colors.secondary,
+    padding: 10,
+    gap: 8,
   },
   geofenceHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  geofenceHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
   geofenceTitle: {
+    ...typography.labelMd,
     fontSize: 12,
     fontWeight: '700',
-    color: '#201E1C',
+    color: colors.primary,
   },
   refreshGpsBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    backgroundColor: '#E5EBFF',
-    borderRadius: radii.sm,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  refreshContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   refreshGpsText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#3B52B6',
+    ...typography.bodySm,
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '600',
   },
   gpsErrorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
+    gap: 6,
+    backgroundColor: colors.errorContainer,
     padding: 8,
-    borderRadius: radii.md,
+    borderRadius: radii.xs,
   },
-  gpsErrorTitle: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#DC2626',
-  },
-  gpsErrorSub: {
-    fontSize: 10,
-    color: '#991B1B',
-    marginTop: 2,
+  gpsErrorText: {
+    ...typography.bodySm,
+    fontSize: 11,
+    color: colors.error,
+    flex: 1,
   },
   gpsLoadingBox: {
     flexDirection: 'row',
@@ -551,99 +466,56 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   gpsLoadingText: {
-    fontSize: 11,
-    color: '#757683',
-    fontWeight: '500',
+    ...typography.bodySm,
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   gpsStatsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#FDFBF8',
-    padding: 8,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#F2E7D7',
+    paddingTop: 2,
   },
   statCol: {
-    alignItems: 'center',
     flex: 1,
   },
   statLabel: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: '#757683',
-    textTransform: 'uppercase',
+    ...typography.labelSm,
+    fontSize: 9,
+    color: colors.textMuted,
+    marginBottom: 2,
   },
   statVal: {
+    ...typography.labelMd,
     fontSize: 13,
-    fontWeight: '800',
-    color: '#201E1C',
-    marginTop: 2,
+    fontWeight: '700',
+    color: colors.primary,
   },
   statValSuccess: {
-    color: '#15803D',
+    color: colors.success,
   },
   statValWarning: {
-    color: '#DC2626',
-  },
-  geofenceStatusBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    padding: 8,
-    borderRadius: radii.md,
-  },
-  statusBannerSuccess: {
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-  },
-  statusBannerWarning: {
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  geofenceStatusText: {
-    fontSize: 11,
-    fontWeight: '600',
-    flex: 1,
-    lineHeight: 15,
-  },
-  statusTextSuccess: {
-    color: '#15803D',
-  },
-  statusTextWarning: {
-    color: '#B45309',
+    color: colors.warning,
   },
   confirmArrivalBtn: {
-    backgroundColor: '#3B52B6',
-    borderRadius: radii.lg,
-    height: 50,
+    backgroundColor: colors.primaryAccent,
+    height: 44,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#3B52B6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  btnOutsideGeofence: {
-    backgroundColor: '#9CA3AF',
-    shadowColor: '#9CA3AF',
-  },
-  confirmArrivalBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+  btnDisabled: {
+    opacity: 0.6,
   },
   btnContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
-  btnDisabled: {
-    opacity: 0.7,
+  confirmArrivalBtnText: {
+    ...typography.labelMd,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
 

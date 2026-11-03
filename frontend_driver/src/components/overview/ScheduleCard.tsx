@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 import { RouteStop } from '../../types/api';
 
 interface ScheduleCardProps {
@@ -20,32 +20,39 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
-          <View style={styles.calendarIconBox}>
-            <Ionicons name="calendar-outline" size={16} color={colors.primaryDark} />
-          </View>
-          <Text style={styles.headerTitle}>Today's Schedule</Text>
+          <Ionicons name="calendar-outline" size={16} color={colors.primary} />
+          <Text style={styles.headerTitle}>Route Stops</Text>
         </View>
         <View style={styles.countBadge}>
-          <Text style={styles.countText}>{stops.length} Stops Total</Text>
+          <Text style={styles.countText}>{stops.length} Total</Text>
         </View>
       </View>
 
       {/* List */}
       <View style={styles.list}>
         {stops.map((stop, index) => {
-          const isActive = stop.id === activeStopId || (stop.execution_status === 'ARRIVED' || stop.execution_status === 'IN_PROGRESS');
+          const isActive =
+            stop.id === activeStopId ||
+            stop.execution_status === 'ARRIVED' ||
+            stop.execution_status === 'IN_PROGRESS';
           const isCompleted = stop.execution_status === 'COMPLETED';
           const isFailed = stop.execution_status === 'FAILED';
-          const facilityName = stop.customer_name || stop.location_name || stop.warehouse_name || `Stop ${index + 1}`;
-          const time = stop.arrival_time ? new Date(stop.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : `${9 + index}:00 AM`;
+          const facilityName =
+            stop.customer_name ||
+            stop.location_name ||
+            stop.warehouse_name ||
+            `Stop ${index + 1}`;
+          const time = stop.arrival_time
+            ? new Date(stop.arrival_time).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : `${9 + index}:00 AM`;
 
           return (
             <TouchableOpacity
               key={stop.id || index}
-              style={[
-                styles.stopRow,
-                isActive && styles.activeStopRow,
-              ]}
+              style={[styles.stopRow, isActive && styles.activeStopRow]}
               onPress={() => onSelectStop(stop)}
               activeOpacity={0.7}
             >
@@ -74,11 +81,17 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({
                 </View>
 
                 <View style={styles.stopInfo}>
-                  <Text style={[styles.facilityName, isActive && styles.activeFacilityName]} numberOfLines={1}>
+                  <Text
+                    style={[styles.facilityName, isActive && styles.activeFacilityName]}
+                    numberOfLines={1}
+                  >
                     {facilityName}
                   </Text>
-                  <Text style={[styles.subDetail, isActive && styles.activeSubDetail]} numberOfLines={1}>
-                    {time} • {stop.address || 'Dock Receiving'}
+                  <Text
+                    style={[styles.subDetail, isActive && styles.activeSubDetail]}
+                    numberOfLines={1}
+                  >
+                    {time}  {stop.address || 'Dock Receiving'}
                   </Text>
                 </View>
               </View>
@@ -100,7 +113,13 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({
                     isFailed && styles.failedBadgeText,
                   ]}
                 >
-                  {isCompleted ? 'Completed' : isActive ? 'Active' : isFailed ? 'Failed' : 'Queued'}
+                  {isCompleted
+                    ? 'Completed'
+                    : isActive
+                    ? 'Active'
+                    : isFailed
+                    ? 'Failed'
+                    : 'Queued'}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -113,75 +132,64 @@ export const ScheduleCard: React.FC<ScheduleCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 2,
-    gap: 12,
+    borderColor: colors.secondary,
+    gap: 10,
+    marginBottom: spacing.lg,
+    ...shadows.subtle,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingBottom: 12,
+    borderBottomColor: colors.secondary,
+    paddingBottom: 10,
   },
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  calendarIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: radii.md,
-    backgroundColor: colors.primaryTint,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
   },
   headerTitle: {
     ...typography.headlineSm,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
   },
   countBadge: {
-    backgroundColor: colors.primaryTint,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    backgroundColor: colors.background,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
     borderRadius: radii.full,
     borderWidth: 1,
-    borderColor: 'rgba(123, 145, 238, 0.3)',
+    borderColor: colors.secondary,
   },
   countText: {
     ...typography.labelSm,
-    fontSize: 11,
-    color: colors.primaryDark,
-    fontWeight: '700',
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   list: {
-    gap: 8,
+    gap: 6,
   },
   stopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 10,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceLow,
+    borderColor: colors.secondary,
+    backgroundColor: colors.background,
   },
   activeStopRow: {
-    backgroundColor: colors.primaryTint,
-    borderColor: 'rgba(123, 145, 238, 0.6)',
+    backgroundColor: colors.lightAccent,
+    borderColor: colors.primaryAccent,
   },
   leftGroup: {
     flexDirection: 'row',
@@ -190,25 +198,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   seqCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.border,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   activeSeqCircle: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   completedSeqCircle: {
     backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   failedSeqCircle: {
     backgroundColor: colors.error,
+    borderColor: colors.error,
   },
   seqText: {
     ...typography.labelSm,
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
     fontWeight: '700',
   },
@@ -225,10 +238,10 @@ const styles = StyleSheet.create({
     ...typography.labelMd,
     fontSize: 13,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
   },
   activeFacilityName: {
-    color: colors.onPrimaryContainer,
+    color: colors.primary,
   },
   subDetail: {
     ...typography.bodySm,
@@ -237,37 +250,36 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   activeSubDetail: {
-    color: colors.primaryDark,
-    fontWeight: '600',
+    color: colors.textSecondary,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radii.sm,
-    backgroundColor: colors.card,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: radii.xs,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.secondary,
   },
   activeBadge: {
-    backgroundColor: '#FFFFFF',
-    borderColor: colors.primaryAction,
+    backgroundColor: colors.surface,
+    borderColor: colors.primaryAccent,
   },
   completedBadge: {
     backgroundColor: colors.successContainer,
-    borderColor: colors.success,
+    borderColor: 'rgba(22, 163, 74, 0.2)',
   },
   failedBadge: {
     backgroundColor: colors.errorContainer,
-    borderColor: colors.error,
+    borderColor: 'rgba(220, 38, 38, 0.2)',
   },
   statusBadgeText: {
     ...typography.labelSm,
     fontSize: 10,
     color: colors.textSecondary,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   activeBadgeText: {
-    color: colors.primaryDark,
+    color: colors.primary,
   },
   completedBadgeText: {
     color: colors.success,

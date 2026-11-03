@@ -1,45 +1,52 @@
 export const colors = {
-  // Core Stitch Design Tokens
-  primaryAction: '#7B91EE',     // Primary action blue (CTA, active pipeline, highlights)
-  primaryDark: '#4158B1',       // Authority deep blue
-  primaryTint: '#E5EBFF',       // Active & informational tint (container bg, active chips)
-  primaryFixed: '#DDE1FF',
-  onPrimaryContainer: '#02247F',
+  // Required Pharmatrix Palette
+  primary: '#201E1C',           // Primary typography and authority actions
+  background: '#FDFBF8',        // Main app canvas
+  surface: '#FFFFFF',           // Cards, modals, elevated surfaces
+  primaryAccent: '#7B91EE',     // Primary buttons, active states, highlights
+  lightAccent: '#E5EBFF',       // Subtle highlights and informational states
+  secondary: '#EADFD0',         // Subtle hairline borders and dividers
 
-  canvas: '#FDFBF8',            // Warm off-white global screen background
-  card: '#FFFFFF',              // Elevated crisp white card surfaces
-  ink: '#201E1C',               // Primary dense high-contrast typography
-  border: '#EADFD0',            // Structural sand hairline borders & dividers
+  // Compatibility aliases
+  primaryAction: '#7B91EE',
+  primaryDark: '#201E1C',
+  primaryTint: '#E5EBFF',
+  primaryFixed: '#E5EBFF',
+  onPrimaryContainer: '#201E1C',
 
-  // Warm surface tiers
+  canvas: '#FDFBF8',
+  card: '#FFFFFF',
+  ink: '#201E1C',
+  border: '#EADFD0',
+
+  // Surfaces
   surfaceLowest: '#FFFFFF',
-  surfaceLow: '#FDF2E3',
-  surfaceContainer: '#F8ECDD',
-  surfaceHigh: '#F2E7D7',
-  surfaceHighest: '#ECE1D2',
+  surfaceLow: '#F8F4EE',
+  surfaceContainer: '#F2ECE2',
+  surfaceHigh: '#ECE4D7',
+  surfaceHighest: '#E6DCCF',
 
   // Text hierarchy
   textPrimary: '#201E1C',
-  textSecondary: '#444652',
-  textMuted: '#615E5B',
-  textOutline: '#757683',
+  textSecondary: '#5A5856',
+  textMuted: '#84807B',
+  textOutline: '#ABA49C',
 
-  // Semantic & Regulatory Alerts
-  error: '#D94B38',
-  errorDark: '#BA1A1A',
-  errorContainer: '#FFDAD6',
-  onErrorContainer: '#93000A',
-
-  success: '#1E8E5A',
-  successContainer: '#E6F5EE',
-  onSuccessContainer: '#0D683D',
+  // Semantics
+  success: '#16A34A',
+  successContainer: '#DCFCE7',
+  onSuccessContainer: '#14532D',
 
   warning: '#D97706',
   warningContainer: '#FEF3C7',
-  onWarningContainer: '#92400E',
+  onWarningContainer: '#78350F',
 
-  // Dark scrim
-  scrim: 'rgba(32, 30, 28, 0.6)',
+  error: '#DC2626',
+  errorDark: '#991B1B',
+  errorContainer: '#FEE2E2',
+  onErrorContainer: '#7F1D1D',
+
+  scrim: 'rgba(32, 30, 28, 0.5)',
   cardShadow: 'rgba(32, 30, 28, 0.06)',
 };
 

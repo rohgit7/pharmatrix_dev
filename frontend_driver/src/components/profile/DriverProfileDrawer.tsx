@@ -11,31 +11,24 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 
 export const DriverProfileDrawer: React.FC = () => {
   const { isProfileDrawerOpen, closeProfileDrawer, driverProfile, user, logout } = useAuth();
 
   const [audioNav, setAudioNav] = useState<boolean>(true);
-  const [highContrast, setHighContrast] = useState<boolean>(true);
   const [breakActive, setBreakActive] = useState<boolean>(false);
 
   if (!isProfileDrawerOpen) return null;
 
-  const driverName = driverProfile?.name || user?.name || 'Courier';
-  const badgeId = driverProfile?.employee_id || (driverProfile?.id ? `DRV-${driverProfile.id.toString().padStart(4, '0')}` : 'Active');
+  const driverName = driverProfile?.name || user?.name || 'Driver';
+  const badgeId =
+    driverProfile?.employee_id ||
+    (driverProfile?.id ? `DRV-${driverProfile.id.toString().padStart(4, '0')}` : 'Active');
 
   const handleCallDispatcher = () => {
     Linking.openURL('tel:18005550199').catch(() => {});
-  };
-
-  const handleSOS = () => {
-    if (Platform.OS === 'web') {
-      alert('Emergency Spill Protocol Triggered! CHEMTREC & Dispatch notified.');
-    } else {
-      Linking.openURL('tel:911').catch(() => {});
-    }
   };
 
   const handleMealBreak = () => {
@@ -54,7 +47,11 @@ export const DriverProfileDrawer: React.FC = () => {
       onRequestClose={closeProfileDrawer}
     >
       <View style={styles.scrim}>
-        <TouchableOpacity style={styles.backdropTap} onPress={closeProfileDrawer} activeOpacity={1} />
+        <TouchableOpacity
+          style={styles.backdropTap}
+          onPress={closeProfileDrawer}
+          activeOpacity={1}
+        />
 
         <View style={styles.drawer}>
           {/* Header */}
@@ -62,17 +59,21 @@ export const DriverProfileDrawer: React.FC = () => {
             <View style={styles.topBar}>
               <View style={styles.telemetryTag}>
                 <View style={styles.pulseDot} />
-                <Text style={styles.telemetryText}>TELEMETRY VERIFIED</Text>
+                <Text style={styles.telemetryText}>DRIVER OPERATIONS</Text>
               </View>
-              <TouchableOpacity style={styles.closeBtn} onPress={closeProfileDrawer} activeOpacity={0.7}>
-                <Ionicons name="close" size={20} color={colors.ink} />
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={closeProfileDrawer}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close" size={18} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
             {/* Avatar & Driver Identity */}
             <View style={styles.identityRow}>
               <View style={styles.avatarFrame}>
-                <Ionicons name="person" size={32} color={colors.primaryDark} />
+                <Ionicons name="person" size={28} color={colors.primary} />
                 <View style={styles.onDutyDot} />
               </View>
               <View style={styles.identityCol}>
@@ -85,232 +86,116 @@ export const DriverProfileDrawer: React.FC = () => {
                   </View>
                 </View>
                 <Text style={styles.badgeLine}>
-                  Badge #{badgeId} • {driverProfile?.license_number ? `Lic: ${driverProfile.license_number}` : 'Commercial Courier'}
+                  Badge #{badgeId} / {driverProfile?.license_number ? `Lic: ${driverProfile.license_number}` : 'Licensed Courier'}
                 </Text>
                 <View style={styles.ratingLine}>
-                  <View style={styles.starBadge}>
-                    <Ionicons name="shield-checkmark" size={11} color={colors.success} />
-                    <Text style={styles.starText}>{driverProfile?.status || 'Active'}</Text>
-                  </View>
-                  <Text style={styles.transfersText}>
-                    {driverProfile?.phone ? `Tel: ${driverProfile.phone}` : 'Verified Transport'}
-                  </Text>
+                  <Ionicons name="shield-checkmark" size={12} color={colors.success} />
+                  <Text style={styles.statusText}>{driverProfile?.status || 'Active'}</Text>
                 </View>
               </View>
             </View>
           </View>
 
           {/* Scrollable Body */}
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Employment Status */}
             <View style={styles.sectionCard}>
               <View style={styles.cardHeaderRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="id-card-outline" size={18} color={colors.primaryDark} />
-                  <View>
-                    <Text style={styles.cardHeaderTitle}>Field Logistics Courier</Text>
-                    <Text style={styles.cardHeaderSub}>Status: {driverProfile?.status || 'Active'} • {user?.email}</Text>
-                  </View>
+                <View style={styles.headerTitleRow}>
+                  <Ionicons name="id-card-outline" size={16} color={colors.primary} />
+                  <Text style={styles.cardHeaderTitle}>Courier Profile</Text>
                 </View>
                 <View style={styles.certPill}>
-                  <Text style={styles.certPillText}>{driverProfile?.is_available ? 'Available' : 'Assigned'}</Text>
+                  <Text style={styles.certPillText}>
+                    {driverProfile?.is_available ? 'Available' : 'Assigned'}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.twoColBox}>
                 <View style={styles.miniCol}>
-                  <Text style={styles.miniColLabel}>Base Depot</Text>
-                  <Text style={styles.miniColVal}>Operations Hub</Text>
-                </View>
-                <View style={[styles.miniCol, styles.miniColBorder]}>
-                  <Text style={styles.miniColLabel}>Registered Date</Text>
-                  <Text style={styles.miniColVal}>
-                    {driverProfile?.created_at ? new Date(driverProfile.created_at).toLocaleDateString() : 'Active'}
+                  <Text style={styles.miniColLabel}>User Email</Text>
+                  <Text style={styles.miniColVal} numberOfLines={1}>
+                    {user?.email || 'driver@pharmatrix.com'}
                   </Text>
                 </View>
-              </View>
-            </View>
-
-            {/* Performance KPIs */}
-            <View style={styles.sectionGroup}>
-              <Text style={styles.sectionTitle}>COURIER PERFORMANCE & RECORD</Text>
-              <View style={styles.kpiRow}>
-                <View style={styles.kpiBox}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                    <Ionicons name="star" size={13} color="#D97706" />
-                    <Text style={styles.kpiBigText}>4.98</Text>
-                  </View>
-                  <Text style={styles.kpiSubText}>Driver Rating</Text>
-                </View>
-                <View style={styles.kpiBox}>
-                  <Text style={[styles.kpiBigText, { color: colors.primaryDark }]}>99.4%</Text>
-                  <Text style={styles.kpiSubText}>On-Time SLA</Text>
-                </View>
-                <View style={styles.kpiBox}>
-                  <Text style={[styles.kpiBigText, { color: colors.success }]}>0</Text>
-                  <Text style={styles.kpiSubText}>Violations</Text>
+                <View style={[styles.miniCol, styles.miniColBorder]}>
+                  <Text style={styles.miniColLabel}>Account Type</Text>
+                  <Text style={styles.miniColVal}>Authorized Driver</Text>
                 </View>
               </View>
             </View>
 
-            {/* Licenses & Medical Clearances */}
+            {/* Clearances */}
             <View style={styles.sectionGroup}>
-              <Text style={styles.sectionTitle}>LICENSES & CLEARANCES</Text>
+              <Text style={styles.sectionTitle}>CLEARANCES & STATUS</Text>
               <View style={styles.listCard}>
                 <View style={styles.licenseRow}>
-                  <Ionicons name="document-text-outline" size={18} color={colors.primaryDark} />
+                  <Ionicons name="document-text-outline" size={16} color={colors.primary} />
                   <View style={{ flex: 1 }}>
-                    <View style={styles.itemHeader}>
-                      <Text style={styles.itemTitle}>Commercial Driver License</Text>
-                      <View style={styles.activeTag}>
-                        <Text style={styles.activeTagText}>Active</Text>
-                      </View>
-                    </View>
+                    <Text style={styles.itemTitle}>Commercial Driver License</Text>
                     <Text style={styles.itemSub}>
                       {driverProfile?.license_number
-                        ? `Lic #${driverProfile.license_number}${driverProfile.license_expiry ? ` • Exp: ${driverProfile.license_expiry}` : ''}`
+                        ? `Lic #${driverProfile.license_number}`
                         : 'Active Commercial License'}
                     </Text>
                   </View>
-                </View>
-
-                <View style={[styles.licenseRow, styles.borderTop]}>
-                  <Ionicons name="fitness-outline" size={18} color={colors.success} />
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.itemHeader}>
-                      <Text style={styles.itemTitle}>Medical Examiner Clearance</Text>
-                      <View style={styles.activeTag}>
-                        <Text style={styles.activeTagText}>Valid</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.itemSub}>Medical Clearance Active</Text>
+                  <View style={styles.activeTag}>
+                    <Text style={styles.activeTagText}>Active</Text>
                   </View>
                 </View>
 
                 <View style={[styles.licenseRow, styles.borderTop]}>
-                  <Ionicons name="shield-outline" size={18} color="#D97706" />
+                  <Ionicons name="shield-checkmark-outline" size={16} color={colors.success} />
                   <View style={{ flex: 1 }}>
-                    <View style={styles.itemHeader}>
-                      <Text style={styles.itemTitle}>Regulated Biohazard Transport</Text>
-                      <View style={styles.activeTag}>
-                        <Text style={styles.activeTagText}>Current</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.itemSub}>Compliant Waste Courier Clearance</Text>
+                    <Text style={styles.itemTitle}>Regulated Biohazard Transport</Text>
+                    <Text style={styles.itemSub}>Compliance Verified</Text>
+                  </View>
+                  <View style={styles.activeTag}>
+                    <Text style={styles.activeTagText}>Valid</Text>
                   </View>
                 </View>
               </View>
             </View>
 
-            {/* Safety & Rest Verification */}
+            {/* Tools */}
             <View style={styles.sectionGroup}>
-              <Text style={styles.sectionTitle}>SAFETY & REST VERIFICATION</Text>
-              <View style={styles.sectionCard}>
-                <View style={styles.safetyRow}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-                    <View>
-                      <Text style={styles.safetyTitle}>Daily Fit-for-Duty Check</Text>
-                      <Text style={styles.safetySub}>Pre-shift wellness questionnaire passed</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.passedText}>Verified</Text>
-                </View>
-
-                <View style={[styles.safetyRow, styles.borderTop, { paddingTop: 8 }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="moon-outline" size={16} color={colors.primaryDark} />
-                    <View>
-                      <Text style={styles.safetyTitle}>Rest Hours Compliance</Text>
-                      <Text style={styles.safetySub}>Mandatory off-duty rest interval met</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.passedText}>Logged</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Driver Preferences & Tools */}
-            <View style={styles.sectionGroup}>
-              <Text style={styles.sectionTitle}>DRIVER PREFERENCES & TOOLS</Text>
+              <Text style={styles.sectionTitle}>COMMUNICATIONS & TOOLS</Text>
               <View style={styles.listCard}>
                 {/* Dispatcher Phone */}
-                <TouchableOpacity style={styles.toolRow} onPress={handleCallDispatcher} activeOpacity={0.7}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={styles.toolIconBox}>
-                      <Ionicons name="headset" size={16} color={colors.primaryDark} />
-                    </View>
-                    <View>
-                      <Text style={styles.toolTitle}>Dedicated Dispatcher</Text>
-                      <Text style={styles.toolSub}>Regional Dispatch Operations</Text>
-                    </View>
-                  </View>
-                  <Ionicons name="call" size={16} color={colors.primaryDark} />
-                </TouchableOpacity>
-
-                {/* Driver SOS */}
                 <TouchableOpacity
-                  style={[styles.toolRow, styles.borderTop, { backgroundColor: colors.errorContainer }]}
-                  onPress={handleSOS}
-                  activeOpacity={0.8}
+                  style={styles.toolRow}
+                  onPress={handleCallDispatcher}
+                  activeOpacity={0.7}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={[styles.toolIconBox, { backgroundColor: '#FEE2E2' }]}>
-                      <Ionicons name="alert" size={16} color={colors.error} />
-                    </View>
-                    <View>
-                      <Text style={[styles.toolTitle, { color: colors.onErrorContainer }]}>
-                        Emergency Spill & Driver SOS
-                      </Text>
-                      <Text style={[styles.toolSub, { color: colors.onErrorContainer }]}>
-                        Immediate Trigger & 911/CHEMTREC
-                      </Text>
-                    </View>
+                  <View style={styles.toolLeft}>
+                    <Ionicons name="headset-outline" size={16} color={colors.primary} />
+                    <Text style={styles.toolTitle}>Contact Dispatch</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color={colors.onErrorContainer} />
+                  <Ionicons name="call-outline" size={16} color={colors.primary} />
                 </TouchableOpacity>
 
-                {/* Audio Navigation Cues */}
+                {/* Audio Navigation */}
                 <View style={[styles.toolRow, styles.borderTop]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={styles.toolIconBox}>
-                      <Ionicons name="volume-high" size={16} color={colors.ink} />
-                    </View>
-                    <View>
-                      <Text style={styles.toolTitle}>Audio Navigation Cues</Text>
-                      <Text style={styles.toolSub}>Turn-by-turn spoken guidance</Text>
-                    </View>
+                  <View style={styles.toolLeft}>
+                    <Ionicons name="volume-high-outline" size={16} color={colors.primary} />
+                    <Text style={styles.toolTitle}>Audio Navigation Cues</Text>
                   </View>
                   <Switch
                     value={audioNav}
                     onValueChange={setAudioNav}
-                    trackColor={{ false: colors.border, true: colors.primaryAction }}
-                  />
-                </View>
-
-                {/* Sunlight High Contrast */}
-                <View style={[styles.toolRow, styles.borderTop]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={styles.toolIconBox}>
-                      <Ionicons name="sunny" size={16} color={colors.ink} />
-                    </View>
-                    <View>
-                      <Text style={styles.toolTitle}>Sunlight High-Contrast Mode</Text>
-                      <Text style={styles.toolSub}>Enhanced midday glare view</Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={highContrast}
-                    onValueChange={setHighContrast}
-                    trackColor={{ false: colors.border, true: colors.primaryAction }}
+                    trackColor={{ false: colors.secondary, true: colors.primaryAccent }}
                   />
                 </View>
               </View>
             </View>
 
-            {/* Shift & Break Controls */}
+            {/* Shift Actions */}
             <View style={styles.sectionGroup}>
-              <Text style={styles.sectionTitle}>SHIFT & BREAK CONTROLS</Text>
+              <Text style={styles.sectionTitle}>SHIFT CONTROLS</Text>
               <TouchableOpacity
                 style={[styles.breakBtn, breakActive && styles.breakBtnActive]}
                 onPress={handleMealBreak}
@@ -318,24 +203,27 @@ export const DriverProfileDrawer: React.FC = () => {
               >
                 <Ionicons
                   name={breakActive ? 'cafe' : 'cafe-outline'}
-                  size={18}
-                  color={breakActive ? '#FFFFFF' : colors.primaryDark}
+                  size={16}
+                  color={breakActive ? '#FFFFFF' : colors.primary}
                 />
                 <Text style={[styles.breakBtnText, breakActive && styles.breakBtnTextActive]}>
-                  {breakActive ? 'Resume Shift (Break Active)' : 'Start Mandatory 30-min DOT Meal Break'}
+                  {breakActive ? 'Resume Shift (Break Active)' : 'Start 30-min Meal Break'}
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.88}>
-                <Ionicons name="log-out-outline" size={18} color={colors.onErrorContainer} />
+              <TouchableOpacity
+                style={styles.logoutBtn}
+                onPress={handleLogout}
+                activeOpacity={0.88}
+              >
+                <Ionicons name="log-out-outline" size={16} color={colors.onErrorContainer} />
                 <Text style={styles.logoutText}>Clock Out & Log Out</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Diagnostic Footer */}
+            {/* Footer */}
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Pharmatrix Driver Portal • ID #{badgeId}</Text>
-              <Text style={styles.footerSub}>Session Active • Verified Courier</Text>
+              <Text style={styles.footerText}>Pharmatrix Driver Portal / ID #{badgeId}</Text>
             </View>
           </ScrollView>
         </View>
@@ -354,22 +242,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   drawer: {
-    width: '88%',
-    maxWidth: 420,
-    backgroundColor: colors.card,
-    shadowColor: colors.ink,
-    shadowOffset: { width: -4, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
+    width: '85%',
+    maxWidth: 400,
+    backgroundColor: colors.surface,
+    ...shadows.modal,
   },
   header: {
     paddingTop: 48,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: colors.surfaceLow,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.secondary,
     gap: 12,
   },
   topBar: {
@@ -386,7 +270,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.primaryDark,
+    backgroundColor: colors.success,
   },
   telemetryText: {
     ...typography.labelSm,
@@ -399,36 +283,38 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   avatarFrame: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primaryTint,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    borderWidth: 2,
-    borderColor: colors.primaryAction,
+    borderWidth: 1.5,
+    borderColor: colors.primaryAccent,
   },
   onDutyDot: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: colors.success,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: colors.surface,
   },
   identityCol: {
     flex: 1,
@@ -443,7 +329,7 @@ const styles = StyleSheet.create({
     ...typography.headlineSm,
     fontSize: 16,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
   },
   onDutyBadge: {
     backgroundColor: colors.successContainer,
@@ -466,32 +352,18 @@ const styles = StyleSheet.create({
   ratingLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 3,
+    gap: 4,
+    marginTop: 2,
   },
-  starBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: colors.warningContainer,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: radii.sm,
-  },
-  starText: {
+  statusText: {
     ...typography.labelSm,
     fontSize: 10,
-    color: '#B45309',
-    fontWeight: '700',
-  },
-  transfersText: {
-    ...typography.bodySm,
-    fontSize: 10,
-    color: colors.textSecondary,
+    color: colors.success,
+    fontWeight: '600',
   },
   scrollContent: {
     padding: spacing.md,
-    gap: 14,
+    gap: 12,
     paddingBottom: 40,
   },
   sectionGroup: {
@@ -500,141 +372,95 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...typography.labelSm,
     fontSize: 10,
-    color: colors.textOutline,
+    color: colors.textMuted,
     fontWeight: '700',
     letterSpacing: 0.5,
-    paddingHorizontal: 2,
   },
   sectionCard: {
-    backgroundColor: colors.surfaceLow,
-    borderRadius: radii.lg,
-    padding: 12,
+    backgroundColor: colors.background,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.secondary,
+    padding: 10,
     gap: 8,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingBottom: 8,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   cardHeaderTitle: {
     ...typography.labelMd,
     fontSize: 12,
     fontWeight: '700',
-    color: colors.ink,
-  },
-  cardHeaderSub: {
-    ...typography.bodySm,
-    fontSize: 10,
-    color: colors.textSecondary,
+    color: colors.primary,
   },
   certPill: {
-    backgroundColor: colors.primaryTint,
-    paddingHorizontal: 8,
+    backgroundColor: colors.lightAccent,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: radii.full,
+    borderRadius: radii.xs,
   },
   certPillText: {
     ...typography.labelSm,
     fontSize: 9,
-    color: colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   twoColBox: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: radii.md,
-    padding: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.secondary,
+    paddingTop: 8,
   },
   miniCol: {
     flex: 1,
   },
   miniColBorder: {
     borderLeftWidth: 1,
-    borderLeftColor: colors.border,
+    borderLeftColor: colors.secondary,
     paddingLeft: 8,
   },
   miniColLabel: {
     ...typography.labelSm,
     fontSize: 9,
-    color: colors.textOutline,
+    color: colors.textMuted,
   },
   miniColVal: {
-    ...typography.labelMd,
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.ink,
-    marginTop: 2,
-  },
-  kpiRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  kpiBox: {
-    flex: 1,
-    backgroundColor: colors.surfaceLow,
-    borderRadius: radii.lg,
-    padding: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  kpiBigText: {
-    ...typography.headlineSm,
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  kpiSubText: {
     ...typography.bodySm,
-    fontSize: 9,
-    color: colors.textSecondary,
-    marginTop: 2,
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: 1,
   },
   listCard: {
-    backgroundColor: colors.surfaceLow,
-    borderRadius: radii.lg,
+    backgroundColor: colors.background,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
+    borderColor: colors.secondary,
+    padding: 10,
+    gap: 8,
   },
   licenseRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 8,
-    padding: 10,
-    backgroundColor: '#FFFFFF',
   },
   borderTop: {
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    borderTopColor: colors.secondary,
+    paddingTop: 8,
   },
   itemTitle: {
     ...typography.labelMd,
     fontSize: 12,
     fontWeight: '700',
-    color: colors.ink,
-  },
-  activeTag: {
-    backgroundColor: colors.successContainer,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: radii.sm,
-  },
-  activeTagText: {
-    ...typography.labelSm,
-    fontSize: 9,
-    color: colors.success,
-    fontWeight: '700',
+    color: colors.primary,
   },
   itemSub: {
     ...typography.bodySm,
@@ -642,25 +468,15 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 1,
   },
-  safetyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  activeTag: {
+    backgroundColor: colors.successContainer,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radii.xs,
   },
-  safetyTitle: {
-    ...typography.labelMd,
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  safetySub: {
-    ...typography.bodySm,
-    fontSize: 9,
-    color: colors.textSecondary,
-  },
-  passedText: {
+  activeTagText: {
     ...typography.labelSm,
-    fontSize: 10,
+    fontSize: 9,
     color: colors.success,
     fontWeight: '700',
   },
@@ -668,63 +484,53 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 10,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 2,
   },
-  toolIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: radii.sm,
-    backgroundColor: colors.primaryTint,
+  toolLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
   },
   toolTitle: {
     ...typography.labelMd,
     fontSize: 12,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  toolSub: {
-    ...typography.bodySm,
-    fontSize: 10,
-    color: colors.textSecondary,
+    color: colors.primary,
+    fontWeight: '600',
   },
   breakBtn: {
-    height: 44,
-    borderRadius: radii.lg,
-    backgroundColor: colors.surfaceLow,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    borderRadius: radii.md,
+    height: 42,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
+    gap: 6,
   },
   breakBtnActive: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
+    backgroundColor: colors.primaryAccent,
+    borderColor: colors.primaryAccent,
   },
   breakBtnText: {
     ...typography.labelMd,
     fontSize: 12,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
   },
   breakBtnTextActive: {
     color: '#FFFFFF',
   },
   logoutBtn: {
-    height: 44,
-    borderRadius: radii.lg,
     backgroundColor: colors.errorContainer,
+    borderRadius: radii.md,
+    height: 42,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(217, 75, 56, 0.3)',
-    marginTop: 6,
+    borderColor: 'rgba(220, 38, 38, 0.2)',
   },
   logoutText: {
     ...typography.labelMd,
@@ -734,18 +540,12 @@ const styles = StyleSheet.create({
   },
   footer: {
     alignItems: 'center',
-    gap: 2,
-    paddingTop: 12,
+    paddingVertical: 8,
   },
   footerText: {
-    ...typography.labelSm,
-    fontSize: 10,
-    color: colors.textOutline,
-  },
-  footerSub: {
     ...typography.bodySm,
-    fontSize: 9,
-    color: colors.textOutline,
+    fontSize: 10,
+    color: colors.textMuted,
   },
 });
 

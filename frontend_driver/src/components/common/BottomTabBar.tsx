@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing } from '../../theme';
+import { colors, typography, spacing, radii } from '../../theme';
 
 export type TabName = 'operations' | 'routes' | 'pickups' | 'profile';
 
@@ -14,31 +14,31 @@ interface BottomTabBarProps {
 export const BottomTabBar: React.FC<BottomTabBarProps> = ({ currentTab, onTabChange }) => {
   const insets = useSafeAreaInsets();
 
-  const tabs: Array<{ id: TabName; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
-    { id: 'operations', label: 'Operations', icon: 'grid-outline' },
-    { id: 'routes', label: 'Routes', icon: 'git-network-outline' },
-    { id: 'pickups', label: 'Pickups', icon: 'cube-outline' },
-    { id: 'profile', label: 'Profile', icon: 'person-circle-outline' },
+  const tabs: Array<{ id: TabName; label: string; icon: keyof typeof Ionicons.glyphMap; activeIcon: keyof typeof Ionicons.glyphMap }> = [
+    { id: 'operations', label: 'Operations', icon: 'grid-outline', activeIcon: 'grid' },
+    { id: 'routes', label: 'Routes', icon: 'map-outline', activeIcon: 'map' },
+    { id: 'pickups', label: 'Pickups', icon: 'cube-outline', activeIcon: 'cube' },
+    { id: 'profile', label: 'Profile', icon: 'person-circle-outline', activeIcon: 'person-circle' },
   ];
 
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 6) }]}>
       <View style={styles.content}>
         {tabs.map((tab) => {
           const isActive = currentTab === tab.id;
           return (
             <TouchableOpacity
               key={tab.id}
-              style={styles.tabBtn}
+              style={[styles.tabBtn, isActive && styles.activeTabBtn]}
               onPress={() => onTabChange(tab.id)}
               activeOpacity={0.7}
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
             >
               <Ionicons
-                name={tab.icon}
-                size={22}
-                color={isActive ? colors.primaryDark : colors.textSecondary}
+                name={isActive ? tab.activeIcon : tab.icon}
+                size={20}
+                color={isActive ? colors.primary : colors.textMuted}
               />
               <Text style={[styles.tabLabel, isActive && styles.activeTabLabel]}>
                 {tab.label}
@@ -53,14 +53,14 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({ currentTab, onTabCha
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    shadowColor: colors.ink,
+    borderTopColor: colors.secondary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowRadius: 8,
+    elevation: 4,
   },
   content: {
     height: 56,
@@ -71,19 +71,24 @@ const styles = StyleSheet.create({
   },
   tabBtn: {
     flex: 1,
-    height: 48,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    borderRadius: radii.md,
+    marginHorizontal: 4,
+    gap: 3,
+  },
+  activeTabBtn: {
+    backgroundColor: colors.lightAccent,
   },
   tabLabel: {
     ...typography.labelSm,
     fontSize: 10,
-    color: colors.textSecondary,
-    fontWeight: '600',
+    color: colors.textMuted,
+    fontWeight: '500',
   },
   activeTabLabel: {
-    color: colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
 });

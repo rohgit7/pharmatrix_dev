@@ -1,7 +1,7 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 
 interface OTPVerificationCardProps {
   otp: string[];
@@ -23,13 +23,11 @@ export const OTPVerificationCard: React.FC<OTPVerificationCardProps> = ({
   onResendOtp,
   isResending = false,
   isVerifying = false,
-  pharmacistName = 'Clinic Representative',
-  expectedOtp,
+  pharmacistName = 'Customer Representative',
 }) => {
   const inputRefs = useRef<any[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  // Auto verify when 6 digits are complete
   const checkAndAutoVerify = async (candidateOtp: string[]) => {
     const fullOtp = candidateOtp.join('').trim();
     if (fullOtp.length === 6 && !isVerified && onVerify) {
@@ -37,7 +35,7 @@ export const OTPVerificationCard: React.FC<OTPVerificationCardProps> = ({
       try {
         await onVerify(fullOtp);
       } catch (err: any) {
-        setLocalError(err?.message || 'Invalid 6-digit confirmation PIN');
+        setLocalError(err?.message || 'Invalid 6-digit PIN code');
       }
     }
   };
@@ -48,7 +46,6 @@ export const OTPVerificationCard: React.FC<OTPVerificationCardProps> = ({
     const newOtp = [...otp];
 
     if (cleaned.length > 1) {
-      // Pasting full 6-digit OTP
       const chars = cleaned.slice(0, 6).split('');
       for (let i = 0; i < 6; i++) {
         newOtp[i] = chars[i] || '';
@@ -81,7 +78,7 @@ export const OTPVerificationCard: React.FC<OTPVerificationCardProps> = ({
   const handleManualVerifyPress = async () => {
     const fullOtp = otp.join('').trim();
     if (fullOtp.length !== 6) {
-      setLocalError('Please enter all 6 digits of the confirmation PIN.');
+      setLocalError('Please enter all 6 digits of the PIN.');
       return;
     }
     if (onVerify) {
@@ -94,52 +91,31 @@ export const OTPVerificationCard: React.FC<OTPVerificationCardProps> = ({
     }
   };
 
-  const handleFillDemoOtp = () => {
-    if (expectedOtp && expectedOtp.length === 6) {
-      const chars = expectedOtp.split('');
-      onChangeOtp(chars);
-      checkAndAutoVerify(chars);
-    } else {
-      // Default common fallback or prompt
-      onResendOtp();
-    }
-  };
-
   const fullOtpStr = otp.join('');
 
   return (
     <View style={[styles.card, isVerified && styles.cardVerified]}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={[styles.shieldIconBox, isVerified && styles.shieldIconBoxVerified]}>
-            <Ionicons
-              name={isVerified ? 'shield-checkmark' : 'keypad-outline'}
-              size={18}
-              color={isVerified ? '#FFFFFF' : '#3B52B6'}
-            />
-          </View>
-          <View>
-            <Text style={styles.title}>STEP 4: CUSTOMER OTP SIGNOFF</Text>
-            <Text style={styles.subTitle}>Clinic Pharmacist / Representative Handover PIN</Text>
-          </View>
+        <View style={styles.stepBadge}>
+          <Text style={styles.stepBadgeText}>STEP 4: CUSTOMER OTP PIN</Text>
         </View>
 
         <View style={[styles.verifiedBadge, isVerified && styles.verifiedBadgeActive]}>
           <Ionicons
-            name={isVerified ? 'checkmark-circle' : 'time-outline'}
-            size={13}
-            color={isVerified ? colors.success : '#8A8279'}
+            name={isVerified ? 'checkmark-circle' : 'keypad-outline'}
+            size={12}
+            color={isVerified ? colors.success : colors.textMuted}
           />
           <Text style={[styles.verifiedText, isVerified && styles.verifiedTextActive]}>
-            {isVerified ? 'Handover Signed' : 'Awaiting PIN'}
+            {isVerified ? 'PIN Verified' : 'Awaiting PIN'}
           </Text>
         </View>
       </View>
 
       {/* Description */}
       <Text style={styles.promptText}>
-        Ask {pharmacistName} for the 6-digit handover PIN delivered to their registered portal/phone:
+        Enter 6-digit confirmation PIN from {pharmacistName}:
       </Text>
 
       {/* 6 Digit Input Grid */}
@@ -147,7 +123,9 @@ export const OTPVerificationCard: React.FC<OTPVerificationCardProps> = ({
         {Array.from({ length: 6 }).map((_, i) => (
           <TextInput
             key={i}
-            ref={(ref) => { inputRefs.current[i] = ref; }}
+            ref={(ref) => {
+              inputRefs.current[i] = ref;
+            }}
             style={[
               styles.otpBox,
               otp[i] ? styles.otpBoxFilled : null,
@@ -164,15 +142,15 @@ export const OTPVerificationCard: React.FC<OTPVerificationCardProps> = ({
         ))}
       </View>
 
-      {/* Local Error feedback */}
+      {/* Error feedback */}
       {localError && (
         <View style={styles.errorRow}>
-          <Ionicons name="alert-circle" size={14} color="#DC2626" />
+          <Ionicons name="alert-circle-outline" size={14} color={colors.error} />
           <Text style={styles.errorText}>{localError}</Text>
         </View>
       )}
 
-      {/* Manual Verify Button when 6 digits entered but not yet verified */}
+      {/* Manual Verify Button */}
       {!isVerified && fullOtpStr.length === 6 && (
         <TouchableOpacity
           style={styles.manualVerifyBtn}
@@ -184,27 +162,27 @@ export const OTPVerificationCard: React.FC<OTPVerificationCardProps> = ({
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
             <View style={styles.verifyBtnContent}>
-              <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
-              <Text style={styles.manualVerifyBtnText}>Verify 6-Digit PIN Now</Text>
+              <Ionicons name="checkmark-circle" size={15} color="#FFFFFF" />
+              <Text style={styles.manualVerifyBtnText}>Verify PIN</Text>
             </View>
           )}
         </TouchableOpacity>
       )}
 
-      {/* Footer Strip */}
+      {/* Footer */}
       <View style={styles.footerRow}>
         <View style={styles.handoverStatus}>
           <Ionicons
-            name={isVerified ? 'lock-open' : 'lock-closed'}
-            size={14}
-            color={isVerified ? colors.success : '#8A8279'}
+            name={isVerified ? 'shield-checkmark' : 'lock-closed-outline'}
+            size={13}
+            color={isVerified ? colors.success : colors.textMuted}
           />
           <Text style={[styles.handoverText, isVerified && styles.handoverTextActive]}>
-            {isVerified ? 'Custody Handover Validated' : 'Custody Transfer Locked'}
+            {isVerified ? 'Custody Handover Validated' : 'Custody Handover Locked'}
           </Text>
         </View>
 
-        <View style={styles.rightActionsRow}>
+        {!isVerified && (
           <TouchableOpacity
             style={styles.resendBtn}
             onPress={onResendOtp}
@@ -212,15 +190,15 @@ export const OTPVerificationCard: React.FC<OTPVerificationCardProps> = ({
             activeOpacity={0.7}
           >
             {isResending ? (
-              <ActivityIndicator size="small" color="#3B52B6" />
+              <ActivityIndicator size="small" color={colors.primaryAccent} />
             ) : (
-              <>
-                <Ionicons name="chatbox-ellipses-outline" size={13} color="#3B52B6" />
+              <View style={styles.resendContent}>
+                <Ionicons name="refresh-outline" size={12} color={colors.primary} />
                 <Text style={styles.resendText}>Resend PIN</Text>
-              </>
+              </View>
             )}
           </TouchableOpacity>
-        </View>
+        )}
       </View>
     </View>
   );
@@ -228,133 +206,116 @@ export const OTPVerificationCard: React.FC<OTPVerificationCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     padding: spacing.md,
-    borderWidth: 1.5,
-    borderColor: '#EADFD0',
-    shadowColor: '#201E1C',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    gap: 10,
+    marginBottom: spacing.md,
+    ...shadows.subtle,
   },
   cardVerified: {
-    borderColor: '#C6F6D5',
-    backgroundColor: '#FAFDF9',
+    borderColor: colors.secondary,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
   },
-  shieldIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.md,
-    backgroundColor: '#E5EBFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 82, 182, 0.25)',
+  stepBadge: {
+    backgroundColor: colors.lightAccent,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.xs,
+    flexShrink: 1,
   },
-  shieldIconBoxVerified: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
-  },
-  title: {
+  stepBadgeText: {
+    ...typography.labelSm,
     fontSize: 10,
-    fontWeight: '800',
-    color: '#3B52B6',
-    letterSpacing: 0.4,
-  },
-  subTitle: {
-    ...typography.bodySm,
-    fontSize: 11,
-    color: '#5C554E',
-    marginTop: 1,
+    fontWeight: '700',
+    color: colors.primary,
   },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F5EFE6',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radii.full,
-    borderWidth: 1,
-    borderColor: '#EADFD0',
+    flexShrink: 1,
   },
   verifiedBadgeActive: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#C6F6D5',
+    backgroundColor: colors.successContainer,
+    borderColor: 'rgba(22, 163, 74, 0.2)',
   },
   verifiedText: {
+    ...typography.labelSm,
     fontSize: 10,
-    color: '#8A8279',
-    fontWeight: '700',
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   verifiedTextActive: {
     color: colors.success,
   },
   promptText: {
+    ...typography.bodySm,
     fontSize: 12,
-    color: '#5C554E',
-    lineHeight: 17,
-    fontWeight: '500',
+    color: colors.textSecondary,
   },
   otpGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 6,
-    paddingVertical: 2,
+    paddingVertical: 4,
   },
   otpBox: {
     flex: 1,
-    height: 50,
-    borderRadius: radii.lg,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#EADFD0',
+    maxWidth: 48,
+    minWidth: 36,
+    height: 48,
+    borderRadius: radii.md,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#201E1C',
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary,
   },
   otpBoxFilled: {
-    borderColor: '#3B52B6',
-    backgroundColor: '#F0F4FF',
+    borderColor: colors.primaryAccent,
+    backgroundColor: colors.surface,
   },
   otpBoxVerified: {
     borderColor: colors.success,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: colors.successContainer,
     color: colors.success,
   },
   errorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.errorContainer,
     padding: 8,
-    borderRadius: radii.md,
+    borderRadius: radii.xs,
   },
   errorText: {
-    fontSize: 11.5,
-    color: '#B91C1C',
-    fontWeight: '600',
+    ...typography.bodySm,
+    fontSize: 11,
+    color: colors.error,
+    flex: 1,
   },
   manualVerifyBtn: {
-    backgroundColor: '#3B52B6',
-    height: 44,
+    backgroundColor: colors.primaryAccent,
+    height: 40,
     borderRadius: radii.md,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   verifyBtnContent: {
     flexDirection: 'row',
@@ -362,46 +323,48 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   manualVerifyBtnText: {
-    color: '#FFFFFF',
+    ...typography.labelMd,
     fontSize: 13,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(234, 223, 208, 0.5)',
+    borderTopColor: colors.secondary,
     paddingTop: 8,
   },
   handoverStatus: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    flex: 1,
   },
   handoverText: {
-    fontSize: 10.5,
-    color: '#8A8279',
-    fontWeight: '600',
+    ...typography.bodySm,
+    fontSize: 11,
+    color: colors.textMuted,
   },
   handoverTextActive: {
     color: colors.success,
-    fontWeight: '700',
-  },
-  rightActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    fontWeight: '600',
   },
   resendBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  resendContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
   resendText: {
+    ...typography.labelSm,
     fontSize: 11,
-    color: '#3B52B6',
-    fontWeight: '700',
+    color: colors.primary,
+    fontWeight: '600',
   },
 });
 

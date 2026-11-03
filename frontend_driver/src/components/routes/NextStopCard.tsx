@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 import { RouteStop } from '../../types/api';
 
 interface NextStopCardProps {
@@ -21,7 +21,11 @@ export const NextStopCard: React.FC<NextStopCardProps> = ({
 }) => {
   if (!stop) return null;
 
-  const facilityName = stop.customer_name || stop.location_name || stop.warehouse_name || 'Assigned Stop';
+  const facilityName =
+    stop.customer_name ||
+    stop.location_name ||
+    stop.warehouse_name ||
+    'Assigned Stop';
   const phone = stop.customer_phone;
 
   const openExternalMaps = () => {
@@ -44,9 +48,18 @@ export const NextStopCard: React.FC<NextStopCardProps> = ({
     }
   };
 
-  const isArrived = stop.execution_status === 'ARRIVED' || stop.execution_status === 'IN_PROGRESS';
+  const isArrived =
+    stop.execution_status === 'ARRIVED' || stop.execution_status === 'IN_PROGRESS';
   const isCompleted = stop.execution_status === 'COMPLETED';
   const isWarehouse = stop.stop_type === 'WAREHOUSE';
+
+  const actionButtonText = isCompleted
+    ? 'Stop Completed'
+    : isWarehouse
+    ? 'Proceed to Handover'
+    : isArrived
+    ? 'Open Verification Workflow'
+    : 'Confirm Location Arrival';
 
   return (
     <View style={styles.card}>
@@ -59,132 +72,117 @@ export const NextStopCard: React.FC<NextStopCardProps> = ({
                 STOP {stopIndex} OF {totalStops}
               </Text>
             </View>
-            <View style={styles.biohazardBadge}>
-              <View style={styles.bioDot} />
-              <Text style={styles.bioText}>
-                {stop.stop_type === 'WAREHOUSE' ? 'Terminal' : 'Regulated Waste'}
+            <View style={styles.typeBadge}>
+              <Text style={styles.typeBadgeText}>
+                {isWarehouse ? 'Terminal' : 'Regulated Waste'}
               </Text>
             </View>
           </View>
+
           <Text style={styles.facilityTitle} numberOfLines={1}>
             {facilityName}
           </Text>
-          <View style={styles.addressRow}>
-            <Ionicons name="location-sharp" size={13} color={colors.textOutline} />
-            <Text style={styles.addressText} numberOfLines={1}>
-              {stop.address || 'Service Entrance'}
-            </Text>
-          </View>
+
+          {stop.address ? (
+            <View style={styles.addressRow}>
+              <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+              <Text style={styles.addressText} numberOfLines={1}>
+                {stop.address}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
-        {/* Call Button */}
         {phone ? (
-          <TouchableOpacity style={styles.callButton} onPress={handleCall} activeOpacity={0.7}>
-            <Ionicons name="call" size={19} color={colors.primaryDark} />
+          <TouchableOpacity
+            style={styles.callButton}
+            onPress={handleCall}
+            activeOpacity={0.7}
+            accessibilityLabel="Call Customer"
+          >
+            <Ionicons name="call-outline" size={18} color={colors.primary} />
           </TouchableOpacity>
         ) : null}
       </View>
 
-      {/* 2-Column Info Strip */}
-      <View style={styles.twoColStrip}>
-        <View style={styles.col}>
-          <Text style={styles.colLabel}>CONTACT PERSON</Text>
+      {/* Details Strip */}
+      <View style={styles.infoStrip}>
+        <View style={styles.infoCol}>
+          <Text style={styles.colLabel}>CONTACT</Text>
           <Text style={styles.colValue} numberOfLines={1}>
-            {stop.customer_name || 'Clinic Representative'}
-          </Text>
-          <Text style={styles.colSub}>
-            {stop.customer_phone || 'Staff Representative'}
+            {stop.customer_name || 'Site Contact'}
           </Text>
         </View>
-        <View style={[styles.col, styles.colBorder]}>
-          <Text style={styles.colLabel}>INSTRUCTION</Text>
+        <View style={[styles.infoCol, styles.colBorder]}>
+          <Text style={styles.colLabel}>MANIFEST</Text>
           <Text style={styles.colValue} numberOfLines={1}>
-            {stop.notes ? stop.notes.slice(0, 22) : 'Receiving Dock'}
-          </Text>
-          <Text style={styles.colSub}>
-            {stop.notes ? stop.notes : 'Present Driver ID at receiving area'}
+            {stop.estimated_weight_kg
+              ? `${stop.estimated_weight_kg} kg est.`
+              : stop.pickup_code
+              ? `#${stop.pickup_code}`
+              : 'Standard Collection'}
           </Text>
         </View>
       </View>
 
-      {/* Manifest & External Maps Button */}
-      <View style={styles.manifestMapsRow}>
-        <View style={styles.manifestPill}>
-          <Ionicons name="cube-outline" size={15} color={colors.primaryDark} />
-          <Text style={styles.manifestPillText} numberOfLines={1}>
-            {stop.estimated_weight_kg ? `${stop.estimated_weight_kg} kg estimated` : (stop.pickup_code ? `Consignment #${stop.pickup_code}` : 'Consignment Pickup')}
-          </Text>
-        </View>
-        <TouchableOpacity style={styles.openMapsBtn} onPress={openExternalMaps} activeOpacity={0.7}>
-          <Ionicons name="map-outline" size={14} color={colors.primaryDark} />
-          <Text style={styles.openMapsText}>Open in Maps</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Map Action Button */}
+      <TouchableOpacity
+        style={styles.openMapsBtn}
+        onPress={openExternalMaps}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="map-outline" size={15} color={colors.primary} />
+        <Text style={styles.openMapsText}>Navigate with Maps</Text>
+      </TouchableOpacity>
 
       {/* Arrival Trigger Button */}
-      <View style={styles.arrivalActionBox}>
-        <TouchableOpacity
-          style={[
-            styles.arrivedBtn,
-            isArrived && styles.arrivedBtnDone,
-            isCompleted && { backgroundColor: colors.success },
-            isLoading && styles.arrivedBtnDisabled,
-          ]}
-          onPress={onArrived}
-          activeOpacity={0.88}
-          disabled={isLoading}
-        >
-          <Ionicons
-            name={isCompleted ? 'checkmark-done-circle' : isArrived ? 'checkmark-circle' : 'navigate-circle'}
-            size={20}
-            color="#FFFFFF"
-          />
-          <Text style={styles.arrivedBtnText}>
-            {isCompleted
-              ? 'Stop Completed (Advance to Next) →'
-              : isWarehouse
-              ? 'Proceed to Terminal Handover →'
+      <TouchableOpacity
+        style={[
+          styles.arrivedBtn,
+          isArrived && styles.arrivedBtnDone,
+          isCompleted && styles.arrivedBtnCompleted,
+          isLoading && styles.arrivedBtnDisabled,
+        ]}
+        onPress={onArrived}
+        activeOpacity={0.85}
+        disabled={isLoading}
+      >
+        <Ionicons
+          name={
+            isCompleted
+              ? 'checkmark-done-circle'
               : isArrived
-              ? '✓ Arrived at Facility • Open Pickups Pipeline →'
-              : '📍 Stamp Location Reached & Check In →'}
-          </Text>
-        </TouchableOpacity>
-        <View style={styles.geofenceNote}>
-          <View style={styles.geofenceDot} />
-          <Text style={styles.geofenceText}>
-            Geofence confirmed • Auto-transitions to consignment recording
-          </Text>
-        </View>
-      </View>
+              ? 'checkmark-circle'
+              : 'location'
+          }
+          size={18}
+          color="#FFFFFF"
+        />
+        <Text style={styles.arrivedBtnText}>{actionButtonText}</Text>
+      </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    borderColor: colors.secondary,
     gap: 12,
+    marginBottom: spacing.md,
+    ...shadows.subtle,
   },
   topHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingBottom: 12,
-    gap: 8,
   },
   headerLeft: {
     flex: 1,
+    marginRight: 8,
   },
   tagsRow: {
     flexDirection: 'row',
@@ -193,189 +191,127 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   stopBadge: {
-    backgroundColor: colors.surfaceHigh,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radii.sm,
+    backgroundColor: colors.lightAccent,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.xs,
   },
   stopBadgeText: {
     ...typography.labelSm,
-    fontSize: 9,
-    color: colors.textSecondary,
+    fontSize: 10,
     fontWeight: '700',
+    color: colors.primary,
   },
-  biohazardBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.errorContainer,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radii.sm,
+  typeBadge: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.xs,
   },
-  bioDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: colors.error,
-  },
-  bioText: {
+  typeBadgeText: {
     ...typography.labelSm,
-    fontSize: 9,
-    color: colors.error,
-    fontWeight: '700',
+    fontSize: 10,
+    color: colors.textSecondary,
   },
   facilityTitle: {
     ...typography.headlineSm,
-    fontSize: 17,
+    fontSize: 18,
+    color: colors.primary,
     fontWeight: '700',
-    color: colors.ink,
     marginTop: 2,
   },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 3,
+    marginTop: 2,
   },
   addressText: {
     ...typography.bodySm,
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textSecondary,
     flex: 1,
   },
   callButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.lg,
-    backgroundColor: colors.surfaceLow,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  twoColStrip: {
+  infoStrip: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceLow,
-    borderRadius: radii.lg,
-    padding: 10,
+    backgroundColor: colors.background,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.secondary,
+    padding: 10,
   },
-  col: {
+  infoCol: {
     flex: 1,
   },
   colBorder: {
     borderLeftWidth: 1,
-    borderLeftColor: colors.border,
-    paddingLeft: 10,
+    borderLeftColor: colors.secondary,
+    paddingLeft: 12,
   },
   colLabel: {
     ...typography.labelSm,
     fontSize: 9,
-    color: colors.textOutline,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    color: colors.textMuted,
+    marginBottom: 2,
   },
   colValue: {
     ...typography.labelMd,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.ink,
-    marginTop: 2,
-  },
-  colSub: {
-    ...typography.bodySm,
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  manifestMapsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  manifestPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.surfaceLow,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radii.md,
-    flex: 1,
-  },
-  manifestPillText: {
-    ...typography.bodySm,
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontWeight: '600',
-    flex: 1,
+    color: colors.primary,
   },
   openMapsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: colors.surfaceLow,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
     borderRadius: radii.md,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.secondary,
   },
   openMapsText: {
-    ...typography.labelSm,
-    fontSize: 11,
-    color: colors.primaryDark,
-    fontWeight: '700',
-  },
-  arrivalActionBox: {
-    gap: 6,
-    paddingTop: 2,
+    ...typography.labelMd,
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
   },
   arrivedBtn: {
-    height: 52,
-    backgroundColor: colors.primaryDark,
-    borderRadius: radii.lg,
+    backgroundColor: colors.primaryAccent,
+    height: 46,
+    borderRadius: radii.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: colors.primaryDark,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
   },
   arrivedBtnDone: {
-    backgroundColor: colors.primaryAction,
+    backgroundColor: colors.primary,
+  },
+  arrivedBtnCompleted: {
+    backgroundColor: colors.success,
   },
   arrivedBtnDisabled: {
     opacity: 0.6,
   },
   arrivedBtnText: {
-    ...typography.labelLg,
+    ...typography.labelMd,
     fontSize: 14,
-    color: '#FFFFFF',
     fontWeight: '700',
-  },
-  geofenceNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  geofenceDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primaryDark,
-  },
-  geofenceText: {
-    ...typography.bodySm,
-    fontSize: 10,
-    color: colors.textSecondary,
+    color: '#FFFFFF',
   },
 });
 

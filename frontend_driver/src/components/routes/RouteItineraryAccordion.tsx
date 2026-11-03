@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 import { RouteStop } from '../../types/api';
 
 interface RouteItineraryAccordionProps {
@@ -19,37 +19,38 @@ export const RouteItineraryAccordion: React.FC<RouteItineraryAccordionProps> = (
 
   return (
     <View style={styles.container}>
-      {/* Accordion Trigger Header */}
+      {/* Header */}
       <TouchableOpacity
         style={styles.header}
         onPress={() => setExpanded(!expanded)}
         activeOpacity={0.7}
       >
         <View style={styles.headerLeft}>
-          <View style={styles.listIconBox}>
-            <Ionicons name="list" size={17} color={colors.primaryDark} />
-          </View>
-          <View>
-            <Text style={styles.title}>Route Itinerary ({stops.length} Stops)</Text>
-            <Text style={styles.subtitle}>Tap to inspect sequence & manifest counts</Text>
-          </View>
+          <Ionicons name="list-outline" size={17} color={colors.primary} />
+          <Text style={styles.title}>Route Itinerary ({stops.length} Stops)</Text>
         </View>
         <Ionicons
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={18}
-          color={colors.textOutline}
+          color={colors.textMuted}
         />
       </TouchableOpacity>
 
-      {/* Collapsible List */}
+      {/* List */}
       {expanded && (
         <View style={styles.list}>
           {stops.map((stop, index) => {
-            const isActive = stop.id === activeStopId || (stop.execution_status === 'ARRIVED' || stop.execution_status === 'IN_PROGRESS');
+            const isActive =
+              stop.id === activeStopId ||
+              stop.execution_status === 'ARRIVED' ||
+              stop.execution_status === 'IN_PROGRESS';
             const isCompleted = stop.execution_status === 'COMPLETED';
             const isWarehouse = stop.stop_type === 'WAREHOUSE';
-            const facilityName = stop.customer_name || stop.location_name || stop.warehouse_name || `Stop ${index + 1}`;
-            const timeStr = `${10 + Math.floor(index / 2)}:${(index % 2) * 30 || '15'} AM`;
+            const facilityName =
+              stop.customer_name ||
+              stop.location_name ||
+              stop.warehouse_name ||
+              `Stop ${index + 1}`;
 
             return (
               <TouchableOpacity
@@ -90,22 +91,28 @@ export const RouteItineraryAccordion: React.FC<RouteItineraryAccordionProps> = (
 
                 {/* Details */}
                 <View style={styles.infoCol}>
-                  <Text style={[styles.nameText, isActive && styles.activeNameText]} numberOfLines={1}>
+                  <Text
+                    style={[styles.nameText, isActive && styles.activeNameText]}
+                    numberOfLines={1}
+                  >
                     {stop.sequence_number || index + 1}. {facilityName}
                   </Text>
-                  <Text style={[styles.metaText, isActive && styles.activeMetaText]} numberOfLines={1}>
+                  <Text
+                    style={[styles.metaText, isActive && styles.activeMetaText]}
+                    numberOfLines={1}
+                  >
                     {isWarehouse
-                      ? 'Final Offload & Manifest Sign-off'
+                      ? 'Terminal Offload'
                       : stop.estimated_weight_kg
-                      ? `${stop.estimated_weight_kg} kg • ${stop.execution_status}`
-                      : `${2 + index} Totes • Queued Next`}
+                      ? `${stop.estimated_weight_kg} kg est.`
+                      : 'Standard Collection'}
                   </Text>
                 </View>
 
-                {/* Time Badge */}
-                <View style={[styles.timeBadge, isActive && styles.activeTimeBadge]}>
-                  <Text style={[styles.timeText, isActive && styles.activeTimeText]}>
-                    {timeStr}
+                {/* Status Pill */}
+                <View style={[styles.statusPill, isCompleted && styles.statusPillCompleted]}>
+                  <Text style={[styles.statusPillText, isCompleted && styles.statusPillTextCompleted]}>
+                    {isCompleted ? 'Done' : isActive ? 'Active' : 'Pending'}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -119,16 +126,13 @@ export const RouteItineraryAccordion: React.FC<RouteItineraryAccordionProps> = (
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.card,
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: colors.secondary,
+    marginBottom: spacing.md,
+    ...shadows.subtle,
   },
   header: {
     flexDirection: 'row',
@@ -139,32 +143,18 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  listIconBox: {
-    width: 30,
-    height: 30,
-    borderRadius: radii.md,
-    backgroundColor: colors.primaryTint,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
   },
   title: {
     ...typography.headlineSm,
     fontSize: 15,
     fontWeight: '700',
-    color: colors.ink,
-  },
-  subtitle: {
-    ...typography.bodySm,
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 1,
+    color: colors.primary,
   },
   list: {
-    marginTop: 12,
+    marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.secondary,
     paddingTop: 4,
   },
   stopRow: {
@@ -174,35 +164,39 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   activeRow: {
-    backgroundColor: colors.primaryTint,
-    borderRadius: radii.lg,
-    paddingHorizontal: 8,
-    marginVertical: 2,
+    backgroundColor: colors.lightAccent,
+    borderRadius: radii.sm,
+    paddingHorizontal: 6,
   },
   borderBottom: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(234, 223, 208, 0.5)',
+    borderBottomColor: 'rgba(234, 223, 208, 0.4)',
   },
   seqCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.border,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   activeSeqCircle: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   completedSeqCircle: {
     backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   warehouseSeqCircle: {
-    backgroundColor: colors.textSecondary,
+    backgroundColor: colors.primaryAccent,
+    borderColor: colors.primaryAccent,
   },
   seqText: {
     ...typography.labelSm,
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textSecondary,
     fontWeight: '700',
   },
@@ -219,37 +213,40 @@ const styles = StyleSheet.create({
     ...typography.labelMd,
     fontSize: 12,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
   },
   activeNameText: {
-    color: colors.onPrimaryContainer,
+    color: colors.primary,
   },
   metaText: {
     ...typography.bodySm,
-    fontSize: 10,
+    fontSize: 11,
     color: colors.textSecondary,
     marginTop: 1,
   },
   activeMetaText: {
-    color: colors.primaryDark,
+    color: colors.textSecondary,
   },
-  timeBadge: {
+  statusPill: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: radii.sm,
+    borderRadius: radii.xs,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
   },
-  activeTimeBadge: {
-    backgroundColor: colors.primaryAction,
+  statusPillCompleted: {
+    backgroundColor: colors.successContainer,
+    borderColor: 'rgba(22, 163, 74, 0.2)',
   },
-  timeText: {
-    ...typography.bodySm,
-    fontSize: 10,
-    color: colors.textOutline,
+  statusPillText: {
+    ...typography.labelSm,
+    fontSize: 9,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
-  activeTimeText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+  statusPillTextCompleted: {
+    color: colors.success,
   },
 });
 

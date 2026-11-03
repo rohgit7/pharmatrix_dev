@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Platform } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radii, spacing, typography } from '../../theme';
@@ -50,9 +50,9 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>Scan Consignment Barcode / QR</Text>
+          <Text style={styles.title}>Scan Consignment QR</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Ionicons name="close" size={24} color="#FFFFFF" />
+            <Ionicons name="close" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -72,21 +72,21 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
               <View style={styles.reticleCornerTR} />
               <View style={styles.reticleCornerBL} />
               <View style={styles.reticleCornerBR} />
-              <Text style={styles.reticlePrompt}>Align pickup QR code within target area</Text>
+              <Text style={styles.reticlePrompt}>Align QR code inside frame</Text>
             </View>
           </View>
         ) : (
           <View style={styles.permissionPlaceholder}>
-            <Ionicons name="qr-code-outline" size={60} color={colors.primaryAction} />
-            <Text style={styles.placeholderTitle}>Camera Scanning</Text>
+            <Ionicons name="qr-code-outline" size={56} color={colors.primaryAccent} />
+            <Text style={styles.placeholderTitle}>Camera Access</Text>
             <Text style={styles.placeholderSub}>
               {Platform.OS === 'web'
-                ? 'Web simulator active. Enter or confirm the pickup token below:'
-                : 'Camera permission is required for hardware laser scanning.'}
+                ? 'Web simulator: Enter or confirm pickup code below.'
+                : 'Camera permission is required to scan pickup labels.'}
             </Text>
             {Platform.OS !== 'web' && !permission?.granted && (
               <TouchableOpacity style={styles.grantBtn} onPress={requestPermission}>
-                <Text style={styles.grantBtnText}>Grant Camera Permission</Text>
+                <Text style={styles.grantBtnText}>Allow Camera Access</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -94,7 +94,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
         {/* Manual Code Fallback */}
         <View style={styles.manualEntryCard}>
-          <Text style={styles.manualLabel}>Quick Code Verification:</Text>
+          <Text style={styles.manualLabel}>Manual Code Entry</Text>
           <View style={styles.inputRow}>
             <TextInput
               style={styles.input}
@@ -105,20 +105,9 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
               autoCapitalize="characters"
             />
             <TouchableOpacity style={styles.submitBtn} onPress={handleManualSubmit}>
-              <Ionicons name="checkmark" size={18} color="#FFFFFF" />
               <Text style={styles.submitBtnText}>Verify</Text>
             </TouchableOpacity>
           </View>
-          {expectedCode ? (
-            <TouchableOpacity
-              style={styles.autoFillBtn}
-              onPress={() => {
-                setManualCode(expectedCode);
-              }}
-            >
-              <Text style={styles.autoFillText}>Use Expected Code: {expectedCode}</Text>
-            </TouchableOpacity>
-          ) : null}
         </View>
       </View>
     </Modal>
@@ -158,8 +147,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   reticleOverlay: {
-    width: 240,
-    height: 240,
+    width: 220,
+    height: 220,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
@@ -168,50 +157,48 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
-    width: 32,
-    height: 32,
+    width: 24,
+    height: 24,
     borderTopWidth: 3,
     borderLeftWidth: 3,
-    borderColor: colors.primaryAction,
+    borderColor: colors.primaryAccent,
   },
   reticleCornerTR: {
     position: 'absolute',
     top: 0,
     right: 0,
-    width: 32,
-    height: 32,
+    width: 24,
+    height: 24,
     borderTopWidth: 3,
     borderRightWidth: 3,
-    borderColor: colors.primaryAction,
+    borderColor: colors.primaryAccent,
   },
   reticleCornerBL: {
     position: 'absolute',
     bottom: 0,
     left: 0,
-    width: 32,
-    height: 32,
+    width: 24,
+    height: 24,
     borderBottomWidth: 3,
     borderLeftWidth: 3,
-    borderColor: colors.primaryAction,
+    borderColor: colors.primaryAccent,
   },
   reticleCornerBR: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 32,
-    height: 32,
+    width: 24,
+    height: 24,
     borderBottomWidth: 3,
     borderRightWidth: 3,
-    borderColor: colors.primaryAction,
+    borderColor: colors.primaryAccent,
   },
   reticlePrompt: {
     ...typography.bodySm,
     color: '#FFFFFF',
     fontSize: 12,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radii.full,
+    position: 'absolute',
+    bottom: -32,
     textAlign: 'center',
   },
   permissionPlaceholder: {
@@ -222,21 +209,21 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   placeholderTitle: {
-    ...typography.headlineMd,
+    ...typography.headlineSm,
     color: '#FFFFFF',
-    marginTop: 8,
+    fontSize: 18,
   },
   placeholderSub: {
-    ...typography.bodyMd,
-    color: 'rgba(255,255,255,0.7)',
+    ...typography.bodySm,
+    color: '#A89D91',
     textAlign: 'center',
-    lineHeight: 20,
+    fontSize: 13,
   },
   grantBtn: {
-    backgroundColor: colors.primaryAction,
+    backgroundColor: colors.primaryAccent,
+    paddingVertical: 10,
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     marginTop: 8,
   },
   grantBtnText: {
@@ -245,17 +232,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   manualEntryCard: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.surface,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
-    padding: spacing.gutter,
-    paddingBottom: 36,
+    padding: spacing.md,
+    paddingBottom: 32,
     gap: 8,
   },
   manualLabel: {
     ...typography.labelSm,
-    color: colors.textSecondary,
     fontSize: 11,
+    color: colors.primary,
     fontWeight: '700',
   },
   inputRow: {
@@ -264,37 +251,26 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: 48,
-    backgroundColor: colors.surfaceLow,
-    borderRadius: radii.lg,
-    paddingHorizontal: 12,
+    height: 44,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: colors.border,
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.ink,
+    borderColor: colors.secondary,
+    borderRadius: radii.md,
+    paddingHorizontal: 12,
+    ...typography.bodyMd,
+    color: colors.primary,
   },
   submitBtn: {
-    backgroundColor: colors.primaryDark,
-    borderRadius: radii.lg,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
+    backgroundColor: colors.primaryAccent,
+    paddingHorizontal: 18,
+    borderRadius: radii.md,
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
   },
   submitBtnText: {
     ...typography.labelMd,
     color: '#FFFFFF',
     fontWeight: '700',
-  },
-  autoFillBtn: {
-    paddingVertical: 4,
-  },
-  autoFillText: {
-    ...typography.bodySm,
-    fontSize: 11,
-    color: colors.primaryDark,
-    textDecorationLine: 'underline',
   },
 });
 

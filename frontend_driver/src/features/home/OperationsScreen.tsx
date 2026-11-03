@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 import { useDriverRoute } from '../../hooks/useDriverRoute';
 import { ActiveTaskCard } from '../../components/overview/ActiveTaskCard';
@@ -31,7 +31,7 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
     error,
   } = useDriverRoute();
 
-  const driverName = driverProfile?.name || user?.name || 'Courier';
+  const driverName = driverProfile?.name || user?.name || 'Driver';
   const routeCode = route?.route_code || '';
 
   const handleExecuteStop = async () => {
@@ -59,8 +59,8 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
   if (isLoading && !route) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primaryAction} />
-        <Text style={styles.loadingText}>Loading assigned operations...</Text>
+        <ActivityIndicator size="large" color={colors.primaryAccent} />
+        <Text style={styles.loadingText}>Syncing assigned operations...</Text>
       </View>
     );
   }
@@ -68,16 +68,18 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
   if (!route) {
     return (
       <View style={styles.centerContainer}>
-        <Ionicons name="clipboard-outline" size={48} color={colors.textSecondary} />
-        <Text style={[styles.driverNameText, { fontSize: 20 }]}>
-          {error ? 'Route Synchronization' : 'No Route Assigned'}
+        <View style={styles.emptyIconBox}>
+          <Ionicons name="clipboard-outline" size={36} color={colors.textMuted} />
+        </View>
+        <Text style={styles.emptyTitle}>
+          {error ? 'Route Sync Required' : 'No Route Assigned'}
         </Text>
         <Text style={styles.loadingText}>
-          {error || 'You have no operational routes scheduled for today.'}
+          {error || 'No active routes scheduled for your vehicle today.'}
         </Text>
-        <TouchableOpacity style={styles.startBannerBtn} onPress={refreshRoute}>
-          <Ionicons name="refresh" size={16} color="#FFFFFF" />
-          <Text style={styles.startBannerBtnText}>Check for Assignments</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={refreshRoute} activeOpacity={0.85}>
+          <Ionicons name="refresh" size={15} color="#FFFFFF" />
+          <Text style={styles.retryBtnText}>Check for Updates</Text>
         </TouchableOpacity>
       </View>
     );
@@ -87,27 +89,32 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refreshRoute} tintColor={colors.primaryDark} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading}
+          onRefresh={refreshRoute}
+          tintColor={colors.primary}
+        />
+      }
       showsVerticalScrollIndicator={false}
     >
-      {/* Driver Greeting & Minimal Shift Status Strip */}
+      {/* Header Greeting & Route Status */}
       <View style={styles.greetingHeader}>
         <View style={styles.greetingLeft}>
-          <View style={styles.shiftActiveTag}>
-            <View style={styles.livePulseOuter}>
-              <View style={styles.livePulseDot} />
-            </View>
-            <Text style={styles.shiftTagText}>
-              ROUTE {routeCode || `ID-${route.id}`} • {route.status}
-            </Text>
-          </View>
+          <Text style={styles.routeCodeTag}>
+            ROUTE {routeCode || `ID-${route.id}`}
+          </Text>
           <Text style={styles.driverNameText}>{driverName}</Text>
         </View>
 
-        <View style={styles.shiftBadge}>
-          <Ionicons name="checkmark-circle" size={14} color={colors.primaryDark} />
-          <Text style={styles.shiftBadgeText}>
-            {route.status === 'IN_PROGRESS' ? 'In Transit' : route.status === 'COMPLETED' ? 'Completed' : 'Assigned'}
+        <View style={styles.statusBadge}>
+          <Ionicons name="shield-checkmark" size={13} color={colors.primary} />
+          <Text style={styles.statusBadgeText}>
+            {route.status === 'IN_PROGRESS'
+              ? 'In Transit'
+              : route.status === 'COMPLETED'
+              ? 'Completed'
+              : 'Assigned'}
           </Text>
         </View>
       </View>
@@ -115,23 +122,23 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
       {/* Start Route Action Banner if Route is Assigned/Ready */}
       {(route.status === 'ASSIGNED' || route.status === 'READY') && (
         <View style={styles.startRouteBanner}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.startBannerTitle}>Route Assigned & Ready</Text>
-            <Text style={styles.startBannerSub}>Initiate shift transit to unlock live stop guidance</Text>
+          <View style={styles.startBannerInfo}>
+            <Text style={styles.startBannerTitle}>Route Ready</Text>
+            <Text style={styles.startBannerSub}>Start route to begin guided stops</Text>
           </View>
           <TouchableOpacity
             style={styles.startBannerBtn}
             onPress={startRoute}
             disabled={actionLoading}
-            activeOpacity={0.88}
+            activeOpacity={0.85}
           >
-            <Ionicons name="play" size={15} color="#FFFFFF" />
+            <Ionicons name="play" size={14} color="#FFFFFF" />
             <Text style={styles.startBannerBtnText}>Start Route</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Prominent Active Task Card with Auto-Progression */}
+      {/* Prominent Active Task Card */}
       <ActiveTaskCard
         stop={activeStop}
         stopIndex={stats.currentStopIndex}
@@ -140,14 +147,18 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
         isLoading={actionLoading}
       />
 
-      {/* Compact Quick Stats Strip (Cold Chain + Vehicle Counter) */}
+      {/* Quick Stats Strip */}
       <QuickStatsStrip
-        vehicleReg={route.vehicle_registration_number ? `Van ${route.vehicle_registration_number}` : 'Service Vehicle'}
+        vehicleReg={
+          route.vehicle_registration_number
+            ? `Van ${route.vehicle_registration_number}`
+            : 'Service Fleet'
+        }
         completedStops={stats.completedStops}
         totalStops={stats.totalStops}
       />
 
-      {/* Compact Schedule Overview Card */}
+      {/* Schedule Overview */}
       <ScheduleCard
         stops={route.stops || []}
         activeStopId={activeStop?.id}
@@ -160,122 +171,138 @@ export const OperationsScreen: React.FC<OperationsScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.gutter,
-    gap: 14,
-    paddingBottom: 24,
+    paddingBottom: 90,
   },
   centerContainer: {
     flex: 1,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.canvas,
-    gap: 10,
+    padding: spacing.xl,
+  },
+  emptyIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
+    ...typography.headlineSm,
+    color: colors.primary,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   loadingText: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    maxWidth: 280,
   },
-  greetingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  greetingLeft: {
-    gap: 2,
-    flex: 1,
-  },
-  shiftActiveTag: {
+  retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    backgroundColor: colors.primaryAccent,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radii.md,
   },
-  livePulseOuter: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.success,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  livePulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.success,
-  },
-  shiftTagText: {
-    ...typography.labelSm,
-    fontSize: 10,
-    color: colors.textSecondary,
+  retryBtnText: {
+    ...typography.labelMd,
+    color: '#FFFFFF',
     fontWeight: '700',
-    letterSpacing: 0.6,
+  },
+  greetingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  greetingLeft: {
+    flex: 1,
+  },
+  routeCodeTag: {
+    ...typography.labelSm,
+    fontSize: 11,
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
   driverNameText: {
-    ...typography.headlineLg,
-    fontSize: 26,
+    ...typography.headlineMd,
+    fontSize: 22,
     fontWeight: '700',
-    color: colors.ink,
-    letterSpacing: -0.5,
+    color: colors.primary,
   },
-  shiftBadge: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: colors.primaryTint,
+    backgroundColor: colors.lightAccent,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: radii.full,
     borderWidth: 1,
-    borderColor: 'rgba(123, 145, 238, 0.4)',
+    borderColor: 'rgba(123, 145, 238, 0.3)',
   },
-  shiftBadgeText: {
+  statusBadgeText: {
     ...typography.labelSm,
     fontSize: 11,
-    color: colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   startRouteBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.primaryTint,
+    backgroundColor: colors.surface,
     borderRadius: radii.lg,
-    padding: 12,
     borderWidth: 1,
-    borderColor: colors.primaryAction,
-    gap: 10,
+    borderColor: colors.secondary,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    ...shadows.subtle,
+  },
+  startBannerInfo: {
+    flex: 1,
+    marginRight: 8,
   },
   startBannerTitle: {
-    ...typography.labelMd,
-    fontSize: 13,
+    ...typography.labelLg,
+    fontSize: 14,
     fontWeight: '700',
-    color: colors.onPrimaryContainer,
+    color: colors.primary,
   },
   startBannerSub: {
     ...typography.bodySm,
-    fontSize: 10,
-    color: colors.primaryDark,
+    fontSize: 11,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   startBannerBtn: {
-    backgroundColor: colors.primaryDark,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radii.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    backgroundColor: colors.primaryAccent,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: radii.md,
   },
   startBannerBtnText: {
-    ...typography.labelSm,
+    ...typography.labelMd,
+    fontSize: 13,
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 11,
   },
 });
 

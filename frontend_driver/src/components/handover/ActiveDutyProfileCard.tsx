@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 import { DriverProfile } from '../../types/api';
 
 interface ActiveDutyProfileCardProps {
@@ -13,23 +13,25 @@ export const ActiveDutyProfileCard: React.FC<ActiveDutyProfileCardProps> = ({
   driver,
   vehicleReg,
 }) => {
-  const driverName = driver?.name || 'Courier';
-  const badgeId = driver?.employee_id || (driver?.id ? `DRV-${driver.id.toString().padStart(4, '0')}` : 'Active');
+  const driverName = driver?.name || 'Driver';
+  const badgeId =
+    driver?.employee_id ||
+    (driver?.id ? `DRV-${driver.id.toString().padStart(4, '0')}` : 'Active');
 
   return (
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Active Duty Profile</Text>
+        <Text style={styles.title}>Driver Profile</Text>
         <View style={styles.shiftBadge}>
-          <Text style={styles.shiftBadgeText}>Shift In Progress</Text>
+          <Text style={styles.shiftBadgeText}>Active Shift</Text>
         </View>
       </View>
 
       {/* Driver Card */}
       <View style={styles.driverRow}>
         <View style={styles.avatarBox}>
-          <Ionicons name="person" size={28} color={colors.primaryDark} />
+          <Ionicons name="person" size={24} color={colors.primary} />
         </View>
         <View style={styles.driverInfo}>
           <View style={styles.driverNameRow}>
@@ -42,58 +44,47 @@ export const ActiveDutyProfileCard: React.FC<ActiveDutyProfileCardProps> = ({
           </View>
           <Text style={styles.licenseText}>
             {driver?.license_number
-              ? `License #${driver.license_number}${driver.license_expiry ? ` (Exp: ${driver.license_expiry})` : ''}`
-              : 'Commercial Driver License (Active)'}
+              ? `License #${driver.license_number}`
+              : 'Commercial License (Active)'}
           </Text>
-          <View style={styles.ratingRow}>
-            <Ionicons name="shield-checkmark" size={13} color={colors.success} />
-            <Text style={styles.ratingText}>{driver?.status || 'Active'}</Text>
-            <Text style={styles.ratingSub}>
-              {driver?.phone ? `• Tel: ${driver.phone}` : '• Verified Courier'}
-            </Text>
+          <View style={styles.statusRow}>
+            <Ionicons name="shield-checkmark" size={12} color={colors.success} />
+            <Text style={styles.statusText}>{driver?.status || 'Active'}</Text>
           </View>
         </View>
       </View>
 
-      {/* Vehicle Telemetry Box */}
+      {/* Vehicle Box */}
       <View style={styles.vehicleBox}>
         <View style={styles.vehicleHeader}>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="bus-outline" size={16} color={colors.primaryDark} />
-              <Text style={styles.vehicleName} numberOfLines={1}>
-                {vehicleReg ? `Vehicle ${vehicleReg}` : 'Fleet Transport Unit'}
-              </Text>
-            </View>
-            <Text style={styles.vehicleType}>HazMat Compliant Waste Unit</Text>
+          <View style={styles.vehicleLeft}>
+            <Ionicons name="car-outline" size={16} color={colors.primary} />
+            <Text style={styles.vehicleName} numberOfLines={1}>
+              {vehicleReg ? `Vehicle ${vehicleReg}` : 'Assigned Vehicle'}
+            </Text>
           </View>
           <View style={styles.plateBadge}>
             <Text style={styles.plateText}>{vehicleReg || 'Assigned'}</Text>
           </View>
         </View>
 
-        {/* 3 Telemetry Metrics */}
+        {/* Telemetry Metrics */}
         <View style={styles.metricsRow}>
           <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Driver User ID</Text>
+            <Text style={styles.metricLabel}>Driver ID</Text>
             <Text style={styles.metricVal}>{driver?.user_id || driver?.id || 1}</Text>
           </View>
           <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Driver Status</Text>
-            <Text style={[styles.metricVal, { color: colors.primaryDark }]}>{driver?.status || 'ACTIVE'}</Text>
+            <Text style={styles.metricLabel}>Status</Text>
+            <Text style={[styles.metricVal, { color: colors.primary }]}>
+              {driver?.status || 'ACTIVE'}
+            </Text>
           </View>
           <View style={styles.metricCard}>
             <Text style={styles.metricLabel}>Availability</Text>
-            <Text style={styles.metricVal}>{driver?.is_available ? 'Available' : 'Assigned'}</Text>
-          </View>
-        </View>
-
-        {/* VIN & Sensor Calibration */}
-        <View style={styles.vinRow}>
-          <Text style={styles.vinText}>Registration: {vehicleReg || 'Assigned per Route'}</Text>
-          <View style={styles.sensorStatus}>
-            <View style={styles.sensorDot} />
-            <Text style={styles.sensorText}>Compliance Verified</Text>
+            <Text style={styles.metricVal}>
+              {driver?.is_available ? 'Available' : 'Assigned'}
+            </Text>
           </View>
         </View>
       </View>
@@ -103,17 +94,14 @@ export const ActiveDutyProfileCard: React.FC<ActiveDutyProfileCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-    gap: 12,
+    borderColor: colors.secondary,
+    gap: 10,
+    marginBottom: spacing.md,
+    ...shadows.subtle,
   },
   header: {
     flexDirection: 'row',
@@ -124,10 +112,10 @@ const styles = StyleSheet.create({
     ...typography.headlineSm,
     fontSize: 15,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
   },
   shiftBadge: {
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: colors.lightAccent,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radii.full,
@@ -135,28 +123,28 @@ const styles = StyleSheet.create({
   shiftBadgeText: {
     ...typography.labelSm,
     fontSize: 10,
-    color: colors.textSecondary,
+    color: colors.primary,
     fontWeight: '600',
   },
   driverRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.surfaceLow,
+    gap: 10,
+    backgroundColor: colors.background,
     padding: 10,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.secondary,
   },
   avatarBox: {
-    width: 48,
-    height: 48,
-    borderRadius: radii.lg,
-    backgroundColor: colors.primaryTint,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(123, 145, 238, 0.4)',
   },
   driverInfo: {
     flex: 1,
@@ -170,18 +158,18 @@ const styles = StyleSheet.create({
     ...typography.headlineSm,
     fontSize: 15,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
   },
   drvBadge: {
-    backgroundColor: colors.primaryTint,
+    backgroundColor: colors.lightAccent,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: radii.sm,
+    borderRadius: radii.xs,
   },
   drvBadgeText: {
     ...typography.labelSm,
     fontSize: 10,
-    color: colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   licenseText: {
@@ -190,61 +178,56 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 1,
   },
-  ratingRow: {
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginTop: 2,
   },
-  ratingText: {
-    ...typography.labelMd,
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  ratingSub: {
-    ...typography.bodySm,
+  statusText: {
+    ...typography.labelSm,
     fontSize: 10,
-    color: colors.textSecondary,
+    color: colors.success,
+    fontWeight: '600',
   },
   vehicleBox: {
-    backgroundColor: colors.surfaceLow,
-    borderRadius: radii.lg,
-    padding: 12,
+    backgroundColor: colors.background,
+    borderRadius: radii.md,
+    padding: 10,
     borderWidth: 1,
-    borderColor: colors.border,
-    gap: 10,
+    borderColor: colors.secondary,
+    gap: 8,
   },
   vehicleHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
   },
-  vehicleName: {
-    ...typography.labelLg,
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.ink,
+  vehicleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
   },
-  vehicleType: {
-    ...typography.bodySm,
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: 1,
+  vehicleName: {
+    ...typography.labelMd,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
   },
   plateBadge: {
-    backgroundColor: colors.surfaceHigh,
+    backgroundColor: colors.surface,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radii.sm,
+    paddingVertical: 2,
+    borderRadius: radii.xs,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.secondary,
   },
   plateText: {
     ...typography.labelSm,
     fontSize: 10,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
   },
   metricsRow: {
     flexDirection: 'row',
@@ -252,54 +235,24 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
     padding: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.secondary,
   },
   metricLabel: {
-    ...typography.bodySm,
-    fontSize: 10,
-    color: colors.textSecondary,
+    ...typography.labelSm,
+    fontSize: 9,
+    color: colors.textMuted,
   },
   metricVal: {
     ...typography.labelMd,
     fontSize: 12,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
     marginTop: 2,
-  },
-  vinRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(234, 223, 208, 0.5)',
-    paddingTop: 6,
-  },
-  vinText: {
-    ...typography.bodySm,
-    fontSize: 10,
-    color: colors.textSecondary,
-  },
-  sensorStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  sensorDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primaryDark,
-  },
-  sensorText: {
-    ...typography.labelSm,
-    fontSize: 9,
-    color: colors.primaryDark,
-    fontWeight: '700',
   },
 });
 

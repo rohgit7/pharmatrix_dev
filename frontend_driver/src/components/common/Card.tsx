@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { colors, radii, spacing } from '../../theme';
+import { colors, radii, spacing, shadows } from '../../theme';
 
 interface CardProps {
   children: React.ReactNode;
@@ -26,20 +26,16 @@ export const Card: React.FC<CardProps> = ({ children, active, style, noPadding =
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.secondary,
     padding: spacing.md,
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    ...shadows.subtle,
     overflow: 'hidden',
   },
   activeCard: {
-    borderColor: colors.primaryAction,
+    borderColor: colors.primaryAccent,
     borderWidth: 1.5,
   },
 });

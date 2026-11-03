@@ -67,7 +67,7 @@ export const printService = {
               font-weight: 600;
               text-transform: uppercase;
               letter-spacing: 1.5px;
-              color: #3B52B6;
+              color: #7B91EE;
               margin-top: 4px;
             }
             .meta-banner {
@@ -123,7 +123,7 @@ export const printService = {
               margin: 18px 0 12px 0;
               padding: 16px;
               background: #FDFBF8;
-              border: 1.5px dashed #3B52B6;
+              border: 1.5px dashed #7B91EE;
               border-radius: 12px;
             }
             .qr-code-box {
@@ -136,7 +136,7 @@ export const printService = {
             .qr-subtext {
               font-size: 11px;
               font-weight: 600;
-              color: #3B52B6;
+              color: #7B91EE;
               margin-top: 8px;
               letter-spacing: 0.5px;
             }
@@ -220,7 +220,7 @@ export const printService = {
 
           <div class="detail-row">
             <span class="detail-label">Recorded Weight:</span>
-            <span class="detail-value" style="color: #3B52B6; font-size: 14px;">${weightKg.toFixed(2)} kg</span>
+            <span class="detail-value" style="color: #7B91EE; font-size: 14px;">${weightKg.toFixed(2)} kg</span>
           </div>
 
           ${

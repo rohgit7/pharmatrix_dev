@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 
 interface ConsignmentWeighingCardProps {
   totalWeight: number;
@@ -25,21 +25,15 @@ export const ConsignmentWeighingCard: React.FC<ConsignmentWeighingCardProps> = (
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.scaleIconBox}>
-            <Ionicons name="speedometer-outline" size={17} color="#3B52B6" />
-          </View>
-          <View>
-            <Text style={styles.stepTitle}>STEP 2: CONSIGNMENT WEIGHING</Text>
-            <Text style={styles.subTitle}>Scale readout • Verified by driver</Text>
-          </View>
+        <View style={styles.stepBadge}>
+          <Text style={styles.stepBadgeText}>STEP 2: CONSIGNMENT WEIGHING</Text>
         </View>
 
         <View style={[styles.recordedBadge, isRecorded && styles.recordedBadgeActive]}>
           <Ionicons
             name={isRecorded ? 'checkmark-circle' : 'scale-outline'}
-            size={13}
-            color={isRecorded ? colors.success : '#8A8279'}
+            size={12}
+            color={isRecorded ? colors.success : colors.textMuted}
           />
           <Text style={[styles.recordedText, isRecorded && styles.recordedTextActive]}>
             {isRecorded ? `${totalWeight.toFixed(1)} kg Recorded` : 'Enter Weight'}
@@ -50,7 +44,7 @@ export const ConsignmentWeighingCard: React.FC<ConsignmentWeighingCardProps> = (
       {/* Total Weight Readout & Step Buttons */}
       <View style={styles.totalBlock}>
         <View>
-          <Text style={styles.totalLabel}>CONSIGNMENT NET MASS</Text>
+          <Text style={styles.totalLabel}>NET MASS</Text>
           <View style={styles.totalValueRow}>
             <Text style={styles.totalNumber}>{totalWeight.toFixed(1)}</Text>
             <Text style={styles.totalUnit}>kg</Text>
@@ -71,14 +65,14 @@ export const ConsignmentWeighingCard: React.FC<ConsignmentWeighingCardProps> = (
             onPress={() => adjustWeight(-0.5)}
             activeOpacity={0.7}
           >
-            <Text style={styles.stepBtnText}>-½</Text>
+            <Text style={styles.stepBtnText}>-0.5</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.stepBtnPlus}
             onPress={() => adjustWeight(0.5)}
             activeOpacity={0.7}
           >
-            <Text style={styles.stepBtnPlusText}>+½</Text>
+            <Text style={styles.stepBtnPlusText}>+0.5</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.stepBtnPlus}
@@ -93,8 +87,8 @@ export const ConsignmentWeighingCard: React.FC<ConsignmentWeighingCardProps> = (
       {/* Manual Input Row */}
       <View style={styles.manualInputRow}>
         <View style={styles.inputLabelGroup}>
-          <Ionicons name="create-outline" size={15} color="#5C554E" />
-          <Text style={styles.manualInputLabel}>Type Exact Weight:</Text>
+          <Ionicons name="create-outline" size={15} color={colors.textSecondary} />
+          <Text style={styles.manualInputLabel}>Type Exact Weight</Text>
         </View>
 
         <View style={styles.weightInputGroup}>
@@ -107,28 +101,17 @@ export const ConsignmentWeighingCard: React.FC<ConsignmentWeighingCardProps> = (
               onWeightChange(Math.max(0, Math.round(n * 10) / 10));
             }}
             placeholder="0.0"
-            placeholderTextColor="#A89D91"
+            placeholderTextColor={colors.textOutline}
             keyboardType="decimal-pad"
           />
           <Text style={styles.weightInputUnit}>kg</Text>
         </View>
       </View>
 
-      {/* Packaging Category breakdown */}
-      <View style={styles.breakdownBox}>
-        <View style={styles.packagingRow}>
-          <View style={styles.wasteIconBox}>
-            <Ionicons name="medical" size={15} color="#DC2626" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.wasteTitle}>Regulated Biohazard Pharmaceutical Waste</Text>
-            <Text style={styles.wasteSub}>DOT UN3291 • Hazardous Consignment Packaging</Text>
-          </View>
-          <View style={styles.sealVerifiedPill}>
-            <Ionicons name="lock-closed" size={11} color="#3B52B6" />
-            <Text style={styles.sealVerifiedText}>Bag Sealed</Text>
-          </View>
-        </View>
+      {/* Category info */}
+      <View style={styles.categoryBox}>
+        <Ionicons name="shield-outline" size={14} color={colors.primaryAccent} />
+        <Text style={styles.categoryText}>Regulated Biomedical Waste</Text>
       </View>
 
       {/* Advance button */}
@@ -138,7 +121,7 @@ export const ConsignmentWeighingCard: React.FC<ConsignmentWeighingCardProps> = (
           onPress={onProceedToQR}
           activeOpacity={0.85}
         >
-          <Text style={styles.proceedBtnText}>Next: Verify QR Tag & Seal</Text>
+          <Text style={styles.proceedBtnText}>Confirm Weight & Proceed to QR Tag</Text>
           <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
         </TouchableOpacity>
       )}
@@ -148,69 +131,52 @@ export const ConsignmentWeighingCard: React.FC<ConsignmentWeighingCardProps> = (
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     padding: spacing.md,
-    borderWidth: 1.5,
-    borderColor: '#EADFD0',
-    shadowColor: '#201E1C',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    gap: 10,
+    marginBottom: spacing.md,
+    ...shadows.subtle,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  stepBadge: {
+    backgroundColor: colors.lightAccent,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.xs,
   },
-  scaleIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.md,
-    backgroundColor: '#E5EBFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 82, 182, 0.25)',
-  },
-  stepTitle: {
+  stepBadgeText: {
+    ...typography.labelSm,
     fontSize: 10,
-    fontWeight: '800',
-    color: '#3B52B6',
-    letterSpacing: 0.4,
-  },
-  subTitle: {
-    ...typography.bodySm,
-    fontSize: 11,
-    color: '#5C554E',
-    marginTop: 1,
+    fontWeight: '700',
+    color: colors.primary,
   },
   recordedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F5EFE6',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radii.full,
-    borderWidth: 1,
-    borderColor: '#EADFD0',
   },
   recordedBadgeActive: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#C6F6D5',
+    backgroundColor: colors.successContainer,
+    borderColor: 'rgba(22, 163, 74, 0.2)',
   },
   recordedText: {
+    ...typography.labelSm,
     fontSize: 10,
-    color: '#8A8279',
-    fontWeight: '700',
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   recordedTextActive: {
     color: colors.success,
@@ -219,16 +185,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FAF8F5',
+    backgroundColor: colors.background,
+    borderRadius: radii.md,
     padding: 12,
-    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: '#EADFD0',
+    borderColor: colors.secondary,
   },
   totalLabel: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: '#8A8279',
+    ...typography.labelSm,
+    fontSize: 9,
+    color: colors.textMuted,
     letterSpacing: 0.5,
   },
   totalValueRow: {
@@ -239,55 +205,53 @@ const styles = StyleSheet.create({
   },
   totalNumber: {
     ...typography.monoNumbers,
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#201E1C',
+    fontSize: 26,
+    color: colors.primary,
   },
   totalUnit: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#3B52B6',
+    ...typography.bodySm,
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   stepperContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   stepBtnMinus: {
     width: 38,
     height: 38,
-    borderRadius: radii.md,
-    backgroundColor: '#F5EFE6',
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#EADFD0',
-  },
-  stepBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#201E1C',
   },
   stepBtnPlus: {
     width: 38,
     height: 38,
-    borderRadius: radii.md,
-    backgroundColor: '#E5EBFF',
+    borderRadius: radii.sm,
+    backgroundColor: colors.lightAccent,
+    borderWidth: 1,
+    borderColor: 'rgba(123, 145, 238, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 82, 182, 0.3)',
+  },
+  stepBtnText: {
+    ...typography.labelMd,
+    fontSize: 12,
+    color: colors.primary,
   },
   stepBtnPlusText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#3B52B6',
+    ...typography.labelMd,
+    fontSize: 12,
+    color: colors.primary,
   },
   manualInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
   },
   inputLabelGroup: {
     flexDirection: 'row',
@@ -295,91 +259,60 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   manualInputLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#5C554E',
+    ...typography.bodySm,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   weightInputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    borderRadius: radii.sm,
+    paddingHorizontal: 10,
+    height: 38,
+    gap: 4,
   },
   weightInput: {
-    width: 76,
-    height: 36,
-    backgroundColor: '#FAF8F5',
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#EADFD0',
-    textAlign: 'center',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontWeight: '700',
+    ...typography.monoNumbers,
     fontSize: 15,
-    color: '#201E1C',
+    color: colors.primary,
+    minWidth: 50,
+    textAlign: 'right',
+    padding: 0,
   },
   weightInputUnit: {
+    ...typography.bodySm,
     fontSize: 12,
-    color: '#5C554E',
-    fontWeight: '700',
+    color: colors.textMuted,
   },
-  breakdownBox: {
-    backgroundColor: '#FAF8F5',
-    padding: 10,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#EADFD0',
-  },
-  packagingRow: {
+  categoryBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    paddingVertical: 4,
   },
-  wasteIconBox: {
-    width: 30,
-    height: 30,
-    borderRadius: radii.sm,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wasteTitle: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#201E1C',
-  },
-  wasteSub: {
-    fontSize: 10,
-    color: '#8A8279',
-    marginTop: 1,
-  },
-  sealVerifiedPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#E5EBFF',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: radii.full,
-  },
-  sealVerifiedText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#3B52B6',
+  categoryText: {
+    ...typography.bodySm,
+    fontSize: 11,
+    color: colors.textSecondary,
   },
   proceedBtn: {
+    backgroundColor: colors.primaryAccent,
+    height: 42,
+    borderRadius: radii.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#3B52B6',
-    height: 44,
-    borderRadius: radii.md,
     marginTop: 4,
   },
   proceedBtnText: {
-    color: '#FFFFFF',
+    ...typography.labelMd,
     fontSize: 13,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
 

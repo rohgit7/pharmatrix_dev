@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 
 interface QuickStatsStripProps {
   vehicleReg?: string | null;
@@ -14,37 +14,35 @@ export const QuickStatsStrip: React.FC<QuickStatsStripProps> = ({
   completedStops,
   totalStops,
 }) => {
+  const percent = totalStops > 0 ? Math.round((completedStops / totalStops) * 100) : 0;
+
   return (
     <View style={styles.container}>
-      {/* Cold Chain Card */}
-      <View style={styles.statCard}>
-        <View style={styles.cardLeft}>
-          <View style={[styles.iconBox, { backgroundColor: '#E0F2FE' }]}>
-            <Ionicons name="snow" size={18} color="#0284C7" />
-          </View>
-          <View>
-            <Text style={styles.titleText}>Cold Chain</Text>
-            <Text style={styles.subText}>{totalStops > 0 ? 'Protocol Active' : 'Standby'}</Text>
-          </View>
-        </View>
-        <View style={styles.emeraldDot} />
-      </View>
-
       {/* Vehicle Status Card */}
       <View style={styles.statCard}>
-        <View style={styles.cardLeft}>
-          <View style={[styles.iconBox, { backgroundColor: colors.primaryTint }]}>
-            <Ionicons name="bus-outline" size={18} color={colors.primaryDark} />
-          </View>
-          <View>
-            <Text style={styles.titleText}>{vehicleReg || 'Service Vehicle'}</Text>
-            <Text style={styles.subText}>{totalStops > 0 ? 'On Route' : 'Standby'}</Text>
-          </View>
+        <View style={styles.iconBox}>
+          <Ionicons name="car-outline" size={17} color={colors.primary} />
         </View>
-        <View style={styles.counterBadge}>
-          <Text style={styles.counterText}>
-            {completedStops} / {totalStops}
+        <View style={styles.textColumn}>
+          <Text style={styles.titleText} numberOfLines={1}>
+            {vehicleReg || 'Assigned Vehicle'}
           </Text>
+          <Text style={styles.subText}>
+            {totalStops > 0 ? 'Active Route' : 'Standby'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Progress Card */}
+      <View style={styles.statCard}>
+        <View style={[styles.iconBox, { backgroundColor: colors.lightAccent }]}>
+          <Ionicons name="checkmark-done" size={17} color={colors.primary} />
+        </View>
+        <View style={styles.textColumn}>
+          <Text style={styles.titleText}>
+            {completedStops} of {totalStops} Done
+          </Text>
+          <Text style={styles.subText}>{percent}% completed</Text>
         </View>
       </View>
     </View>
@@ -54,66 +52,45 @@ export const QuickStatsStrip: React.FC<QuickStatsStripProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    gap: 10,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   statCard: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.card,
-    borderRadius: radii.lg,
-    padding: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: 10,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  cardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    borderColor: colors.secondary,
+    gap: 8,
+    ...shadows.subtle,
   },
   iconBox: {
     width: 32,
     height: 32,
-    borderRadius: radii.md,
+    borderRadius: radii.sm,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  textColumn: {
+    flex: 1,
   },
   titleText: {
     ...typography.labelMd,
     fontSize: 12,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
   },
   subText: {
     ...typography.bodySm,
     fontSize: 11,
     color: colors.textSecondary,
-  },
-  emeraldDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.success,
-  },
-  counterBadge: {
-    backgroundColor: colors.primaryTint,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(123, 145, 238, 0.3)',
-  },
-  counterText: {
-    ...typography.labelSm,
-    fontSize: 11,
-    color: colors.primaryDark,
-    fontWeight: '700',
+    marginTop: 1,
   },
 });
 

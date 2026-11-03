@@ -75,8 +75,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
 
 const styles = StyleSheet.create({
   badge: {
-    height: 24,
-    paddingHorizontal: 10,
+    height: 22,
+    paddingHorizontal: 8,
     borderRadius: radii.full,
     flexDirection: 'row',
     alignItems: 'center',
@@ -86,65 +86,65 @@ const styles = StyleSheet.create({
   },
   text: {
     ...typography.labelSm,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   activeContainer: {
-    backgroundColor: colors.primaryTint,
-    borderColor: 'rgba(123, 145, 238, 0.4)',
+    backgroundColor: colors.lightAccent,
+    borderColor: 'rgba(123, 145, 238, 0.3)',
   },
   activeText: {
-    color: colors.primaryDark,
+    color: colors.primary,
   },
   liveContainer: {
     backgroundColor: colors.successContainer,
-    borderColor: 'rgba(30, 142, 90, 0.3)',
+    borderColor: 'rgba(22, 163, 74, 0.2)',
     gap: 4,
   },
   liveText: {
     color: colors.success,
   },
   livePulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: colors.success,
   },
   completedContainer: {
     backgroundColor: colors.successContainer,
-    borderColor: 'rgba(30, 142, 90, 0.2)',
+    borderColor: 'rgba(22, 163, 74, 0.2)',
   },
   completedText: {
     color: colors.success,
   },
   failedContainer: {
     backgroundColor: colors.errorContainer,
-    borderColor: 'rgba(217, 75, 56, 0.3)',
+    borderColor: 'rgba(220, 38, 38, 0.2)',
   },
   failedText: {
     color: colors.error,
   },
   warningContainer: {
     backgroundColor: colors.warningContainer,
-    borderColor: 'rgba(217, 119, 6, 0.3)',
+    borderColor: 'rgba(217, 119, 6, 0.2)',
   },
   warningText: {
     color: colors.warning,
   },
   queuedContainer: {
-    backgroundColor: colors.surfaceLow,
-    borderColor: colors.border,
+    backgroundColor: colors.background,
+    borderColor: colors.secondary,
   },
   queuedText: {
     color: colors.textSecondary,
   },
   neutralContainer: {
-    backgroundColor: colors.surfaceLow,
-    borderColor: colors.border,
+    backgroundColor: colors.background,
+    borderColor: colors.secondary,
   },
   neutralText: {
-    color: colors.textPrimary,
+    color: colors.textSecondary,
   },
 });
 

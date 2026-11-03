@@ -10,7 +10,7 @@ interface PrimaryButtonProps {
   icon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   subtitle?: string;
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'danger' | 'authority';
   style?: ViewStyle;
   textStyle?: TextStyle;
 }
@@ -33,6 +33,8 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
         return styles.secondaryContainer;
       case 'danger':
         return styles.dangerContainer;
+      case 'authority':
+        return styles.authorityContainer;
       case 'primary':
       default:
         return styles.primaryContainer;
@@ -45,6 +47,8 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
         return styles.secondaryText;
       case 'danger':
         return styles.dangerText;
+      case 'authority':
+        return styles.authorityText;
       case 'primary':
       default:
         return styles.primaryText;
@@ -61,10 +65,13 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
       ]}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.88}
+      activeOpacity={0.85}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'secondary' ? colors.ink : '#FFFFFF'} size="small" />
+        <ActivityIndicator
+          color={variant === 'secondary' ? colors.primary : '#FFFFFF'}
+          size="small"
+        />
       ) : (
         <View style={styles.inner}>
           <View style={styles.titleRow}>
@@ -81,32 +88,38 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 52,
-    borderRadius: radii.lg,
+    minHeight: 48,
+    borderRadius: radii.md,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  primaryContainer: {
+    backgroundColor: colors.primaryAccent,
+    shadowColor: colors.primaryAccent,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 2,
   },
-  primaryContainer: {
-    backgroundColor: colors.primaryAction,
-    shadowColor: colors.primaryDark,
+  authorityContainer: {
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   secondaryContainer: {
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    shadowColor: colors.ink,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
   },
   dangerContainer: {
     backgroundColor: colors.errorContainer,
-    borderWidth: 1.5,
-    borderColor: colors.error,
-    shadowColor: colors.error,
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.3)',
   },
   disabled: {
     opacity: 0.5,
@@ -129,15 +142,18 @@ const styles = StyleSheet.create({
   },
   text: {
     ...typography.labelLg,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   primaryText: {
     color: '#FFFFFF',
   },
+  authorityText: {
+    color: '#FFFFFF',
+  },
   secondaryText: {
-    color: colors.ink,
+    color: colors.primary,
   },
   dangerText: {
     color: colors.onErrorContainer,
@@ -145,7 +161,7 @@ const styles = StyleSheet.create({
   subtitleText: {
     ...typography.bodySm,
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 2,
     textAlign: 'center',
   },

@@ -1,31 +1,36 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, spacing } from '../../theme';
+import { colors, typography, spacing, radii } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 
 interface HeaderBarProps {
   title: string;
   showPhoneCall?: boolean;
+  onPhonePress?: () => void;
 }
 
-export const HeaderBar: React.FC<HeaderBarProps> = ({ title, showPhoneCall = false }) => {
+export const HeaderBar: React.FC<HeaderBarProps> = ({
+  title,
+  showPhoneCall = false,
+  onPhonePress,
+}) => {
   const insets = useSafeAreaInsets();
-  const { openProfileDrawer, driverProfile } = useAuth();
+  const { openProfileDrawer, user, driverProfile } = useAuth();
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 8) }]}>
       <View style={styles.content}>
-        {/* Left: Brand Icon + Status & Title */}
+        {/* Left: Brand Icon + Title */}
         <View style={styles.leftSection}>
           <View style={styles.logoBadge}>
-            <Ionicons name="compass" size={20} color="#FFFFFF" />
+            <Ionicons name="cube" size={17} color="#FFFFFF" />
           </View>
           <View style={styles.titleColumn}>
             <View style={styles.statusRow}>
-              <View style={styles.pulseDot} />
-              <Text style={styles.statusText}>ONLINE • GPS ACTIVE</Text>
+              <View style={styles.statusDot} />
+              <Text style={styles.statusText}>ONLINE  GPS ACTIVE</Text>
             </View>
             <Text style={styles.titleText} numberOfLines={1}>
               {title}
@@ -33,19 +38,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ title, showPhoneCall = fal
           </View>
         </View>
 
-        {/* Right: Phone & Avatar Profile Trigger */}
+        {/* Right: Actions */}
         <View style={styles.rightSection}>
-          {showPhoneCall && (
+          {showPhoneCall && onPhonePress && (
             <TouchableOpacity
               style={styles.phoneButton}
               activeOpacity={0.7}
-              onPress={() => {
-                if (Platform.OS === 'web') {
-                  window.location.href = 'tel:5550198273';
-                }
-              }}
+              onPress={onPhonePress}
+              accessibilityLabel="Call Dispatch"
             >
-              <Ionicons name="call" size={17} color={colors.primaryDark} />
+              <Ionicons name="call-outline" size={17} color={colors.primary} />
             </TouchableOpacity>
           )}
 
@@ -53,10 +55,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ title, showPhoneCall = fal
             style={styles.avatarButton}
             onPress={openProfileDrawer}
             activeOpacity={0.8}
-            accessibilityLabel="Open Driver Profile Menu"
+            accessibilityLabel="Driver Profile Menu"
           >
             <View style={styles.avatarContainer}>
-              <Ionicons name="person" size={18} color={colors.primaryDark} />
+              <Ionicons name="person" size={17} color={colors.primary} />
               <View style={styles.avatarOnlineDot} />
             </View>
           </TouchableOpacity>
@@ -68,13 +70,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ title, showPhoneCall = fal
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'rgba(253, 251, 248, 0.95)',
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.secondary,
     zIndex: 50,
   },
   content: {
-    height: 56,
+    height: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -87,42 +89,38 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logoBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.primaryAction,
+    width: 32,
+    height: 32,
+    borderRadius: radii.sm,
+    backgroundColor: colors.primaryAccent,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primaryDark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
   },
   titleColumn: {
     justifyContent: 'center',
+    flex: 1,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
-  pulseDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.primaryAction,
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.success,
   },
   statusText: {
     ...typography.labelSm,
     fontSize: 10,
-    color: colors.ink,
-    letterSpacing: 0.8,
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
   },
   titleText: {
     ...typography.headlineSm,
-    color: colors.ink,
-    fontSize: 18,
+    color: colors.primary,
+    fontSize: 17,
     fontWeight: '700',
   },
   rightSection: {
@@ -131,10 +129,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   phoneButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primaryTint,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -142,12 +142,12 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   avatarContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primaryTint,
-    borderWidth: 1.5,
-    borderColor: colors.primaryAction,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -156,12 +156,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -1,
     right: -1,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
     backgroundColor: colors.success,
     borderWidth: 1.5,
-    borderColor: colors.card,
+    borderColor: colors.surface,
   },
 });
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 import { useDriverRoute } from '../../hooks/useDriverRoute';
 import { RouteMap } from '../../components/routes/RouteMap';
 import { NextStopCard } from '../../components/routes/NextStopCard';
@@ -54,7 +54,7 @@ export const RoutesScreen: React.FC<RoutesScreenProps> = ({
       );
       if (nextPending) {
         setSelectedStop(nextPending);
-        showToast(`Advancing to next pending stop: ${nextPending.customer_name || 'Stop'}`);
+        showToast(`Next stop: ${nextPending.customer_name || 'Stop'}`);
       } else {
         onNavigateToTab('profile');
       }
@@ -70,10 +70,10 @@ export const RoutesScreen: React.FC<RoutesScreenProps> = ({
     try {
       await arriveAtStop(displayStop.id);
       setSelectedStop(displayStop);
-      showToast(`Arrived at ${displayStop.customer_name || 'Stop'}. Auto-transitioning to Pickups Pipeline...`);
+      showToast(`Arrived at ${displayStop.customer_name || 'Stop'}`);
       setTimeout(() => {
         onNavigateToTab('pickups');
-      }, 700);
+      }, 600);
     } catch (err: any) {
       showToast(err.message || 'Arrival confirmation failed.');
     }
@@ -82,8 +82,8 @@ export const RoutesScreen: React.FC<RoutesScreenProps> = ({
   if (isLoading && !route) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primaryAction} />
-        <Text style={styles.loadingText}>Loading route navigation...</Text>
+        <ActivityIndicator size="large" color={colors.primaryAccent} />
+        <Text style={styles.loadingText}>Syncing route itinerary...</Text>
       </View>
     );
   }
@@ -91,90 +91,91 @@ export const RoutesScreen: React.FC<RoutesScreenProps> = ({
   if (!route) {
     return (
       <View style={styles.centerContainer}>
-        <Ionicons name="map-outline" size={48} color={colors.textSecondary} />
-        <Text style={[typography.headlineSm, { color: colors.textPrimary, marginTop: 8 }]}>
-          No Active Navigation Route
-        </Text>
+        <View style={styles.emptyIconBox}>
+          <Ionicons name="map-outline" size={36} color={colors.textMuted} />
+        </View>
+        <Text style={styles.emptyTitle}>No Active Route</Text>
         <Text style={styles.loadingText}>
-          Route itinerary will appear here once assigned for today.
+          Route navigation will appear once an itinerary is assigned.
         </Text>
         <TouchableOpacity
-          style={{
-            marginTop: 12,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-            backgroundColor: colors.primaryDark,
-            paddingVertical: 12,
-            paddingHorizontal: 20,
-            borderRadius: radii.md,
-          }}
+          style={styles.returnBtn}
           onPress={() => onNavigateToTab('operations')}
+          activeOpacity={0.85}
         >
-          <Ionicons name="arrow-back" size={16} color="#FFFFFF" />
-          <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 13 }}>
-            Return to Operations
-          </Text>
+          <Ionicons name="arrow-back" size={15} color="#FFFFFF" />
+          <Text style={styles.returnBtnText}>Operations Overview</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  const destinationName = displayStop?.customer_name || displayStop?.location_name || displayStop?.warehouse_name || 'Stop';
+  // Dynamic route metrics without hardcoded strings
+  const remainingCount = Math.max(0, stats.totalStops - stats.completedStops);
+  const routeStatusLabel =
+    route.planned_duration_seconds && route.planned_distance_km
+      ? `${Math.round(route.planned_duration_seconds / 60)} min / ${route.planned_distance_km} km`
+      : `${remainingCount} stops remaining`;
 
   return (
     <View style={styles.wrapper}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refreshRoute} tintColor={colors.primaryDark} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={refreshRoute}
+            tintColor={colors.primary}
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
-        {/* Route Selector & Summary Card */}
+        {/* Route Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryTop}>
             <View style={styles.enRouteRow}>
-              <View style={styles.pulseOuter}>
-                <View style={styles.pulseInner} />
-              </View>
+              <View style={styles.pulseDot} />
               <Text style={styles.enRouteText}>
-                EN ROUTE TO STOP {stats.currentStopIndex} OF {stats.totalStops || 8}
+                STOP {stats.currentStopIndex} OF {stats.totalStops}
               </Text>
             </View>
-            <View style={styles.etaDurationPill}>
-              <Text style={styles.etaDurationText}>12 min • 3.4 km</Text>
+            <View style={styles.metricsPill}>
+              <Text style={styles.metricsText}>{routeStatusLabel}</Text>
             </View>
           </View>
 
           <View style={styles.summaryBottom}>
             <View style={styles.turnGroup}>
               <View style={styles.turnIconCircle}>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                <Ionicons name="navigate" size={16} color="#FFFFFF" />
               </View>
               <View style={styles.turnTextGroup}>
-                <Text style={styles.turnTitle}>Proceed to Stop {stats.currentStopIndex}</Text>
+                <Text style={styles.turnTitle}>
+                  Stop {stats.currentStopIndex}: {displayStop?.customer_name || 'Destination'}
+                </Text>
                 <Text style={styles.turnSub} numberOfLines={1}>
-                  onto {displayStop?.address || displayStop?.location_name || 'Assigned Destination'}
+                  {displayStop?.address || 'Dock receiving area'}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.etaBlock}>
-              <Text style={styles.etaLabel}>STATUS</Text>
-              <Text style={styles.etaValue}>
-                {displayStop?.execution_status || 'En Route'}
+            <View style={styles.statusPill}>
+              <Text style={styles.statusPillText}>
+                {displayStop?.execution_status === 'ARRIVED'
+                  ? 'Arrived'
+                  : displayStop?.execution_status === 'COMPLETED'
+                  ? 'Completed'
+                  : 'En Route'}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* High Fidelity Interactive Simulated Hazmat Map */}
-        <RouteMap
-          currentStop={displayStop}
-          onToast={showToast}
-        />
+        {/* Vector Road Map */}
+        <RouteMap currentStop={displayStop} onToast={showToast} />
 
-        {/* Next Stop Turn-by-Turn Instruction Card */}
+        {/* Next Stop Card */}
         <NextStopCard
           stop={displayStop}
           stopIndex={stats.currentStopIndex}
@@ -183,22 +184,22 @@ export const RoutesScreen: React.FC<RoutesScreenProps> = ({
           isLoading={actionLoading}
         />
 
-        {/* Complete Stops Pipeline List Accordion */}
+        {/* Route Itinerary Accordion */}
         <RouteItineraryAccordion
           stops={route?.stops || []}
           activeStopId={displayStop?.id}
           onSelectStop={(stop) => {
             setSelectedStop(stop);
-            showToast(`Focused on Stop ${stop.sequence_number}: ${stop.customer_name || 'Destination'}`);
+            showToast(`Stop ${stop.sequence_number}: ${stop.customer_name || 'Destination'}`);
           }}
         />
       </ScrollView>
 
-      {/* Floating Feedback Toast */}
+      {/* Toast Notification */}
       {toastMessage && (
         <View style={styles.toastContainer}>
           <View style={styles.toastPill}>
-            <Ionicons name="information-circle" size={17} color={colors.primaryTint} />
+            <Ionicons name="information-circle" size={16} color={colors.primaryAccent} />
             <Text style={styles.toastText}>{toastMessage}</Text>
           </View>
         </View>
@@ -210,47 +211,74 @@ export const RoutesScreen: React.FC<RoutesScreenProps> = ({
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
   },
   content: {
     padding: spacing.gutter,
-    gap: 12,
-    paddingBottom: 24,
+    paddingBottom: 90,
   },
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.canvas,
-    gap: 10,
+    backgroundColor: colors.background,
+    padding: spacing.xl,
+  },
+  emptyIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
+    ...typography.headlineSm,
+    color: colors.primary,
+    marginBottom: 4,
   },
   loadingText: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  returnBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radii.md,
+  },
+  returnBtnText: {
+    ...typography.labelMd,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   summaryCard: {
-    backgroundColor: colors.card,
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: colors.secondary,
+    marginBottom: spacing.md,
     gap: 10,
+    ...shadows.subtle,
   },
   summaryTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.secondary,
     paddingBottom: 8,
   },
   enRouteRow: {
@@ -258,39 +286,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  pulseOuter: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primaryDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pulseInner: {
+  pulseDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.primaryDark,
+    backgroundColor: colors.primaryAccent,
   },
   enRouteText: {
     ...typography.labelSm,
     fontSize: 10,
-    color: colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  etaDurationPill: {
-    backgroundColor: colors.primaryTint,
+  metricsPill: {
+    backgroundColor: colors.lightAccent,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: radii.full,
-    borderWidth: 1,
-    borderColor: 'rgba(123, 145, 238, 0.4)',
   },
-  etaDurationText: {
+  metricsText: {
     ...typography.labelSm,
     fontSize: 10,
-    color: colors.onPrimaryContainer,
+    color: colors.primary,
     fontWeight: '700',
   },
   summaryBottom: {
@@ -306,10 +324,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   turnIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.lg,
-    backgroundColor: colors.primaryDark,
+    width: 34,
+    height: 34,
+    borderRadius: radii.md,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -320,7 +338,7 @@ const styles = StyleSheet.create({
     ...typography.headlineSm,
     fontSize: 14,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
   },
   turnSub: {
     ...typography.bodySm,
@@ -328,53 +346,43 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 1,
   },
-  etaBlock: {
-    backgroundColor: colors.surfaceLow,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radii.md,
+  statusPill: {
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'flex-end',
+    borderColor: colors.secondary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.xs,
   },
-  etaLabel: {
+  statusPillText: {
     ...typography.labelSm,
-    fontSize: 9,
-    color: colors.textOutline,
-    fontWeight: '700',
-  },
-  etaValue: {
-    ...typography.headlineSm,
-    fontSize: 14,
-    color: colors.primaryDark,
-    fontWeight: '700',
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   toastContainer: {
     position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
+    bottom: 24,
+    left: spacing.gutter,
+    right: spacing.gutter,
     alignItems: 'center',
-    zIndex: 100,
   },
   toastPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.ink,
-    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: radii.full,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 8,
+    ...shadows.card,
   },
   toastText: {
     ...typography.bodySm,
-    color: '#FFFFFF',
     fontSize: 12,
+    color: colors.primary,
     fontWeight: '600',
   },
 });

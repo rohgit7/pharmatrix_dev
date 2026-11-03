@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 import { useAuth } from '../../context/AuthContext';
 import { useDriverRoute } from '../../hooks/useDriverRoute';
 import { TerminalHandoverCard } from '../../components/handover/TerminalHandoverCard';
@@ -26,7 +26,7 @@ export const ProfileScreen: React.FC = () => {
     if (!warehouseStop || !route) return;
     try {
       await completeStop(warehouseStop.id, 0);
-      Alert.alert('Handover Confirmed', 'Terminal custody transferred to facility officer. Route completed.');
+      Alert.alert('Handover Confirmed', 'Terminal custody transferred. Route completed.');
     } catch (err: any) {
       Alert.alert('Handover Notice', err.message || 'Custody transferred and recorded.');
     }
@@ -34,7 +34,7 @@ export const ProfileScreen: React.FC = () => {
 
   const handleDownloadManifest = async () => {
     if (!route) {
-      Alert.alert('No Route', 'No route data available to generate manifest.');
+      Alert.alert('No Route', 'No route data available.');
       return;
     }
     setDownloadingManifest(true);
@@ -50,8 +50,8 @@ export const ProfileScreen: React.FC = () => {
   const handlePostTripInspection = () => {
     setInspectionCompleted(true);
     Alert.alert(
-      'Post-Trip Inspection Completed',
-      'All 14 safety and regulatory inspection items verified: Tires, Brakes, Biohazard Seal, Refrigerator Temp (3.2°C), Hazard Placards.'
+      'Inspection Completed',
+      'Vehicle verified for dock return.'
     );
   };
 
@@ -63,8 +63,8 @@ export const ProfileScreen: React.FC = () => {
   if (isLoading && !route) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.primaryAction} />
-        <Text style={styles.loadingText}>Loading terminal handover details...</Text>
+        <ActivityIndicator size="large" color={colors.primaryAccent} />
+        <Text style={styles.loadingText}>Loading terminal details...</Text>
       </View>
     );
   }
@@ -73,20 +73,21 @@ export const ProfileScreen: React.FC = () => {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refreshRoute} tintColor={colors.primaryDark} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading}
+          onRefresh={refreshRoute}
+          tintColor={colors.primary}
+        />
+      }
       showsVerticalScrollIndicator={false}
     >
       {/* Progress Pipeline Header */}
       <View style={styles.pipelineHeaderCard}>
         <View style={styles.pipelineTop}>
-          <View style={styles.terminalTagRow}>
-            <View style={styles.pulseOuter}>
-              <View style={styles.pulseInner} />
-            </View>
-            <Text style={styles.terminalTagText}>
-              TERMINAL STOP {stats.totalStops} OF {stats.totalStops} • FACILITY HANDOVER
-            </Text>
-          </View>
+          <Text style={styles.terminalTagText}>
+            TERMINAL STOP {stats.totalStops} OF {stats.totalStops} / FACILITY HANDOVER
+          </Text>
           <View style={styles.manifestPill}>
             <Text style={styles.manifestPillText}>
               {route?.route_code ? `MANIFEST-${route.route_code.slice(-6)}` : 'MANIFEST'}
@@ -96,39 +97,48 @@ export const ProfileScreen: React.FC = () => {
 
         {/* 4 Connected Milestones */}
         <View style={styles.milestonesTrack}>
-          <View style={styles.connectingLine} />
-
           <View style={styles.milestone}>
             <View style={styles.milestoneDoneCircle}>
-              <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+              <Ionicons name="checkmark" size={12} color="#FFFFFF" />
             </View>
             <Text style={styles.milestoneText}>Dispatched</Text>
           </View>
 
           <View style={styles.milestone}>
             <View style={styles.milestoneDoneCircle}>
-              <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+              <Ionicons name="checkmark" size={12} color="#FFFFFF" />
             </View>
             <Text style={styles.milestoneText}>Collected</Text>
           </View>
 
           <View style={styles.milestone}>
             <View style={styles.milestoneDoneCircle}>
-              <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+              <Ionicons name="checkmark" size={12} color="#FFFFFF" />
             </View>
             <Text style={styles.milestoneText}>Weighed</Text>
           </View>
 
           <View style={styles.milestone}>
-            <View style={[styles.milestoneDoneCircle, styles.milestoneActiveCircle]}>
-              <Ionicons name="color-wand-outline" size={13} color="#FFFFFF" />
+            <View
+              style={[
+                styles.milestoneCircle,
+                isHandoverCompleted ? styles.milestoneDoneCircle : styles.milestoneActiveCircle,
+              ]}
+            >
+              {isHandoverCompleted ? (
+                <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+              ) : (
+                <Ionicons name="cube" size={11} color={colors.primary} />
+              )}
             </View>
-            <Text style={[styles.milestoneText, styles.milestoneActiveText]}>Handover</Text>
+            <Text style={[styles.milestoneText, styles.milestoneActiveText]}>
+              Handover
+            </Text>
           </View>
         </View>
       </View>
 
-      {/* Facility Final Handover Module */}
+      {/* Terminal Handover Card */}
       <TerminalHandoverCard
         route={route}
         warehouseStop={warehouseStop}
@@ -136,13 +146,13 @@ export const ProfileScreen: React.FC = () => {
         isCompleted={isHandoverCompleted}
       />
 
-      {/* Driver Shift & Vehicle Profile Section */}
+      {/* Active Duty Driver Card */}
       <ActiveDutyProfileCard
         driver={driverProfile}
         vehicleReg={route?.vehicle_registration_number}
       />
 
-      {/* End of Shift Controls */}
+      {/* Shift Completion Actions */}
       <ShiftActionsCard
         onDownloadManifest={handleDownloadManifest}
         onPostTripInspection={handlePostTripInspection}
@@ -150,13 +160,16 @@ export const ProfileScreen: React.FC = () => {
         isDownloading={downloadingManifest}
       />
 
-      {/* Secure Clock-Out Modal Dialog */}
+      {/* Clock Out Confirmation Modal */}
       <ClockOutModal
         visible={clockOutVisible}
         onClose={() => setClockOutVisible(false)}
         onConfirm={handleConfirmClockOut}
-        driverName={driverProfile?.name || user?.name || 'Courier'}
-        driverId={driverProfile?.employee_id || (user?.id ? `DRV-${user.id}` : 'DRV')}
+        driverName={driverProfile?.name || user?.name}
+        driverId={
+          driverProfile?.employee_id ||
+          (driverProfile?.id ? `DRV-${driverProfile.id}` : undefined)
+        }
       />
     </ScrollView>
   );
@@ -165,131 +178,96 @@ export const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.background,
   },
   content: {
     padding: spacing.gutter,
-    gap: 12,
-    paddingBottom: 28,
+    paddingBottom: 90,
   },
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.canvas,
-    gap: 10,
+    backgroundColor: colors.background,
+    padding: spacing.xl,
   },
   loadingText: {
     ...typography.bodySm,
     color: colors.textSecondary,
-    fontSize: 12,
+    marginTop: 8,
   },
   pipelineHeaderCard: {
-    backgroundColor: colors.card,
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 14,
+    borderColor: colors.secondary,
+    gap: 12,
+    marginBottom: spacing.md,
+    ...shadows.subtle,
   },
   pipelineTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  terminalTagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  pulseOuter: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primaryDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pulseInner: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primaryDark,
-  },
   terminalTagText: {
     ...typography.labelSm,
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: '700',
-    color: colors.ink,
-    letterSpacing: 0.5,
+    color: colors.primary,
   },
   manifestPill: {
-    backgroundColor: colors.primaryTint,
+    backgroundColor: colors.lightAccent,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: radii.full,
-    borderWidth: 1,
-    borderColor: 'rgba(123, 145, 238, 0.4)',
+    borderRadius: radii.xs,
   },
   manifestPillText: {
     ...typography.monoNumbers,
     fontSize: 10,
-    color: colors.primaryDark,
-    fontWeight: '700',
+    color: colors.primary,
   },
   milestonesTrack: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    position: 'relative',
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingTop: 4,
-  },
-  connectingLine: {
-    position: 'absolute',
-    top: 17,
-    left: 28,
-    right: 28,
-    height: 2,
-    backgroundColor: colors.surfaceHigh,
-    zIndex: 0,
   },
   milestone: {
     alignItems: 'center',
     gap: 4,
-    zIndex: 1,
   },
-  milestoneDoneCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.ink,
+  milestoneCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+  },
+  milestoneDoneCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.success,
   },
   milestoneActiveCircle: {
-    backgroundColor: colors.primaryDark,
-    borderWidth: 2,
-    borderColor: colors.primaryAction,
+    backgroundColor: colors.lightAccent,
+    borderColor: colors.primaryAccent,
   },
   milestoneText: {
     ...typography.labelSm,
-    fontSize: 9,
+    fontSize: 10,
     color: colors.textSecondary,
   },
   milestoneActiveText: {
-    color: colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
 });

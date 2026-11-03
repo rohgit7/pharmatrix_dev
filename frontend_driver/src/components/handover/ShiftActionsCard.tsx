@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing, typography } from '../../theme';
+import { colors, radii, spacing, typography, shadows } from '../../theme';
 
 interface ShiftActionsCardProps {
   onDownloadManifest: () => void;
@@ -18,9 +18,9 @@ export const ShiftActionsCard: React.FC<ShiftActionsCardProps> = ({
 }) => {
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Shift Completion Actions</Text>
+      <Text style={styles.title}>Shift Actions</Text>
 
-      {/* Button 1: Download Custody Manifest PDF */}
+      {/* Button 1: Download Manifest PDF */}
       <TouchableOpacity
         style={styles.actionRow}
         onPress={onDownloadManifest}
@@ -28,31 +28,36 @@ export const ShiftActionsCard: React.FC<ShiftActionsCardProps> = ({
         disabled={isDownloading}
       >
         <View style={styles.rowLeft}>
-          <View style={styles.pdfIconBox}>
-            <Ionicons name="document-text" size={18} color={colors.primaryDark} />
+          <View style={styles.iconBox}>
+            <Ionicons name="document-text-outline" size={17} color={colors.primary} />
           </View>
           <Text style={styles.actionTitle}>Download Custody Manifest PDF</Text>
         </View>
-        <Ionicons name="download-outline" size={18} color={colors.textSecondary} />
+        <Ionicons name="download-outline" size={16} color={colors.textMuted} />
       </TouchableOpacity>
 
       {/* Button 2: Post-Trip Inspection */}
-      <TouchableOpacity style={styles.actionRow} onPress={onPostTripInspection} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.actionRow}
+        onPress={onPostTripInspection}
+        activeOpacity={0.7}
+      >
         <View style={styles.rowLeft}>
-          <View style={styles.checkIconBox}>
-            <Ionicons name="checkbox-outline" size={18} color={colors.textSecondary} />
+          <View style={styles.iconBox}>
+            <Ionicons name="checkbox-outline" size={17} color={colors.primary} />
           </View>
-          <Text style={styles.actionTitle}>Complete Post-Trip Inspection</Text>
+          <Text style={styles.actionTitle}>Post-Trip Vehicle Verification</Text>
         </View>
-        <View style={styles.itemsBadge}>
-          <Text style={styles.itemsBadgeText}>14/14 Items</Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
-        </View>
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
       </TouchableOpacity>
 
-      {/* Button 3: Clock Out & End Shift */}
-      <TouchableOpacity style={styles.clockOutBtn} onPress={onClockOut} activeOpacity={0.88}>
-        <Ionicons name="time" size={18} color={colors.onErrorContainer} />
+      {/* Button 3: Clock Out */}
+      <TouchableOpacity
+        style={styles.clockOutBtn}
+        onPress={onClockOut}
+        activeOpacity={0.88}
+      >
+        <Ionicons name="log-out-outline" size={16} color={colors.error} />
         <Text style={styles.clockOutText}>Clock Out & End Shift</Text>
       </TouchableOpacity>
     </View>
@@ -61,33 +66,30 @@ export const ShiftActionsCard: React.FC<ShiftActionsCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radii.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.ink,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    borderColor: colors.secondary,
     gap: 10,
+    marginBottom: spacing.md,
+    ...shadows.subtle,
   },
   title: {
     ...typography.headlineSm,
     fontSize: 15,
     fontWeight: '700',
-    color: colors.ink,
+    color: colors.primary,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.surfaceLow,
-    padding: 12,
-    borderRadius: radii.lg,
+    backgroundColor: colors.background,
+    padding: 10,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.secondary,
   },
   rowLeft: {
     flexDirection: 'row',
@@ -95,19 +97,13 @@ const styles = StyleSheet.create({
     gap: 10,
     flex: 1,
   },
-  pdfIconBox: {
+  iconBox: {
     width: 32,
     height: 32,
-    borderRadius: radii.md,
-    backgroundColor: colors.primaryTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceHigh,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -115,37 +111,22 @@ const styles = StyleSheet.create({
     ...typography.labelMd,
     fontSize: 12,
     fontWeight: '600',
-    color: colors.ink,
-  },
-  itemsBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  itemsBadgeText: {
-    ...typography.labelSm,
-    fontSize: 10,
-    color: colors.primaryDark,
-    backgroundColor: colors.primaryTint,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radii.full,
-    fontWeight: '700',
+    color: colors.primary,
   },
   clockOutBtn: {
     backgroundColor: colors.errorContainer,
-    borderRadius: radii.lg,
-    height: 48,
+    borderRadius: radii.md,
+    height: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(217, 75, 56, 0.4)',
+    borderColor: 'rgba(220, 38, 38, 0.2)',
     marginTop: 2,
   },
   clockOutText: {
-    ...typography.labelLg,
+    ...typography.labelMd,
     fontSize: 13,
     fontWeight: '700',
     color: colors.onErrorContainer,
