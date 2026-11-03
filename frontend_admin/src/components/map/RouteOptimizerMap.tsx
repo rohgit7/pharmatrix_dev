@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 
 export interface MapStop {
@@ -57,9 +57,11 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
   selectedRouteIndex = null,
   onSelectRoute,
 }) => {
+  const [activeBasemap, setActiveBasemap] = useState<'carto' | 'esri' | 'osm'>('carto');
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
 
   // Initialize Map once
   useEffect(() => {
@@ -71,20 +73,11 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
         attributionControl: false,
       }).setView([depot.lat, depot.lng], 12);
 
-      // CartoDB Voyager tiles - fast, clean, avoids OpenStreetMap 403 blocking
-      L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-        {
-          maxZoom: 19,
-          subdomains: 'abcd',
-        }
-      ).addTo(map);
-
       // Attribution in bottom right
       L.control
         .attribution({
           position: 'bottomright',
-          prefix: '© <a href="https://carto.com/" target="_blank" rel="noreferrer">CARTO</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a>',
+          prefix: '© <a href="https://carto.com/" target="_blank" rel="noreferrer">CARTO</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OSM</a> · © <a href="https://www.esri.com/" target="_blank" rel="noreferrer">Esri</a>',
         })
         .addTo(map);
 
@@ -99,6 +92,48 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
       }
     };
   }, []);
+
+  // Update Tile Layer when activeBasemap changes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
+    }
+
+    let tileUrl = '';
+    let maxZoom = 19;
+    let subdomains = 'abcd';
+
+    if (activeBasemap === 'carto') {
+      const cartoApiKey = (
+        import.meta.env.VITE_CARTO_API_KEY ||
+        'cb1_51ab_1_8526a1412087ab20ad5daf06'
+      ).trim();
+
+      tileUrl = `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${cartoApiKey}`;
+      subdomains = 'abcd';
+      maxZoom = 19;
+    } else if (activeBasemap === 'esri') {
+      tileUrl =
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+      subdomains = 'abc';
+      maxZoom = 16;
+    } else {
+      tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      subdomains = 'abc';
+      maxZoom = 19;
+    }
+
+    const newLayer = L.tileLayer(tileUrl, {
+      maxZoom,
+      subdomains,
+    }).addTo(map);
+
+    tileLayerRef.current = newLayer;
+  }, [activeBasemap]);
 
   // Update layers when depot, routes or selection changes
   useEffect(() => {
@@ -269,6 +304,47 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
     <div className={`relative w-full rounded-xl overflow-hidden border border-slate-300 shadow-sm ${className}`}>
       {/* Map DOM Element */}
       <div ref={mapContainerRef} className="w-full h-full z-0" />
+
+      {/* Basemap Switcher Pill in Bottom-Left */}
+      <div className="absolute bottom-2.5 left-2.5 z-10 bg-white/95 backdrop-blur-sm px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-md flex items-center gap-1.5 pointer-events-auto">
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mr-0.5">Map:</span>
+        <button
+          type="button"
+          onClick={() => setActiveBasemap('carto')}
+          className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
+            activeBasemap === 'carto'
+              ? 'bg-[#2563EB] text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+          title="CARTO Voyager Basemap (using your API key)"
+        >
+          CARTO Voyager
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveBasemap('esri')}
+          className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
+            activeBasemap === 'esri'
+              ? 'bg-[#2563EB] text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+          title="Esri Light Canvas (Clean, no watermark)"
+        >
+          Esri Canvas
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveBasemap('osm')}
+          className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
+            activeBasemap === 'osm'
+              ? 'bg-[#2563EB] text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+          title="OpenStreetMap Standard"
+        >
+          OSM
+        </button>
+      </div>
 
       {/* Floating Summary Badge in Top Right — Exactly matching attached reference */}
       <div className="absolute top-3 right-3 z-10 bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-lg border border-slate-200 shadow-lg text-slate-800 pointer-events-auto select-none min-w-[170px]">
