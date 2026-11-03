@@ -20,6 +20,9 @@ export interface MapRoute {
   totalDistanceKm: number;
   totalDurationMin: number;
   totalLoadKg: number;
+  roadGeometry?: [number, number][]; // Actual road-following [lat, lng] array
+  isRoadLoading?: boolean;
+  roadRoutingError?: string;
 }
 
 export interface MapDepot {
@@ -37,6 +40,8 @@ interface RouteOptimizerMapProps {
   className?: string;
   selectedRouteIndex?: number | null;
   onSelectRoute?: (index: number | null) => void;
+  isRoadRoutingLoading?: boolean;
+  onRetryRoadRouting?: () => void;
 }
 
 export const ROUTE_COLORS = [
@@ -56,6 +61,8 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
   className = 'h-[580px]',
   selectedRouteIndex = null,
   onSelectRoute,
+  isRoadRoutingLoading = false,
+  onRetryRoadRouting,
 }) => {
   const [activeBasemap, setActiveBasemap] = useState<'carto' | 'esri' | 'osm'>('carto');
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -251,27 +258,48 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
         layerGroup.addLayer(stopMarker);
       });
 
-      // Path starts at warehouse and ends at warehouse
-      if (pathPoints.length > 0) {
-        pathPoints.unshift([depot.lat, depot.lng]);
-        pathPoints.push([depot.lat, depot.lng]);
+      // Road-following geometry or direct path
+      const hasRoad = Array.isArray(route.roadGeometry) && route.roadGeometry.length > 1;
+      const polylinePoints: [number, number][] = hasRoad
+        ? route.roadGeometry!
+        : pathPoints.length > 0
+        ? [[depot.lat, depot.lng], ...pathPoints, [depot.lat, depot.lng]]
+        : [];
 
-        const polyline = L.polyline(pathPoints, {
+      if (polylinePoints.length > 0) {
+        if (hasRoad) {
+          polylinePoints.forEach((pt) => allLatLngs.push(pt));
+        }
+
+        // Crisp contrast halo for selected route
+        if (isSelected) {
+          const halo = L.polyline(polylinePoints, {
+            color: '#FFFFFF',
+            weight: (isSelected ? 5 : 3.5) + 3,
+            opacity: 0.75,
+            lineJoin: 'round',
+            lineCap: 'round',
+          });
+          layerGroup.addLayer(halo);
+        }
+
+        const polyline = L.polyline(polylinePoints, {
           color,
-          weight,
-          opacity,
+          weight: isSelected ? 5 : 3.5,
+          opacity: isSelected ? 0.95 : 0.45,
           lineJoin: 'round',
           lineCap: 'round',
-          dashArray: isSelected ? undefined : '4, 8',
+          dashArray: isSelected ? undefined : hasRoad ? undefined : '4, 8',
         });
 
         if (onSelectRoute) {
           polyline.on('click', () => onSelectRoute(idx));
         }
 
+        const engineLabel = hasRoad ? 'Road Network (OSRM)' : 'Direct Path';
         polyline.bindTooltip(
-          `<b>${route.vehicleLabel}</b>: ${route.stops.length} stops · ${route.totalDistanceKm.toFixed(1)} km`,
-          { sticky: true, opacity: 0.9 }
+          `<b>${route.vehicleLabel}</b>: ${route.stops.length} stops · ${route.totalDistanceKm.toFixed(1)} km · ${Math.round(route.totalDurationMin)} min (${engineLabel})`,
+          { sticky: true, opacity: 0.95 }
         );
 
         layerGroup.addLayer(polyline);
@@ -344,6 +372,35 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
         >
           OSM
         </button>
+
+        <div className="h-3 w-px bg-slate-300 mx-0.5" />
+        <span
+          className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+            routes.some((r) => r.roadGeometry && r.roadGeometry.length > 1)
+              ? 'bg-emerald-100 text-emerald-800'
+              : isRoadRoutingLoading
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-amber-100 text-amber-800'
+          }`}
+          title="Route network geometry status"
+        >
+          {routes.some((r) => r.roadGeometry && r.roadGeometry.length > 1)
+            ? 'Road Aligned'
+            : isRoadRoutingLoading
+            ? 'Routing…'
+            : 'Pending Roads'}
+        </span>
+
+        {onRetryRoadRouting && routes.some((r) => r.roadRoutingError) && (
+          <button
+            type="button"
+            onClick={onRetryRoadRouting}
+            className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-600 text-white hover:bg-amber-700 transition-colors shadow-xs ml-1"
+            title="Retry road routing"
+          >
+            Retry
+          </button>
+        )}
       </div>
 
       {/* Floating Summary Badge in Top Right — Exactly matching attached reference */}
@@ -357,6 +414,12 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
         <div className="text-xs text-slate-500 font-medium">
           Max route {maxRouteDur} min
         </div>
+        {isRoadRoutingLoading && (
+          <div className="mt-1.5 pt-1.5 border-t border-slate-200 flex items-center gap-1.5 text-[11px] text-blue-600 font-semibold">
+            <span className="inline-block w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+            <span>Calculating road network…</span>
+          </div>
+        )}
       </div>
     </div>
   );

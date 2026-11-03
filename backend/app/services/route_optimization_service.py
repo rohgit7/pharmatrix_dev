@@ -1279,6 +1279,14 @@ def optimize_and_dispatch(
                 r_segs = segments(r_road)
                 seg_lists.append(r_segs)
                 r_summary["backtrack_km"] = round(backtrack_m(r_segs) / 1000.0, 2)
+                if isinstance(r_road, dict) and "geometry" in r_road and "coordinates" in r_road["geometry"]:
+                    r_summary["polyline"] = [
+                        [float(coord[1]), float(coord[0])] for coord in r_road["geometry"]["coordinates"]
+                    ]
+                if isinstance(r_road, dict) and "distance" in r_road and r_road["distance"] is not None:
+                    r_summary["distance_km"] = round(float(r_road["distance"]) / 1000.0, 2)
+                if isinstance(r_road, dict) and "duration" in r_road and r_road["duration"] is not None:
+                    r_summary["duration_minutes"] = round(float(r_road["duration"]) / 60.0, 1)
             pairs = fleet_overlap(seg_lists, 1500.0)
             total_overlap_km = round(sum(pairs.values()) / 1000.0, 2)
         except Exception:

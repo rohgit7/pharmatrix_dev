@@ -10,6 +10,7 @@ import {
   PlanningReadinessResponse,
 } from '../types/operations';
 import { RouteOptimizerMap, MapRoute, MapStop, MapDepot, ROUTE_COLORS } from '../components/map/RouteOptimizerMap';
+import { fetchMultiVehicleRoadRoutes } from '../services/routingService';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Modal } from '../components/common/Modal';
 import { formatDate, formatDistance, formatDuration, formatWeight } from '../utils/formatters';
@@ -51,6 +52,10 @@ function optimizerResponseToMapRoutes(
     totalDistanceKm: r.distance_km,
     totalDurationMin: Math.round(r.duration_minutes),
     totalLoadKg: r.load_kg,
+    roadGeometry:
+      Array.isArray(r.polyline) && r.polyline.length > 2
+        ? (r.polyline as [number, number][])
+        : undefined,
     stops: r.stop_locations.map((sl) => ({
       id: sl.pickup_id,
       sequenceNumber: sl.sequence_number,
@@ -395,7 +400,114 @@ export const RouteOptimization: React.FC = () => {
       });
   }, [existingRoutes]);
 
-  const activeMapRoutes = committedMapRoutes ?? existingMapRoutes;
+  const baseMapRoutes = committedMapRoutes ?? existingMapRoutes;
+
+  // Road-network route geometries state
+  const [roadRoutesMap, setRoadRoutesMap] = useState<
+    Record<
+      number,
+      {
+        roadGeometry: [number, number][];
+        roadDistanceKm: number;
+        roadDurationMin: number;
+        error?: string;
+      }
+    >
+  >({});
+  const [isRoadRoutingLoading, setIsRoadRoutingLoading] = useState<boolean>(false);
+  const [roadRoutingError, setRoadRoutingError] = useState<string | null>(null);
+
+  // Function to resolve road routes
+  const resolveRoadRoutes = React.useCallback(() => {
+    if (!baseMapRoutes || baseMapRoutes.length === 0 || !activeDepot.lat || !activeDepot.lng) {
+      return;
+    }
+
+    setIsRoadRoutingLoading(true);
+    setRoadRoutingError(null);
+
+    fetchMultiVehicleRoadRoutes(
+      { lat: activeDepot.lat, lng: activeDepot.lng },
+      baseMapRoutes.map((r) => ({
+        vehicleIndex: r.vehicleIndex,
+        vehicleLabel: r.vehicleLabel,
+        stops: r.stops.map((s) => ({ lat: s.lat, lng: s.lng })),
+      }))
+    )
+      .then((results) => {
+        const updates: Record<number, any> = {};
+        let errCount = 0;
+
+        results.forEach((res) => {
+          if (res.roadGeometry && res.roadGeometry.length > 1) {
+            updates[res.vehicleIndex] = {
+              roadGeometry: res.roadGeometry,
+              roadDistanceKm: res.roadDistanceKm,
+              roadDurationMin: res.roadDurationMin,
+            };
+          } else if (res.error) {
+            errCount++;
+            updates[res.vehicleIndex] = {
+              roadGeometry: null,
+              error: res.error,
+            };
+          }
+        });
+
+        setRoadRoutesMap((prev) => ({ ...prev, ...updates }));
+        if (errCount > 0) {
+          setRoadRoutingError(`${errCount} vehicle route(s) could not obtain road geometry.`);
+        }
+      })
+      .catch((err) => {
+        console.error('Road routing engine error:', err);
+        setRoadRoutingError(err.message || 'Road routing service failed');
+      })
+      .finally(() => {
+        setIsRoadRoutingLoading(false);
+      });
+  }, [baseMapRoutes, activeDepot]);
+
+  // Trigger road routing when base routes or depot change
+  useEffect(() => {
+    if (!baseMapRoutes || baseMapRoutes.length === 0) {
+      setRoadRoutesMap({});
+      return;
+    }
+
+    // Check if any route needs road calculation
+    const needsFetch = baseMapRoutes.some(
+      (r) =>
+        r.stops.length > 0 &&
+        (!roadRoutesMap[r.vehicleIndex]?.roadGeometry ||
+          roadRoutesMap[r.vehicleIndex]?.roadGeometry.length <= 2)
+    );
+
+    if (needsFetch) {
+      resolveRoadRoutes();
+    }
+  }, [baseMapRoutes, activeDepot, resolveRoadRoutes]);
+
+  // Combine base routes with road-following geometry
+  const activeMapRoutes = useMemo((): MapRoute[] => {
+    return baseMapRoutes.map((r) => {
+      const roadData = roadRoutesMap[r.vehicleIndex];
+      if (roadData?.roadGeometry && roadData.roadGeometry.length > 1) {
+        return {
+          ...r,
+          roadGeometry: roadData.roadGeometry,
+          totalDistanceKm: roadData.roadDistanceKm ?? r.totalDistanceKm,
+          totalDurationMin: roadData.roadDurationMin ?? r.totalDurationMin,
+          roadRoutingError: undefined,
+        };
+      }
+      return {
+        ...r,
+        roadGeometry: r.roadGeometry,
+        roadRoutingError: roadData?.error,
+      };
+    });
+  }, [baseMapRoutes, roadRoutesMap]);
   const isOptimizing = optimizeBackendMutation.isPending;
 
   // Filter tomorrow's draft routes that require approval
@@ -720,22 +832,42 @@ export const RouteOptimization: React.FC = () => {
             </div>
           )}
 
-          {routingSource && (
-            <div className="mt-3 pt-2 border-t border-slate-100 flex items-center gap-1.5 text-[11px] text-slate-500">
-              {routingSource === 'OSRM' ? (
+          <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+            <div className="flex items-center gap-1.5">
+              {routingSource === 'OSRM' || activeMapRoutes.some((r) => r.roadGeometry && r.roadGeometry.length > 1) ? (
                 <Wifi className="w-3.5 h-3.5 text-emerald-500" />
               ) : (
                 <WifiOff className="w-3.5 h-3.5 text-amber-500" />
               )}
               <span>
-                Engine: <span className="font-semibold">{routingSource}</span>
+                Engine: <span className="font-semibold">{activeMapRoutes.some((r) => r.roadGeometry && r.roadGeometry.length > 1) ? 'OSRM Road Network' : routingSource || 'OSRM'}</span>
               </span>
             </div>
-          )}
+            {isRoadRoutingLoading && (
+              <span className="text-blue-500 font-semibold animate-pulse text-[10px]">
+                Calculating roads…
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Right Column: Leaflet Map */}
         <div className="lg:col-span-8 flex flex-col gap-4">
+          {roadRoutingError && (
+            <div className="bg-amber-950/40 border border-amber-800/60 text-amber-200 px-3 py-2 rounded-lg text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>{roadRoutingError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={resolveRoadRoutes}
+                className="bg-amber-600 hover:bg-amber-500 text-white font-semibold px-2.5 py-1 rounded text-xs transition-colors"
+              >
+                Retry Road Alignment
+              </button>
+            </div>
+          )}
           <div className="h-[600px] w-full bg-slate-950 rounded-xl overflow-hidden shadow-lg border border-slate-800">
             <RouteOptimizerMap
               depot={activeDepot}
@@ -748,6 +880,8 @@ export const RouteOptimization: React.FC = () => {
               }
               selectedRouteIndex={selectedRouteIdx}
               onSelectRoute={setSelectedRouteIdx}
+              isRoadRoutingLoading={isRoadRoutingLoading}
+              onRetryRoadRouting={resolveRoadRoutes}
               className="h-full"
             />
           </div>
