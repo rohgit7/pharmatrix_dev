@@ -264,7 +264,7 @@ export const disposalCertificatesApi = {
     const { data } = await apiClient.get<DisposalCertificateResponse[]>('/api/admin/disposal-certificates/', {
       params: facilityId ? { facility_id: facilityId } : undefined,
     });
-    return data;
+    return Array.isArray(data) ? data : [];
   },
 
   getById: async (id: number): Promise<DisposalCertificateResponse> => {
@@ -272,20 +272,33 @@ export const disposalCertificatesApi = {
     return data;
   },
 
-  getDownloadUrl: async (id: number): Promise<{ certificate_id: number; certificate_number: string; download_url: string; expires_in: number }> => {
-    const { data } = await apiClient.get<{ certificate_id: number; certificate_number: string; download_url: string; expires_in: number }>(
-      `/api/admin/disposal-certificates/${id}/url`
+  getDownloadUrl: async (id: number): Promise<{ certificate_id: number; certificate_number: string; download_url: string; url?: string; expires_in: number }> => {
+    const { data } = await apiClient.get<{ certificate_id?: number; certificate_number?: string; download_url?: string; url?: string; expires_in?: number }>(
+      `/api/admin/disposal-certificates/${id}/download`
     );
-    return data;
+    const resolvedUrl = data.download_url || data.url || '';
+    return {
+      certificate_id: data.certificate_id || id,
+      certificate_number: data.certificate_number || '',
+      download_url: resolvedUrl,
+      url: resolvedUrl,
+      expires_in: data.expires_in || 3600,
+    };
   },
 
-  upload: async (payload: DisposalCertificateCreate): Promise<DisposalCertificateResponse> => {
+  upload: async (payload: DisposalCertificateCreate | FormData): Promise<DisposalCertificateResponse> => {
+    if (payload instanceof FormData) {
+      const { data } = await apiClient.post<DisposalCertificateResponse>('/api/admin/disposal-certificates/', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return data;
+    }
     const { data } = await apiClient.post<DisposalCertificateResponse>('/api/admin/disposal-certificates/', payload);
     return data;
   },
 
-  delete: async (id: number): Promise<{ message: string; certificate_id: number }> => {
-    const { data } = await apiClient.delete<{ message: string; certificate_id: number }>(`/api/admin/disposal-certificates/${id}`);
+  delete: async (id: number): Promise<{ message: string; certificate_id?: number }> => {
+    const { data } = await apiClient.delete<{ message: string; certificate_id?: number }>(`/api/admin/disposal-certificates/${id}`);
     return data;
   },
 };

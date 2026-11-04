@@ -403,23 +403,35 @@ export interface CustomerPricingAssignmentCreate {
 // ==========================================
 export interface DisposalCertificateResponse {
   id: number;
+  public_id?: string;
+  certificate_code?: string;
   certificate_number: string;
-  shipment_id: number;
-  facility_id: number;
+  shipment_id: number | string;
+  shipment_code?: string | null;
+  facility_id?: number | null;
   facility_name?: string | null;
-  storage_key: string;
-  sha256_hash: string;
+  facility_code?: string | null;
+  storage_path?: string;
+  storage_key?: string;
+  file_name?: string;
+  content_type?: string;
+  sha256_hash?: string | null;
   issued_at: string;
-  created_at: string;
+  uploaded_at?: string;
+  created_at?: string;
+  notes?: string | null;
 }
 
 export interface DisposalCertificateCreate {
   certificate_number: string;
-  shipment_id: number;
-  facility_id: number;
-  storage_key: string;
-  sha256_hash: string;
+  shipment_id: number | string;
+  facility_id?: number;
+  storage_key?: string;
+  storage_path?: string;
+  sha256_hash?: string;
   issued_at?: string;
+  notes?: string;
+  file?: File | null;
 }
 
 // ==========================================
