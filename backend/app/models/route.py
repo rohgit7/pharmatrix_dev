@@ -7,6 +7,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -90,6 +91,11 @@ class Route(Base):
         ForeignKey("optimization_runs.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
+    )
+
+    polyline: Mapped[list | None] = mapped_column(
+        JSON,
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

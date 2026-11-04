@@ -752,11 +752,11 @@ def optimize_and_dispatch(
         float(warehouse.longitude),
     )
 
-    osrm_url = getattr(settings, "OSRM_BASE_URL", None)
-    if osrm_url:
+    osrm_url = getattr(settings, "OSRM_BASE_URL", None) or "https://router.project-osrm.org"
+    try:
         provider = OSRMProvider(osrm_url)
         routing_source = "OSRM"
-    else:
+    except Exception:
         provider = HaversineProvider()
         routing_source = "HAVERSINE_FALLBACK"
 
@@ -1266,31 +1266,54 @@ def optimize_and_dispatch(
     utilization_pct = min(100.0, round((total_load / total_capacity) * 100, 1))
 
     total_overlap_km = 0.0
-    if routing_source == "OSRM" and hasattr(provider, "route"):
-        try:
-            from app.optimizer.overlap import segments, backtrack_m, fleet_overlap
-            seg_lists = []
-            for r_summary in summaries:
-                points = [(float(warehouse.latitude), float(warehouse.longitude))]
-                for stop in r_summary.get("stop_locations", []):
-                    points.append((stop["lat"], stop["lng"]))
-                points.append((float(warehouse.latitude), float(warehouse.longitude)))
-                r_road = provider.route(points)
-                r_segs = segments(r_road)
-                seg_lists.append(r_segs)
-                r_summary["backtrack_km"] = round(backtrack_m(r_segs) / 1000.0, 2)
-                if isinstance(r_road, dict) and "geometry" in r_road and "coordinates" in r_road["geometry"]:
-                    r_summary["polyline"] = [
-                        [float(coord[1]), float(coord[0])] for coord in r_road["geometry"]["coordinates"]
-                    ]
-                if isinstance(r_road, dict) and "distance" in r_road and r_road["distance"] is not None:
-                    r_summary["distance_km"] = round(float(r_road["distance"]) / 1000.0, 2)
-                if isinstance(r_road, dict) and "duration" in r_road and r_road["duration"] is not None:
-                    r_summary["duration_minutes"] = round(float(r_road["duration"]) / 60.0, 1)
-            pairs = fleet_overlap(seg_lists, 1500.0)
-            total_overlap_km = round(sum(pairs.values()) / 1000.0, 2)
-        except Exception:
-            pass
+    try:
+        from app.optimizer.overlap import segments, backtrack_m, fleet_overlap
+        osrm_url = getattr(settings, "OSRM_BASE_URL", None) or "https://router.project-osrm.org"
+        road_engine = provider if (routing_source == "OSRM" and hasattr(provider, "route")) else OSRMProvider(osrm_url)
+        seg_lists = []
+        for r_summary in summaries:
+            points = [(float(warehouse.latitude), float(warehouse.longitude))]
+            for stop in r_summary.get("stop_locations", []):
+                points.append((stop["lat"], stop["lng"]))
+            points.append((float(warehouse.latitude), float(warehouse.longitude)))
+            r_road = road_engine.route(points)
+            r_segs = segments(r_road)
+            seg_lists.append(r_segs)
+            r_summary["backtrack_km"] = round(backtrack_m(r_segs) / 1000.0, 2)
+            if isinstance(r_road, dict) and "geometry" in r_road and "coordinates" in r_road["geometry"]:
+                r_summary["polyline"] = [
+                    [float(coord[1]), float(coord[0])] for coord in r_road["geometry"]["coordinates"]
+                ]
+            if isinstance(r_road, dict) and "distance" in r_road and r_road["distance"] is not None:
+                r_summary["distance_km"] = round(float(r_road["distance"]) / 1000.0, 2)
+            if isinstance(r_road, dict) and "duration" in r_road and r_road["duration"] is not None:
+                r_summary["duration_minutes"] = round(float(r_road["duration"]) / 60.0, 1)
+
+            # Persist road geometry and road metrics to Route model in DB
+            route_record = db.query(Route).filter(Route.id == r_summary["route_id"]).first()
+            if route_record:
+                if r_summary.get("polyline"):
+                    route_record.polyline = r_summary["polyline"]
+                if r_summary.get("distance_km"):
+                    route_record.planned_distance_km = r_summary["distance_km"]
+                if r_summary.get("duration_minutes"):
+                    route_record.planned_duration_seconds = int(r_summary["duration_minutes"] * 60)
+
+        pairs = fleet_overlap(seg_lists, 1500.0)
+        total_overlap_km = round(sum(pairs.values()) / 1000.0, 2)
+        total_fleet_dist = sum(x["distance_km"] for x in summaries)
+        max_dur = max((x["duration_minutes"] for x in summaries), default=0.0)
+
+        opt_run.summary_metrics = {
+            "total_distance_km": total_fleet_dist,
+            "max_duration_minutes": max_dur,
+            "total_load_kg": total_load,
+            "vehicle_utilization_pct": utilization_pct,
+            "total_overlap_km": total_overlap_km,
+        }
+        db.commit()
+    except Exception as exc:
+        logger.warning(f"OSRM road routing post-solve failed: {exc}")
 
     return {
         "route_date": route_date,
@@ -1618,10 +1641,34 @@ def get_optimization_batch(db: Session, batch_id: int) -> dict:
                     "lng": float(loc.longitude) if loc and loc.longitude else 0.0,
                     "estimated_weight_kg": float(s.pickup.estimated_weight_kg) if s.pickup.estimated_weight_kg is not None else 1.0,
                 })
-        polyline = [[wh_lat, wh_lng]]
-        for sl in stops_locs:
-            polyline.append([sl["lat"], sl["lng"]])
-        polyline.append([wh_lat, wh_lng])
+        polyline = r.polyline
+        if not polyline or len(polyline) <= 2:
+            try:
+                osrm_url = getattr(settings, "OSRM_BASE_URL", None) or "https://router.project-osrm.org"
+                provider = OSRMProvider(osrm_url)
+                points = [(wh_lat, wh_lng)]
+                for sl in stops_locs:
+                    points.append((sl["lat"], sl["lng"]))
+                points.append((wh_lat, wh_lng))
+                r_road = provider.route(points)
+                if isinstance(r_road, dict) and "geometry" in r_road and "coordinates" in r_road["geometry"]:
+                    polyline = [
+                        [float(coord[1]), float(coord[0])] for coord in r_road["geometry"]["coordinates"]
+                    ]
+                    r.polyline = polyline
+                    if "distance" in r_road and r_road["distance"]:
+                        r.planned_distance_km = round(float(r_road["distance"]) / 1000.0, 2)
+                    if "duration" in r_road and r_road["duration"]:
+                        r.planned_duration_seconds = int(r_road["duration"])
+                    db.commit()
+            except Exception:
+                pass
+
+        if not polyline:
+            polyline = [[wh_lat, wh_lng]]
+            for sl in stops_locs:
+                polyline.append([sl["lat"], sl["lng"]])
+            polyline.append([wh_lat, wh_lng])
 
         routes_data.append({
             "route_id": r.id,
@@ -1679,7 +1726,7 @@ def get_active_optimization_batch(
         query = query.filter(OptimizationRun.planning_date >= start, OptimizationRun.planning_date < end)
 
     run = (
-        query.filter(OptimizationRun.status.in_(["SUBMITTED", "DRAFT", "OPTIMIZED"]))
+        query.filter(OptimizationRun.status.in_(["SUBMITTED", "DRAFT", "OPTIMIZED", "APPROVED", "ASSIGNED", "READY"]))
         .order_by(OptimizationRun.id.desc())
         .first()
     )

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+import { Maximize2, RotateCcw } from 'lucide-react';
 
 export interface MapStop {
   id: string | number;
@@ -23,6 +24,7 @@ export interface MapRoute {
   roadGeometry?: [number, number][]; // Actual road-following [lat, lng] array
   isRoadLoading?: boolean;
   roadRoutingError?: string;
+  routeId?: number;
 }
 
 export interface MapDepot {
@@ -42,33 +44,72 @@ interface RouteOptimizerMapProps {
   onSelectRoute?: (index: number | null) => void;
   isRoadRoutingLoading?: boolean;
   onRetryRoadRouting?: () => void;
+  selectedBatchInfo?: {
+    batchId?: number | string | null;
+    planningDate?: string | null;
+  } | null;
+  emptyMessage?: string;
 }
 
 export const ROUTE_COLORS = [
-  '#16A34A', // Vibrant Green (matching screenshot Route 1)
-  '#8B5CF6', // Vibrant Purple (matching screenshot Route 2)
-  '#F97316', // Vibrant Orange (matching screenshot Route 3)
-  '#0284C7', // Vibrant Sky/Cyan (matching screenshot Route 4)
+  '#16A34A', // Vibrant Green
+  '#8B5CF6', // Vibrant Purple
+  '#F97316', // Vibrant Orange
+  '#0284C7', // Vibrant Sky/Cyan
   '#E11D48', // Vibrant Rose
   '#D97706', // Vibrant Amber
 ];
+
+/**
+ * Centrally maps a route to a stable color based on its route ID or code.
+ * Ensures the route cards and map polylines always render the exact same color.
+ */
+export function getRouteColor(route: {
+  id?: number | string | null;
+  route_code?: string | null;
+  vehicleIndex?: number | null;
+  color?: string | null;
+}): string {
+  if (route.color) return route.color;
+  if (typeof route.id === 'number' && route.id > 0) {
+    return ROUTE_COLORS[(route.id - 1) % ROUTE_COLORS.length];
+  }
+  if (typeof route.id === 'string' && !isNaN(Number(route.id)) && Number(route.id) > 0) {
+    return ROUTE_COLORS[(Number(route.id) - 1) % ROUTE_COLORS.length];
+  }
+  if (route.route_code) {
+    let hash = 0;
+    for (let i = 0; i < route.route_code.length; i++) {
+      hash = (hash << 5) - hash + route.route_code.charCodeAt(i);
+      hash |= 0;
+    }
+    return ROUTE_COLORS[Math.abs(hash) % ROUTE_COLORS.length];
+  }
+  if (typeof route.vehicleIndex === 'number' && route.vehicleIndex >= 0) {
+    return ROUTE_COLORS[route.vehicleIndex % ROUTE_COLORS.length];
+  }
+  return ROUTE_COLORS[0];
+}
 
 export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
   depot,
   routes,
   totalStoresCovered,
   maxRouteMinutes,
-  className = 'h-[580px]',
+  className = 'h-full w-full',
   selectedRouteIndex = null,
   onSelectRoute,
   isRoadRoutingLoading = false,
   onRetryRoadRouting,
+  selectedBatchInfo,
+  emptyMessage,
 }) => {
   const [activeBasemap, setActiveBasemap] = useState<'carto' | 'esri' | 'osm'>('carto');
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const allLatLngsRef = useRef<L.LatLngExpression[]>([]);
 
   // Initialize Map once
   useEffect(() => {
@@ -98,6 +139,18 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
         mapInstanceRef.current = null;
       }
     };
+  }, []);
+
+  // Invalidate map size whenever container is resized (e.g. panel toggles or window resize)
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    const observer = new ResizeObserver(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    });
+    observer.observe(mapContainerRef.current);
+    return () => observer.disconnect();
   }, []);
 
   // Update Tile Layer when activeBasemap changes
@@ -192,7 +245,7 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
 
     // 2. Plot Routes and Stop Markers
     routes.forEach((route, idx) => {
-      const color = route.color || ROUTE_COLORS[idx % ROUTE_COLORS.length];
+      const color = getRouteColor(route);
       const isSelected = selectedRouteIndex === null || selectedRouteIndex === idx;
       const opacity = isSelected ? 0.95 : 0.25;
       const weight = isSelected ? 4.5 : 2;
@@ -306,14 +359,33 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
       }
     });
 
-    // Fit bounds if coordinates exist
+    // Save current coordinates ref for Fit Route control
+    allLatLngsRef.current = allLatLngs;
+
+    // Fit bounds if coordinates exist, otherwise recenter on warehouse depot
     if (allLatLngs.length > 1) {
       map.fitBounds(L.latLngBounds(allLatLngs), {
         padding: [40, 40],
         maxZoom: 14,
       });
+    } else if (depot.lat && depot.lng) {
+      map.setView([depot.lat, depot.lng], 12);
     }
   }, [depot, routes, selectedRouteIndex, onSelectRoute]);
+
+  // Recenter and fit bounds to all visible route geometries and depot
+  const handleFitBounds = () => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (allLatLngsRef.current && allLatLngsRef.current.length > 1) {
+      map.fitBounds(L.latLngBounds(allLatLngsRef.current), {
+        padding: [40, 40],
+        maxZoom: 14,
+      });
+    } else if (depot.lat && depot.lng) {
+      map.setView([depot.lat, depot.lng], 12);
+    }
+  };
 
   // Compute summary values for floating badge
   const totalStores =
@@ -329,11 +401,11 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
       : 0);
 
   return (
-    <div className={`relative w-full rounded-xl overflow-hidden border border-slate-300 shadow-sm ${className}`}>
+    <div className={`relative w-full rounded-xl overflow-hidden border border-slate-800 shadow-md ${className}`}>
       {/* Map DOM Element */}
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
-      {/* Basemap Switcher Pill in Bottom-Left */}
+      {/* Basemap Switcher & View Controls in Bottom-Left */}
       <div className="absolute bottom-2.5 left-2.5 z-10 bg-white/95 backdrop-blur-sm px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-md flex items-center gap-1.5 pointer-events-auto">
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mr-0.5">Map:</span>
         <button
@@ -344,9 +416,9 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
               ? 'bg-[#2563EB] text-white shadow-sm'
               : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           }`}
-          title="CARTO Voyager Basemap (using your API key)"
+          title="CARTO Voyager Basemap"
         >
-          CARTO Voyager
+          CARTO
         </button>
         <button
           type="button"
@@ -356,9 +428,9 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
               ? 'bg-[#2563EB] text-white shadow-sm'
               : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           }`}
-          title="Esri Light Canvas (Clean, no watermark)"
+          title="Esri Light Canvas"
         >
-          Esri Canvas
+          Esri
         </button>
         <button
           type="button"
@@ -374,6 +446,19 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
         </button>
 
         <div className="h-3 w-px bg-slate-300 mx-0.5" />
+
+        <button
+          type="button"
+          onClick={handleFitBounds}
+          className="px-2 py-0.5 rounded text-[11px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors flex items-center gap-1"
+          title="Recenter and fit view to all stops"
+        >
+          <Maximize2 className="w-3 h-3 text-[#7B91EE]" />
+          <span>Fit Route</span>
+        </button>
+
+        <div className="h-3 w-px bg-slate-300 mx-0.5" />
+
         <span
           className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
             routes.some((r) => r.roadGeometry && r.roadGeometry.length > 1)
@@ -395,21 +480,53 @@ export const RouteOptimizerMap: React.FC<RouteOptimizerMapProps> = ({
           <button
             type="button"
             onClick={onRetryRoadRouting}
-            className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-600 text-white hover:bg-amber-700 transition-colors shadow-xs ml-1"
+            className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-600 text-white hover:bg-amber-700 transition-colors shadow-xs ml-1 flex items-center gap-1"
             title="Retry road routing"
           >
-            Retry
+            <RotateCcw className="w-2.5 h-2.5" />
+            <span>Retry</span>
           </button>
         )}
       </div>
 
+      {/* Empty State Overlay when no routes are displayed */}
+      {routes.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 p-4">
+          <div className="bg-white/95 backdrop-blur-md px-6 py-5 rounded-2xl border border-slate-200 shadow-xl text-center max-w-sm pointer-events-auto">
+            <div className="w-10 h-10 rounded-full bg-[#E5EBFF] flex items-center justify-center mx-auto mb-3">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7B91EE" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                <polyline points="2 17 12 22 22 17" />
+                <polyline points="2 12 12 17 22 12" />
+              </svg>
+            </div>
+            <h4 className="text-sm font-bold text-[#201E1C]">No Batch Selected</h4>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+              {emptyMessage || 'Select an optimization batch to view its routes.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Floating Summary Badge in Top Right — Exactly matching attached reference */}
       <div className="absolute top-3 right-3 z-10 bg-white/95 backdrop-blur-sm px-4 py-2.5 rounded-lg border border-slate-200 shadow-lg text-slate-800 pointer-events-auto select-none min-w-[170px]">
+        {selectedBatchInfo?.planningDate && (
+          <div className="text-[10px] font-extrabold text-[#7B91EE] uppercase tracking-wider mb-1 pb-1 border-b border-slate-100 flex items-center justify-between gap-2">
+            <span>Date: {selectedBatchInfo.planningDate}</span>
+            {selectedBatchInfo.batchId && (
+              <span className="text-slate-400 font-normal">
+                {typeof selectedBatchInfo.batchId === 'number'
+                  ? `Batch #${selectedBatchInfo.batchId}`
+                  : ''}
+              </span>
+            )}
+          </div>
+        )}
         <div className="text-sm font-bold text-slate-900 leading-tight">
-          {totalStores} stores covered
+          {routes.length > 0 ? `${totalStores} stores covered` : '0 stores on map'}
         </div>
         <div className="text-xs text-slate-600 font-medium mt-0.5">
-          {totalVehicles} vehicles · {totalDistance.toFixed(1)} km
+          {totalVehicles} vehicle{totalVehicles !== 1 ? 's' : ''} · {totalDistance.toFixed(1)} km
         </div>
         <div className="text-xs text-slate-500 font-medium">
           Max route {maxRouteDur} min

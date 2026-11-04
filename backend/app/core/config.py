@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     DB_POOL_TIMEOUT: int = 30
     DB_POOL_RECYCLE: int = 1800
 
-    OSRM_BASE_URL: str | None = None
+    OSRM_BASE_URL: str = "https://router.project-osrm.org"
 
     SMTP_HOST: str | None = None
     SMTP_PORT: int = 587

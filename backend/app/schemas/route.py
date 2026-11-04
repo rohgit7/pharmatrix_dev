@@ -47,6 +47,7 @@ class RouteResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     stops: list[RouteStopResponse] = []
+    polyline: list[list[float]] | None = None
     
     # Workflow metadata
     is_approved: bool = False

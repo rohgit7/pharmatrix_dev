@@ -9,7 +9,7 @@ from app.optimizer.problem import BIG
 class OSRMProvider:
     def __init__(
         self,
-        base: str = "http://localhost:5000",
+        base: str = "https://router.project-osrm.org",
         profile: str = "driving",
     ) -> None:
         self.base = base.rstrip("/")
@@ -17,7 +17,8 @@ class OSRMProvider:
         self._cache: dict[tuple[tuple[float, float], ...], dict] = {}
 
     def _get(self, url: str) -> dict:
-        with urllib.request.urlopen(url, timeout=120) as response:
+        req = urllib.request.Request(url, headers={"User-Agent": "Pharmatrix-Routing/1.0"})
+        with urllib.request.urlopen(req, timeout=30) as response:
             return json.loads(response.read())
 
     def matrices(self, points: list[tuple[float, float]]):

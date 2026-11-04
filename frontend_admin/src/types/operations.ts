@@ -458,6 +458,7 @@ export interface RouteResponse {
   created_at: string;
   updated_at: string;
   stops: RouteStopResponse[];
+  polyline?: [number, number][] | null;
   driver?: any;
   vehicle?: any;
 }
