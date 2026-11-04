@@ -5,6 +5,7 @@ from app.optimizer.problem import haversine_m
 from app.services.invoice_service import (
     InvoiceError,
     create_pickup_invoice,
+    money,
 )
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, selectinload
@@ -22,6 +23,7 @@ from app.models.enums import (
 from app.services.operational_exception_service import (
     create_operational_exception,
 )
+from app.models.invoice import Invoice, InvoiceLineItem
 from app.models.pickup import Pickup
 from app.models.route import Route
 from app.models.route_stop import RouteStop
@@ -213,6 +215,114 @@ def arrive_at_stop(
     return stop
 
 
+def record_stop_weight(
+    db: Session,
+    user: User,
+    route_id: int,
+    stop_id: int,
+    collected_weight_kg: float,
+):
+    driver, route = get_driver_route(
+        db,
+        user,
+        route_id,
+    )
+
+    if route.status != RouteStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=400,
+            detail="Route is not in progress",
+        )
+
+    stop = (
+        db.query(RouteStop)
+        .filter(
+            RouteStop.id == stop_id,
+            RouteStop.route_id == route.id,
+        )
+        .with_for_update()
+        .first()
+    )
+
+    if not stop:
+        raise HTTPException(
+            status_code=404,
+            detail="Route stop not found",
+        )
+
+    if stop.stop_type != RouteStopType.PICKUP or stop.pickup is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Weight recording is only supported for pickup stops",
+        )
+
+    if collected_weight_kg <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Collected weight must be greater than zero",
+        )
+
+    now = datetime.now(timezone.utc)
+    if stop.execution_status == RouteStopStatus.PENDING:
+        stop.execution_status = RouteStopStatus.ARRIVED
+        stop.arrived_at = stop.arrived_at or now
+
+    stop.collected_weight_kg = collected_weight_kg
+
+    existing_invoice = (
+        db.query(Invoice)
+        .filter(Invoice.pickup_id == stop.pickup.id)
+        .first()
+    )
+
+    if existing_invoice is None:
+        try:
+            create_pickup_invoice(
+                db=db,
+                pickup_id=stop.pickup.id,
+                actual_weight_kg=Decimal(str(collected_weight_kg)),
+            )
+        except InvoiceError:
+            pass
+    elif existing_invoice.status == "ISSUED" and existing_invoice.amount_paid == Decimal("0.00"):
+        from app.services.pricing_service import (
+            PricingError,
+            calculate_pickup_charges,
+        )
+        try:
+            charges = calculate_pickup_charges(
+                db=db,
+                customer_id=stop.pickup.customer_id,
+                actual_weight_kg=Decimal(str(collected_weight_kg)),
+                at_time=now,
+            )
+            subtotal = money(Decimal(str(charges["pickup_charge"])))
+            tax_amt = money(existing_invoice.tax_amount or Decimal("0.00"))
+            total_amt = money(subtotal + tax_amt)
+
+            snapshot = dict(existing_invoice.pricing_snapshot or {})
+            for k, v in charges.items():
+                snapshot[k] = str(v) if isinstance(v, Decimal) else v
+            snapshot["invoice_subtotal"] = str(subtotal)
+            snapshot["tax_amount"] = str(tax_amt)
+            existing_invoice.pricing_snapshot = snapshot
+            existing_invoice.subtotal = subtotal
+            existing_invoice.total_amount = total_amt
+
+            for item in existing_invoice.line_items:
+                if item.item_type == "WEIGHT_CHARGE":
+                    item.quantity = Decimal(str(charges["billable_weight_kg"]))
+                    item.unit_price = money(Decimal(str(charges["per_kg_rate"])))
+                    item.amount = money(Decimal(str(charges["weight_charge"])))
+        except PricingError:
+            pass
+
+    db.commit()
+    db.refresh(stop)
+
+    return stop
+
+
 def complete_stop(
     db: Session,
     user: User,
@@ -295,7 +405,7 @@ def complete_stop(
                     "for pickup completion"
                 ),
             )
-        
+
         if stop.pickup.qr_verified_at is None:
             raise HTTPException(
                 status_code=409,
@@ -309,8 +419,8 @@ def complete_stop(
             )
         if stop.proof_storage_path is None:
             raise HTTPException(
-            status_code=409,
-            detail="Collection proof has not been uploaded",
+                status_code=409,
+                detail="Collection proof has not been uploaded",
             )
 
         stop.collected_weight_kg = (
@@ -319,8 +429,8 @@ def complete_stop(
 
         stop.pickup.status = PickupStatus.COLLECTED
         stop.pickup.collected_at = now
-        
-        # Create the invoice within the pickup transaction.
+
+        # Create the invoice within the pickup transaction if not already created.
         try:
             create_pickup_invoice(
                 db=db,
@@ -330,11 +440,12 @@ def complete_stop(
                 ),
             )
         except InvoiceError as exc:
-            db.rollback()
-            raise HTTPException(
-                status_code=409,
-                detail=f"Pickup completed but invoicing failed: {exc}",
-            ) from exc
+            if "already exists" not in str(exc).lower():
+                db.rollback()
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Pickup completed but invoicing failed: {exc}",
+                ) from exc
 
         stop.execution_status = (
             RouteStopStatus.COMPLETED
@@ -438,7 +549,7 @@ def complete_stop(
         db.refresh(stop)
 
         return stop
-    
+
     raise HTTPException(
         status_code=400,
         detail="Unsupported stop type",

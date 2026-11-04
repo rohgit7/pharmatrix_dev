@@ -137,10 +137,7 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
   const handleScanQRSuccess = async (scannedCode: string) => {
     if (!activeStop || !route) return;
     try {
-      const res = await scanQR(activeStop.id, scannedCode);
-      if (res?.otp) {
-        setOtpDigits(res.otp.split(''));
-      }
+      await scanQR(activeStop.id, scannedCode);
       showFeedback('QR Verified', 'Consignment linked to digital chain of custody.');
       setActiveStepTab(4);
       setTimeout(() => {
@@ -176,22 +173,10 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
   };
 
   const handleResendOtp = async () => {
-    if (!activeStop?.pickup_id) return;
-    setIsResendingOtp(true);
-    try {
-      const res = await api.requestResendOTP(activeStop.pickup_id);
-      if (res.otp) {
-        setOtpDigits(res.otp.split(''));
-      }
-      Alert.alert(
-        'PIN Resent',
-        res.message || 'New 6-digit confirmation PIN sent to customer.'
-      );
-    } catch (err: any) {
-      Alert.alert('Resend Failed', err?.message || 'Could not resend PIN.');
-    } finally {
-      setIsResendingOtp(false);
-    }
+    Alert.alert(
+      'Customer OTP Required',
+      'Ask the customer representative to confirm waste handover, complete payment, and tap "Generate Collection OTP" in the Pharmatrix Customer App.'
+    );
   };
 
   const handlePrintSlip = async () => {
@@ -413,7 +398,14 @@ export const PickupsScreen: React.FC<PickupsScreenProps> = ({ onNavigateToTab })
         <ConsignmentWeighingCard
           totalWeight={totalWeight}
           onWeightChange={setTotalWeight}
-          onProceedToQR={() => {
+          onProceedToQR={async () => {
+            if (route && activeStop && totalWeight > 0) {
+              try {
+                await api.recordStopWeight(route.id, activeStop.id, totalWeight);
+              } catch (err) {
+                console.warn('[PickupsScreen] Weight sync warning:', err);
+              }
+            }
             setActiveStepTab(3);
             scrollViewRef.current?.scrollTo({ y: 340, animated: true });
           }}

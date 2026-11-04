@@ -14,6 +14,8 @@ class PickupCreate(BaseModel):
         default=None,
         gt=0,
     )
+    waste_categories: list[str] | None = None
+    time_slot: str | None = Field(default=None, max_length=100)
 
 
 class PickupResponse(BaseModel):
@@ -26,6 +28,7 @@ class PickupResponse(BaseModel):
     priority: PickupPriority
     requested_date: datetime | None
     scheduled_date: datetime | None
+    estimated_weight_kg: float | None = None
     notes: str | None
     failure_reason: str | None
     collected_at: datetime | None
@@ -45,6 +48,11 @@ class PickupCancelRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=1000)
 
 
+class PickupHandoverConfirmRequest(BaseModel):
+    confirmed: bool = True
+    notes: str | None = Field(default=None, max_length=1000)
+
+
 class PickupAdminResponse(BaseModel):
     id: int
     public_id: UUID
@@ -60,13 +68,13 @@ class PickupAdminResponse(BaseModel):
     collected_at: datetime | None
     created_at: datetime
     updated_at: datetime
-    
+
     # Enriched operational planning attributes
     estimated_weight_kg: float | None = None
     customer_name: str | None = None
     location_name: str | None = None
     location_address: str | None = None
-    operational_state: str | None = None  # awaiting_selection, selected, optimized, awaiting_assignment, awaiting_dispatch, dispatched, collected
+    operational_state: str | None = None
     route_id: int | None = None
     route_code: str | None = None
     route_status: str | None = None

@@ -23,7 +23,11 @@ from app.schemas.customer import (
     CustomerLocationResponse,
     CustomerResponse,
 )
-from app.services.customer_service import create_customer_profile, generate_customer_code
+from app.services.customer_service import (
+    create_customer_profile,
+    ensure_customer_pricing_assignment,
+    generate_customer_code,
+)
 
 router = APIRouter(
     prefix="/api/admin/customers",
@@ -164,6 +168,7 @@ def admin_create_customer(
 
         # Automatically create type-specific profile
         create_customer_profile(db, customer, data.profile)
+        ensure_customer_pricing_assignment(db, customer.id)
 
         db.commit()
         db.refresh(customer)

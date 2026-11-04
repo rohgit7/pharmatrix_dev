@@ -252,7 +252,7 @@ def test_verify_qr_with_json_payload(mock_driver_and_user):
         "app.services.pickup_verification_driver_service.get_driver_route",
         return_value=(driver, route),
     ):
-        res_stop, otp = verify_qr(
+        res_stop = verify_qr(
             db=mock_db,
             user=user,
             route_id=10,
@@ -261,9 +261,6 @@ def test_verify_qr_with_json_payload(mock_driver_and_user):
         )
 
     assert res_stop.pickup.qr_verified_at is not None
-    assert otp is not None
-    assert len(otp) == 6
-    assert res_stop.pickup.otp_hash is not None
 
 
 def test_verify_qr_with_raw_pickup_code(mock_driver_and_user):
@@ -286,7 +283,7 @@ def test_verify_qr_with_raw_pickup_code(mock_driver_and_user):
         "app.services.pickup_verification_driver_service.get_driver_route",
         return_value=(driver, route),
     ):
-        res_stop, otp = verify_qr(
+        res_stop = verify_qr(
             db=mock_db,
             user=user,
             route_id=10,
@@ -295,7 +292,6 @@ def test_verify_qr_with_raw_pickup_code(mock_driver_and_user):
         )
 
     assert res_stop.pickup.qr_verified_at is not None
-    assert otp is not None
 
 
 def test_verify_qr_with_public_id(mock_driver_and_user):
@@ -319,7 +315,7 @@ def test_verify_qr_with_public_id(mock_driver_and_user):
         "app.services.pickup_verification_driver_service.get_driver_route",
         return_value=(driver, route),
     ):
-        res_stop, otp = verify_qr(
+        res_stop = verify_qr(
             db=mock_db,
             user=user,
             route_id=10,
@@ -328,7 +324,6 @@ def test_verify_qr_with_public_id(mock_driver_and_user):
         )
 
     assert res_stop.pickup.qr_verified_at is not None
-    assert otp is not None
 
 
 def test_verify_qr_invalid_token_raises_403(mock_driver_and_user):

@@ -8,23 +8,37 @@ from sqlalchemy.orm import Session
 from app.models.enums import PickupStatus, UserRole
 from app.models.pickup import Pickup
 from app.models.user import User
-from app.models.driver import Driver
-from app.models.route import Route
-from app.models.route_stop import RouteStop
 
 
 def get_customer_pickup(
     db: Session,
     user: User,
-    pickup_id: UUID,
+    pickup_id: UUID | int,
 ) -> Pickup:
-    pickup = (
-        db.query(Pickup)
-        .filter(
-            Pickup.public_id == pickup_id,
+    if user.role == UserRole.DRIVER:
+        raise HTTPException(
+            status_code=403,
+            detail="Drivers are not authorized to access customer pickup verification or OTP",
         )
-        .first()
-    )
+
+    if user.role not in {UserRole.CUSTOMER, UserRole.ADMIN}:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to access this pickup",
+        )
+
+    if isinstance(pickup_id, int):
+        pickup = (
+            db.query(Pickup)
+            .filter(Pickup.id == pickup_id)
+            .first()
+        )
+    else:
+        pickup = (
+            db.query(Pickup)
+            .filter(Pickup.public_id == pickup_id)
+            .first()
+        )
 
     if not pickup:
         raise HTTPException(
@@ -35,44 +49,17 @@ def get_customer_pickup(
     if user.role == UserRole.CUSTOMER:
         if not pickup.customer or pickup.customer.user_id != user.id:
             raise HTTPException(
-                status_code=403,
-                detail="Not authorized to access this pickup",
+                status_code=404,
+                detail="Pickup not found",
             )
-    elif user.role == UserRole.DRIVER:
-        driver = db.query(Driver).filter(Driver.user_id == user.id).first()
-        if not driver:
-            raise HTTPException(
-                status_code=403,
-                detail="Driver profile not found",
-            )
-        stop = (
-            db.query(RouteStop)
-            .join(Route, Route.id == RouteStop.route_id)
-            .filter(
-                RouteStop.pickup_id == pickup.id,
-                Route.driver_id == driver.id,
-            )
-            .first()
-        )
-        if not stop:
-            raise HTTPException(
-                status_code=403,
-                detail="Driver is not assigned to this pickup",
-            )
-    elif user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to access this pickup",
-        )
 
     return pickup
-
 
 
 def get_verification_details(
     db: Session,
     user: User,
-    pickup_id: UUID,
+    pickup_id: UUID | int,
 ):
     pickup = get_customer_pickup(
         db,
@@ -92,14 +79,16 @@ def hash_otp(otp: str) -> str:
         otp.encode("utf-8")
     ).hexdigest()
 
+
 OTP_REQUEST_COOLDOWN_SECONDS = 60
 OTP_REQUEST_WINDOW_MINUTES = 60
 OTP_REQUESTS_PER_WINDOW = 5
 
+
 def request_otp(
     db: Session,
     user: User,
-    pickup_id: UUID,
+    pickup_id: UUID | int,
 ):
     pickup = get_customer_pickup(
         db,
@@ -124,7 +113,7 @@ def request_otp(
             now - pickup.otp_last_requested_at
         ).total_seconds()
         < OTP_REQUEST_COOLDOWN_SECONDS
-        and user.role not in {UserRole.DRIVER, UserRole.ADMIN}
+        and user.role != UserRole.ADMIN
     ):
         raise HTTPException(
             status_code=429,
@@ -174,6 +163,4 @@ def request_otp(
     db.commit()
     db.refresh(pickup)
 
-    # DEVELOPMENT ONLY:
-    # Later this will send the OTP via WhatsApp/SMS.
     return pickup, otp

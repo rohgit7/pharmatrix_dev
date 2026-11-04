@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Pharmatrix Customer",
+    "slug": "pharmatrix-customer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "pharmatrix-customer",
+    "splash": {
+      "backgroundColor": "#FDFBF8",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pharmatrix.customer"
+    },
+    "android": {
+      "package": "com.pharmatrix.customer",
+      "adaptiveIcon": {
+        "backgroundColor": "#201E1C"
+      },
+      "usesCleartextTraffic": true
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font"
+    ]
+  }
+}
+

@@ -7,6 +7,17 @@ class ArriveAtStopRequest(BaseModel):
     accuracy_meters: float | None = Field(default=None, ge=0)
 
 
+class WeighPickupRequest(BaseModel):
+    collected_weight_kg: float = Field(
+        gt=0,
+        le=10000,
+    )
+    notes: str | None = Field(
+        default=None,
+        max_length=1000,
+    )
+
+
 class CompletePickupRequest(BaseModel):
     collected_weight_kg: float = Field(
         ge=0,

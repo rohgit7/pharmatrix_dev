@@ -310,6 +310,20 @@ export const api = {
     });
   },
 
+  async recordStopWeight(
+    routeId: number,
+    stopId: number,
+    collectedWeightKg: number
+  ): Promise<{ message: string; stop_id: number; status: string; collected_weight_kg: number }> {
+    return request(
+      `/api/driver/routes/${routeId}/stops/${stopId}/weigh`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ collected_weight_kg: collectedWeightKg }),
+      }
+    );
+  },
+
   async scanQR(
     routeId: number,
     stopId: number,

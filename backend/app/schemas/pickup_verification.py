@@ -27,8 +27,13 @@ class RequestOTPResponse(BaseModel):
 
 class VerifyQRRequest(BaseModel):
     qr_token: str = Field(
-        min_length=10,
-        max_length=128,
+        min_length=4,
+        max_length=512,
+    )
+    collected_weight_kg: float | None = Field(
+        default=None,
+        gt=0,
+        le=10000,
     )
 
 

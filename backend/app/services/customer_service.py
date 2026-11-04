@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import uuid
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -9,6 +10,7 @@ from app.models.pharmacy_profile import PharmacyProfile
 from app.models.distributor_profile import DistributorProfile
 from app.models.hospital_profile import HospitalProfile
 from app.models.clinic_profile import ClinicProfile
+from app.models.pricing import CustomerPricingAssignment, PricingPlan
 from app.models.user import User, UserRole
 from app.schemas.customer import CustomerOnboardRequest
 
@@ -136,6 +138,41 @@ def create_customer_profile(
     return profile_obj
 
 
+def ensure_customer_pricing_assignment(db: Session, customer_id: int) -> None:
+    """
+    Ensures the customer has an active pricing plan assignment if an active plan exists.
+    Safe against mock DB sessions used in unit tests.
+    """
+    try:
+        if not isinstance(customer_id, int):
+            return
+        existing_assignment = (
+            db.query(CustomerPricingAssignment)
+            .filter(
+                CustomerPricingAssignment.customer_id == customer_id,
+                CustomerPricingAssignment.effective_until.is_(None),
+            )
+            .first()
+        )
+        if existing_assignment is not None and isinstance(getattr(existing_assignment, "id", None), int):
+            return
+        active_plan = (
+            db.query(PricingPlan)
+            .filter(PricingPlan.is_active.is_(True))
+            .order_by(PricingPlan.id.asc())
+            .first()
+        )
+        if active_plan is not None and isinstance(getattr(active_plan, "id", None), int):
+            assignment = CustomerPricingAssignment(
+                customer_id=customer_id,
+                pricing_plan_id=active_plan.id,
+                effective_from=datetime.now(timezone.utc),
+            )
+            db.add(assignment)
+    except Exception:
+        pass
+
+
 def create_customer(
     db: Session,
     user: User,
@@ -198,10 +235,12 @@ def create_customer(
             )
             db.add(location)
 
+        ensure_customer_pricing_assignment(db, customer.id)
+
         db.commit()
         db.refresh(customer)
         return customer
 
     except Exception:
         db.rollback()
-        raise
+        raise

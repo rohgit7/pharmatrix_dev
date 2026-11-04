@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import secrets
 import hashlib
 from fastapi import HTTPException
@@ -56,7 +56,11 @@ def verify_qr(
             detail="QR verification is only for pickup stops",
         )
 
-    if stop.execution_status not in {RouteStopStatus.PENDING, RouteStopStatus.ARRIVED, RouteStopStatus.IN_PROGRESS}:
+    if stop.execution_status not in {
+        RouteStopStatus.PENDING,
+        RouteStopStatus.ARRIVED,
+        RouteStopStatus.IN_PROGRESS,
+    }:
         raise HTTPException(
             status_code=400,
             detail="Pickup stop is neither pending nor arrived",
@@ -66,18 +70,14 @@ def verify_qr(
         db.query(RouteStop)
         .filter(
             RouteStop.route_id == route.id,
-            RouteStop.sequence_number
-            < stop.sequence_number,
+            RouteStop.sequence_number < stop.sequence_number,
         )
-        .order_by(
-            RouteStop.sequence_number.desc()
-        )
+        .order_by(RouteStop.sequence_number.desc())
         .first()
     )
 
     if previous_stop and (
-        previous_stop.execution_status
-        != RouteStopStatus.COMPLETED
+        previous_stop.execution_status != RouteStopStatus.COMPLETED
     ):
         raise HTTPException(
             status_code=409,
@@ -145,19 +145,13 @@ def verify_qr(
     pickup.qr_verified_at = now
 
     stop.execution_status = RouteStopStatus.ARRIVED
-    stop.arrived_at = now
-
-    # Auto-initialize fresh OTP for customer-driver handshake
-    otp = f"{secrets.randbelow(1_000_000):06d}"
-    pickup.otp_hash = hashlib.sha256(otp.encode("utf-8")).hexdigest()
-    pickup.otp_expires_at = now + timedelta(minutes=30)
-    pickup.otp_last_requested_at = now
-    pickup.otp_attempts = 0
+    stop.arrived_at = stop.arrived_at or now
 
     db.commit()
     db.refresh(stop)
 
-    return stop, otp
+    return stop
+
 
 def verify_otp(
     db: Session,
@@ -261,6 +255,8 @@ def verify_otp(
         )
 
     pickup.otp_verified_at = now
+    # Invalidate OTP hash after single successful verification so it cannot be reused
+    pickup.otp_hash = None
 
     stop.execution_status = (
         RouteStopStatus.IN_PROGRESS

@@ -10,11 +10,13 @@ from app.schemas.route_execution import (
     CompletePickupRequest,
     FailStopRequest,
     UploadProofBase64Request,
+    WeighPickupRequest,
 )
 from app.services.route_execution_service import (
     arrive_at_stop,
     complete_stop,
     fail_stop,
+    record_stop_weight,
     start_route,
 )
 from app.schemas.pickup_verification import (
@@ -43,6 +45,7 @@ router = APIRouter(
         Depends(require_role(UserRole.DRIVER))
     ],
 )
+
 
 @router.get(
     "/{route_id}/stops/{stop_id}/proof-url",
@@ -110,6 +113,30 @@ def arrive_at_stop_endpoint(
     }
 
 
+@router.post("/{route_id}/stops/{stop_id}/weigh")
+def weigh_stop_endpoint(
+    route_id: int,
+    stop_id: int,
+    data: WeighPickupRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    stop = record_stop_weight(
+        db=db,
+        user=current_user,
+        route_id=route_id,
+        stop_id=stop_id,
+        collected_weight_kg=data.collected_weight_kg,
+    )
+
+    return {
+        "message": "Collected weight recorded",
+        "stop_id": stop.id,
+        "status": stop.execution_status,
+        "collected_weight_kg": stop.collected_weight_kg,
+    }
+
+
 @router.post("/{route_id}/stops/{stop_id}/complete")
 def complete_stop_endpoint(
     route_id: int,
@@ -157,6 +184,7 @@ def fail_stop_endpoint(
         "reason": stop.failure_reason,
     }
 
+
 @router.post(
     "/{route_id}/stops/{stop_id}/scan-qr"
 )
@@ -174,10 +202,16 @@ def scan_pickup_qr(
         stop_id=stop_id,
         qr_token=data.qr_token,
     )
-    if isinstance(result, tuple):
-        stop, otp = result
-    else:
-        stop, otp = result, None
+    stop = result[0] if isinstance(result, tuple) else result
+
+    if data.collected_weight_kg is not None and data.collected_weight_kg > 0:
+        stop = record_stop_weight(
+            db=db,
+            user=current_user,
+            route_id=route_id,
+            stop_id=stop_id,
+            collected_weight_kg=data.collected_weight_kg,
+        )
 
     return {
         "message": "Pickup QR verified",
@@ -185,8 +219,8 @@ def scan_pickup_qr(
         "status": stop.execution_status,
         "arrived_at": stop.arrived_at,
         "otp_required": True,
-        "otp": otp,
     }
+
 
 @router.post(
     "/{route_id}/stops/{stop_id}/verify-otp"
@@ -215,6 +249,7 @@ def verify_pickup_otp(
         "otp_verified": True,
     }
 
+
 @router.post(
     "/{route_id}/stops/{stop_id}/proof",
 )
@@ -239,6 +274,7 @@ async def upload_collection_proof_endpoint(
         "proof_uploaded": True,
         "proof_uploaded_at": stop.proof_uploaded_at,
     }
+
 
 @router.post(
     "/{route_id}/stops/{stop_id}/proof-base64",
