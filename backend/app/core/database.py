@@ -4,13 +4,20 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from app.core.config import settings
 
 
+engine_kwargs = {"pool_pre_ping": True}
+if not settings.DATABASE_URL.startswith("sqlite"):
+    engine_kwargs.update({
+        "pool_size": settings.DB_POOL_SIZE,
+        "max_overflow": settings.DB_MAX_OVERFLOW,
+        "pool_timeout": settings.DB_POOL_TIMEOUT,
+        "pool_recycle": settings.DB_POOL_RECYCLE,
+    })
+else:
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=settings.DB_POOL_SIZE,
-    max_overflow=settings.DB_MAX_OVERFLOW,
-    pool_timeout=settings.DB_POOL_TIMEOUT,
-    pool_recycle=settings.DB_POOL_RECYCLE,
+    **engine_kwargs,
 )
 
 
@@ -94,6 +101,42 @@ def ensure_runtime_schema():
         )
         conn.execute(
             text("ALTER TABLE customer_locations ALTER COLUMN longitude DROP NOT NULL")
+        )
+        conn.execute(
+            text("ALTER TABLE drivers ADD COLUMN IF NOT EXISTS current_latitude DOUBLE PRECISION")
+        )
+        conn.execute(
+            text("ALTER TABLE drivers ADD COLUMN IF NOT EXISTS current_longitude DOUBLE PRECISION")
+        )
+        conn.execute(
+            text("ALTER TABLE drivers ADD COLUMN IF NOT EXISTS last_location_update TIMESTAMPTZ")
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS pickup_events (
+                    id SERIAL PRIMARY KEY,
+                    pickup_id INTEGER NOT NULL REFERENCES pickups(id) ON DELETE CASCADE,
+                    event_type VARCHAR(50) NOT NULL,
+                    title VARCHAR(120) NOT NULL,
+                    description TEXT,
+                    actor_type VARCHAR(30) NOT NULL DEFAULT 'SYSTEM',
+                    actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    actor_name VARCHAR(120),
+                    metadata_json JSONB,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+        )
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_pickup_events_pickup_id ON pickup_events (pickup_id)")
+        )
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_pickup_events_event_type ON pickup_events (event_type)")
+        )
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_pickup_events_created_at ON pickup_events (created_at)")
         )
 
     _SCHEMA_ENSURED = True

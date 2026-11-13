@@ -213,6 +213,50 @@ def arrive_at_stop(
     stop.execution_status = RouteStopStatus.ARRIVED
     stop.arrived_at = datetime.now(timezone.utc)
 
+    if latitude is not None and longitude is not None and driver:
+        driver.current_latitude = latitude
+        driver.current_longitude = longitude
+        driver.last_location_update = stop.arrived_at
+
+    if stop.stop_type == RouteStopType.PICKUP and stop.pickup:
+        try:
+            from app.services.pickup_event_service import record_pickup_event
+            record_pickup_event(
+                db=db,
+                pickup_id=stop.pickup.id,
+                event_type="DRIVER_ARRIVED",
+                title="Driver Arrived",
+                description=f"Driver {user.name if hasattr(user, 'name') else 'assigned driver'} arrived at pickup location",
+                actor_type="DRIVER",
+                actor_id=user.id,
+                actor_name=user.name if hasattr(user, "name") else "Driver",
+                metadata_json={
+                    "stop_id": stop.id,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "arrived_at": stop.arrived_at.isoformat(),
+                },
+            )
+        except Exception:
+            pass
+
+    if stop.stop_type == RouteStopType.PICKUP and stop.pickup:
+        try:
+            from app.services.pickup_event_service import record_pickup_event
+            record_pickup_event(
+                db=db,
+                pickup_id=stop.pickup.id,
+                event_type="WEIGHT_RECORDED",
+                title="Weight Recorded",
+                description=f"Collected waste recorded as {float(collected_weight_kg):.2f} kg",
+                actor_type="DRIVER",
+                actor_id=user.id,
+                actor_name=user.name if hasattr(user, "name") else "Driver",
+                metadata_json={"collected_weight_kg": float(collected_weight_kg)},
+            )
+        except Exception:
+            pass
+
     if stop.stop_type == RouteStopType.PICKUP and stop.pickup and stop.pickup.customer:
         try:
             notify_driver_arrived(
@@ -334,6 +378,23 @@ def record_stop_weight(
 
     db.commit()
     db.refresh(stop)
+
+    if stop.stop_type == RouteStopType.PICKUP and stop.pickup:
+        try:
+            from app.services.pickup_event_service import record_pickup_event
+            record_pickup_event(
+                db=db,
+                pickup_id=stop.pickup.id,
+                event_type="WEIGHT_RECORDED",
+                title="Weight Recorded",
+                description=f"Collected waste recorded as {float(collected_weight_kg):.2f} kg",
+                actor_type="DRIVER",
+                actor_id=user.id,
+                actor_name=user.name if hasattr(user, "name") else "Driver",
+                metadata_json={"collected_weight_kg": float(collected_weight_kg)},
+            )
+        except Exception:
+            pass
 
     if stop.stop_type == RouteStopType.PICKUP and stop.pickup and stop.pickup.customer:
         try:
@@ -495,6 +556,25 @@ def complete_stop(
         )
 
         stop.completed_at = now
+
+        try:
+            from app.services.pickup_event_service import record_pickup_event
+            record_pickup_event(
+                db=db,
+                pickup_id=stop.pickup.id,
+                event_type="PICKUP_COMPLETED",
+                title="Pickup Completed",
+                description=f"Pickup verified and completed successfully with final weight {float(collected_weight_kg):.2f} kg",
+                actor_type="DRIVER",
+                actor_id=user.id,
+                actor_name=user.name if hasattr(user, "name") else "Driver",
+                metadata_json={
+                    "collected_weight_kg": float(collected_weight_kg),
+                    "completed_at": now.isoformat(),
+                },
+            )
+        except Exception:
+            pass
 
         customer = db.get(
             Customer,

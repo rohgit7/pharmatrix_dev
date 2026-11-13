@@ -1326,3 +1326,239 @@ export interface NotificationResponse {
   provider_status: string | null;
   provider_status_at: string | null;
 }
+
+// ==========================================
+// Live Pickup Monitoring & Tracking
+// ==========================================
+export interface PickupMonitoringItem {
+  id: number;
+  public_id: string;
+  pickup_code: string;
+  customer_id: number;
+  customer_name: string | null;
+  customer_type: CustomerType | null;
+  location_id: number;
+  location_name: string | null;
+  location_address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  status: string;
+  priority: PickupPriority;
+  requested_date: string | null;
+  scheduled_date: string | null;
+  collected_at: string | null;
+  estimated_weight_kg: number | null;
+  collected_weight_kg: number | null;
+  driver_id: number | null;
+  driver_name: string | null;
+  driver_phone: string | null;
+  route_id: number | null;
+  route_code: string | null;
+  route_status: string | null;
+  payment_status: string;
+  invoice_total: number | null;
+  has_exceptions: boolean;
+  is_delayed: boolean;
+  delay_reasons: string[];
+  current_stage: string;
+  progress_percent: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PickupMonitoringListResponse {
+  items: PickupMonitoringItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  summary_counts: {
+    total: number;
+    requested: number;
+    scheduled: number;
+    in_progress: number;
+    completed: number;
+    cancelled: number;
+    failed: number;
+    delayed: number;
+  };
+}
+
+export interface PickupTimelineStage {
+  stage_id: string;
+  name: string;
+  state: 'COMPLETED' | 'CURRENT' | 'UPCOMING' | 'FAILED' | 'CANCELLED';
+  timestamp: string | null;
+  description: string;
+  actor: string | null;
+  metadata: Record<string, any> | null;
+}
+
+export interface PickupCustomerInfo {
+  id: number;
+  display_name: string;
+  legal_name: string | null;
+  customer_type: CustomerType;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  location_id: number;
+  location_name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+export interface PickupVehicleInfo {
+  id: number;
+  registration_number: string;
+  model: string | null;
+  vehicle_type: string | null;
+  capacity_kg: number | null;
+}
+
+export interface PickupDriverInfo {
+  id: number | null;
+  employee_id: string | null;
+  name: string | null;
+  phone: string | null;
+  status: string | null;
+  assigned_at: string | null;
+  arrived_at: string | null;
+  vehicle: PickupVehicleInfo | null;
+  current_latitude: number | null;
+  current_longitude: number | null;
+  last_location_update: string | null;
+  distance_to_pickup_meters: number | null;
+  location_live: boolean;
+  location_unavailable_reason: string | null;
+}
+
+export interface PickupCollectionInfo {
+  stop_id: number | null;
+  execution_status: string | null;
+  collection_start_time: string | null;
+  collection_completion_time: string | null;
+  estimated_weight_kg: number | null;
+  actual_collected_weight_kg: number | null;
+  weight_discrepancy_kg: number | null;
+  weight_discrepancy_percent: number | null;
+  waste_condition_remarks: string | null;
+  has_collection_proof: boolean;
+  proof_url: string | null;
+  proof_uploaded_at: string | null;
+  qr_verified: boolean;
+  qr_verified_at: string | null;
+}
+
+export interface PickupPaymentInfo {
+  invoice_id: number | null;
+  invoice_number: string | null;
+  invoice_status: string | null;
+  subtotal: number | null;
+  tax_amount: number | null;
+  total_amount: number | null;
+  amount_paid: number | null;
+  payment_status: string;
+  razorpay_order_id: string | null;
+  razorpay_payment_id: string | null;
+  payment_method: string | null;
+  payment_initiated_at: string | null;
+  payment_completed_at: string | null;
+  failure_details: string | null;
+  pricing_snapshot: Record<string, any> | null;
+  line_items: Array<{
+    item_type: string;
+    description: string;
+    quantity: number;
+    unit_price: number;
+    amount: number;
+  }>;
+}
+
+export interface PickupOtpVerificationInfo {
+  otp_generated: boolean;
+  otp_expires_at: string | null;
+  verification_status: 'VERIFIED' | 'PENDING' | 'EXPIRED' | 'NOT_GENERATED';
+  verification_timestamp: string | null;
+  attempts_count: number;
+}
+
+export interface PickupCompletionInfo {
+  final_status: string;
+  completion_timestamp: string | null;
+  total_duration_minutes: number | null;
+  final_collected_weight_kg: number | null;
+  final_payment_status: string;
+  invoice_number: string | null;
+  facility_handover_status: string | null;
+}
+
+export interface PickupEventItem {
+  id: string;
+  event_type: string;
+  title: string;
+  description: string | null;
+  actor_type: string;
+  actor_id: number | null;
+  actor_name: string;
+  metadata: Record<string, any>;
+  created_at: string;
+  source: string;
+}
+
+export interface PickupMonitoringDetailResponse {
+  pickup_id: number;
+  public_id: string;
+  pickup_code: string;
+  status: string;
+  priority: PickupPriority;
+  requested_date: string | null;
+  scheduled_date: string | null;
+  notes: string | null;
+  failure_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  customer: PickupCustomerInfo;
+  driver: PickupDriverInfo | null;
+  route_id: number | null;
+  route_code: string | null;
+  route_status: string | null;
+  collection: PickupCollectionInfo;
+  payment: PickupPaymentInfo;
+  otp: PickupOtpVerificationInfo;
+  completion: PickupCompletionInfo;
+  timeline: PickupTimelineStage[];
+  progress_percent: number;
+  current_stage_name: string;
+  is_delayed: boolean;
+  delay_reasons: string[];
+  exceptions: Array<Record<string, any>>;
+  events: PickupEventItem[];
+  server_time: string;
+}
+
+export interface DriverLiveLocationResponse {
+  driver_id: number | null;
+  driver_name: string | null;
+  phone: string | null;
+  current_latitude: number | null;
+  current_longitude: number | null;
+  last_location_update: string | null;
+  is_live: boolean;
+  pickup_latitude: number | null;
+  pickup_longitude: number | null;
+  distance_meters: number | null;
+  vehicle_registration: string | null;
+  vehicle_model: string | null;
+  unavailable_reason: string | null;
+}
+
+export interface PickupReassignDriverRequest {
+  driver_id: number;
+  vehicle_id?: number | null;
+  reason: string;
+}

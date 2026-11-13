@@ -8,6 +8,7 @@ import { AppShell } from './components/layout/AppShell';
 import { Login } from './pages/Login';
 import { Overview } from './pages/Overview';
 import { Pickups } from './pages/Pickups';
+import { PickupMonitoring } from './pages/PickupMonitoring';
 import { PickupHistory } from './pages/PickupHistory';
 import { RouteOptimization } from './pages/RouteOptimization';
 import { Routes as RoutesPage } from './pages/Routes';
@@ -59,6 +60,8 @@ export const App: React.FC = () => {
             >
               {/* OPERATIONS */}
               <Route index element={<Overview />} />
+              <Route path="pickup-monitoring" element={<PickupMonitoring />} />
+              <Route path="pickups/monitoring" element={<PickupMonitoring />} />
               <Route path="pickups" element={<Pickups />} />
               <Route path="pickup-history" element={<PickupHistory />} />
               <Route path="pickups/history" element={<PickupHistory />} />

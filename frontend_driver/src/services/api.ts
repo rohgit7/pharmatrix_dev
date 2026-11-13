@@ -9,14 +9,17 @@ import {
   VerifyOTPResponse,
   VerifyQRResponse,
 } from '../types/api';
+import {
+  DriverHistoryFilterParams,
+  DriverPickupDetailResponse,
+  DriverPickupHistoryListResponse,
+  DriverWorkSummaryResponse,
+} from '../types/history';
 
 let cachedCustomUrl: string | null = null;
 
 export const setCustomApiUrl = async (url: string | null): Promise<void> => {
-  let clean = url ? url.trim().replace(/\/+$/, '') : null;
-  if (clean && clean.includes(':8000') && !clean.includes('127.0.0.1') && !clean.includes('localhost')) {
-    clean = clean.replace(':8000', ':8001');
-  }
+  const clean = url ? url.trim().replace(/\/+$/, '') : null;
   cachedCustomUrl = clean;
   if (cachedCustomUrl) {
     await storage.setItem('custom_api_url', cachedCustomUrl);
@@ -28,26 +31,18 @@ export const setCustomApiUrl = async (url: string | null): Promise<void> => {
 export const getApiBaseUrl = (): string => {
   // 1. In-memory or locally configured custom override
   if (cachedCustomUrl) {
-    if (cachedCustomUrl.includes(':8000') && !cachedCustomUrl.includes('127.0.0.1') && !cachedCustomUrl.includes('localhost')) {
-      cachedCustomUrl = cachedCustomUrl.replace(':8000', ':8001');
-      storage.setItem('custom_api_url', cachedCustomUrl).catch(() => {});
-    }
     return cachedCustomUrl;
   }
 
   // 2. Environment variable if bundled
   if (process.env.EXPO_PUBLIC_API_URL) {
-    let envUrl = process.env.EXPO_PUBLIC_API_URL.replace(/\/+$/, '');
-    if (envUrl.includes(':8000') && !envUrl.includes('127.0.0.1') && !envUrl.includes('localhost')) {
-      envUrl = envUrl.replace(':8000', ':8001');
-    }
-    return envUrl;
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/+$/, '');
   }
 
   // 3. Web browser environment
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname || 'localhost';
-    return `http://${hostname}:8001`;
+    return `http://${hostname}:8000`;
   }
 
   // 4. Physical Mobile Device (Expo Go): Extract computer's LAN IP from Metro bundle URL
@@ -55,7 +50,7 @@ export const getApiBaseUrl = (): string => {
   if (scriptUrl) {
     const match = scriptUrl.match(/^https?:\/\/([^:/]+)/);
     if (match && match[1] && match[1] !== 'localhost' && match[1] !== '127.0.0.1') {
-      return `http://${match[1]}:8001`;
+      return `http://${match[1]}:8000`;
     }
   }
 
@@ -69,23 +64,18 @@ export const getApiBaseUrl = (): string => {
   if (hostUri) {
     const hostIp = hostUri.split(':')[0];
     if (hostIp && hostIp !== 'localhost' && hostIp !== '127.0.0.1') {
-      return `http://${hostIp}:8001`;
+      return `http://${hostIp}:8000`;
     }
   }
 
-  // 6. Direct fallback to host computer's known Wi-Fi LAN IP on firewall-allowed port 8001
-  return 'http://10.235.154.167:8001';
+  // 6. Direct fallback to host computer's Wi-Fi LAN IP on default FastAPI port 8000
+  return 'http://10.235.154.167:8000';
 };
 
 // Asynchronously load custom url from storage at app start
 storage.getItem('custom_api_url').then((val) => {
   if (val) {
-    let clean = val.trim().replace(/\/+$/, '');
-    if (clean.includes(':8000') && !clean.includes('127.0.0.1') && !clean.includes('localhost')) {
-      clean = clean.replace(':8000', ':8001');
-      storage.setItem('custom_api_url', clean).catch(() => {});
-    }
-    cachedCustomUrl = clean;
+    cachedCustomUrl = val.trim().replace(/\/+$/, '');
   }
 }).catch(() => {});
 
@@ -199,24 +189,31 @@ async function request<T>(
     }
   };
 
-  let response: Response;
+  let response: Response | undefined;
   try {
     response = await executeFetch(url, timeoutMs);
   } catch (error: any) {
-    // Auto-heal fallback: If connecting to port 8000 failed (firewall block), try port 8001
-    if (url.includes(':8000')) {
-      const healedBase = baseUrl.replace(':8000', ':8001');
-      const healedUrl = `${healedBase}${endpoint}`;
+    // Auto-heal fallback: bidirectional (8000 <-> 8001)
+    let altBase: string | null = null;
+    if (baseUrl.includes(':8000')) {
+      altBase = baseUrl.replace(':8000', ':8001');
+    } else if (baseUrl.includes(':8001')) {
+      altBase = baseUrl.replace(':8001', ':8000');
+    }
+
+    if (altBase) {
+      const altUrl = `${altBase}${endpoint}`;
       try {
-        response = await executeFetch(healedUrl, timeoutMs);
-        setCustomApiUrl(healedBase).catch(() => {});
+        response = await executeFetch(altUrl, Math.min(timeoutMs, 6000));
+        cachedCustomUrl = altBase;
+        setCustomApiUrl(altBase).catch(() => {});
       } catch {
         // Fall through
       }
     }
 
-    if (!response!) {
-      if (error.name === 'AbortError') {
+    if (!response) {
+      if (error?.name === 'AbortError') {
         throw new ApiError(
           408,
           `Connection timed out connecting to ${baseUrl}. Check Wi-Fi connection and backend status.`
@@ -573,6 +570,38 @@ export const api = {
         body: body || 'Driver test notification delivery.',
       }),
     });
+  },
+
+  // Driver Work History
+  async getWorkHistorySummary(): Promise<DriverWorkSummaryResponse> {
+    return request<DriverWorkSummaryResponse>('/api/driver/history/summary');
+  },
+
+  async getWorkHistoryPickups(
+    params?: DriverHistoryFilterParams
+  ): Promise<DriverPickupHistoryListResponse> {
+    const query = new URLSearchParams();
+    if (params) {
+      if (params.page !== undefined) query.append('page', params.page.toString());
+      if (params.page_size !== undefined) query.append('page_size', params.page_size.toString());
+      if (params.status && params.status !== 'all') query.append('status', params.status);
+      if (params.search && params.search.trim()) query.append('search', params.search.trim());
+      if (params.sort_by) query.append('sort_by', params.sort_by);
+      if (params.start_date) query.append('start_date', params.start_date);
+      if (params.end_date) query.append('end_date', params.end_date);
+    }
+    const qs = query.toString();
+    return request<DriverPickupHistoryListResponse>(
+      `/api/driver/history/pickups${qs ? `?${qs}` : ''}`
+    );
+  },
+
+  async getWorkHistoryPickupDetail(
+    pickupIdentifier: string | number
+  ): Promise<DriverPickupDetailResponse> {
+    return request<DriverPickupDetailResponse>(
+      `/api/driver/history/pickups/${encodeURIComponent(pickupIdentifier.toString())}`
+    );
   },
 };
 

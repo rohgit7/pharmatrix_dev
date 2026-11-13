@@ -105,7 +105,7 @@ export const HandoverScreen: React.FC<HandoverScreenProps> = ({
               <View style={styles.awaitingTextCol}>
                 <Text style={styles.awaitingTitle}>Awaiting Driver Weigh-In</Text>
                 <Text style={styles.awaitingDesc}>
-                  Weight verification will unlock as soon as the driver records the collected weight at your facility.
+                  Weight verification will unlock as soon as the driver records the collected weight at your location.
                 </Text>
               </View>
             </View>

@@ -163,6 +163,23 @@ def request_otp(
     db.commit()
     db.refresh(pickup)
 
+    try:
+        from app.services.pickup_event_service import record_pickup_event
+        record_pickup_event(
+            db=db,
+            pickup_id=pickup.id,
+            event_type="OTP_GENERATED",
+            title="OTP Generated",
+            description="Secure handover one-time passcode generated and dispatched to customer",
+            actor_type="CUSTOMER" if user.role == UserRole.CUSTOMER else "SYSTEM",
+            actor_id=user.id,
+            actor_name=user.name if hasattr(user, "name") else "Customer",
+            metadata_json={"expires_at": expires_at.isoformat()},
+        )
+        db.commit()
+    except Exception:
+        pass
+
     if pickup.customer and pickup.customer.user_id:
         try:
             from app.services.notification_events import notify_otp_generated

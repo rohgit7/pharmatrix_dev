@@ -170,11 +170,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       }
       showsVerticalScrollIndicator={false}
     >
-      {/* Facility Header & Primary Action */}
+      {/* Customer Header & Primary Action */}
       <Card variant="dark" padding="lg" style={styles.heroCard}>
         <View style={styles.heroHeaderRow}>
           <View style={styles.heroTextCol}>
-            <View style={styles.facilityMetaRow}>
+            <View style={styles.customerMetaRow}>
               {customerType ? (
                 <View style={styles.typePill}>
                   <Text style={styles.typePillText}>
@@ -187,7 +187,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               ) : null}
             </View>
             <Text style={styles.heroTitle} numberOfLines={2}>
-              {customerName || 'Facility Dashboard'}
+              {customerName || 'Customer Dashboard'}
             </Text>
           </View>
         </View>
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     gap: 6,
   },
-  facilityMetaRow: {
+  customerMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',

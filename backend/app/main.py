@@ -45,7 +45,10 @@ from app.api.driver_vehicle import router as driver_vehicle_router
 from app.api.drivers import router as drivers_router
 from app.api.vehicles import router as vehicles_router
 from app.api.pickups import router as pickups_router
-from app.api.admin_pickups import router as admin_pickups_router
+from app.api.admin_pickups import (
+    router as admin_pickups_router,
+    stream_router as admin_pickups_stream_router,
+)
 from app.api.admin_routes import router as admin_routes_router
 from app.api.admin_warehouses import router as admin_warehouses_router
 from slowapi import _rate_limit_exceeded_handler
@@ -59,6 +62,9 @@ from app.api.driver_routes import (
 )
 from app.api.driver_route_execution import (
     router as driver_route_execution_router,
+)
+from app.api.driver_history import (
+    router as driver_history_router,
 )
 from app.api.admin_collection_proofs import (
     router as admin_collection_proofs_router,
@@ -303,10 +309,12 @@ app.include_router(drivers_router)
 app.include_router(vehicles_router)
 app.include_router(pickups_router)
 app.include_router(admin_pickups_router)
+app.include_router(admin_pickups_stream_router)
 app.include_router(admin_routes_router)
 app.include_router(admin_warehouses_router)
 app.include_router(admin_route_optimization_router)
 app.include_router(driver_routes_router)
+app.include_router(driver_history_router)
 app.include_router(admin_customer_documents_router)
 app.include_router(driver_route_execution_router)
 app.include_router(admin_collection_proofs_router)

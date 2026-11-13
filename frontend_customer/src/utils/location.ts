@@ -313,8 +313,8 @@ export async function requestLocationAndDetectAddress(): Promise<LocationDetecti
         ok: false,
         errorCode: isPermanent ? 'PERMISSION_PERMANENTLY_DENIED' : 'PERMISSION_DENIED',
         message: isPermanent
-          ? 'Location permission is turned off for Pharmatrix. Enable Location in your device settings or enter your facility address manually below.'
-          : 'Location permission was declined. You can grant permission to auto-detect your address, or enter your facility address manually below.',
+          ? 'Location permission is turned off for Pharmatrix. Enable Location in your device settings or enter your business address manually below.'
+          : 'Location permission was declined. You can grant permission to auto-detect your address, or enter your business address manually below.',
         permission: permInfo,
       };
     }
@@ -370,7 +370,7 @@ export async function requestLocationAndDetectAddress(): Promise<LocationDetecti
         ok: false,
         errorCode: 'TIMEOUT',
         message:
-          'Could not acquire a GPS signal indoors or within the time limit. Please move near a window and retry, or enter your facility address manually.',
+          'Could not acquire a GPS signal indoors or within the time limit. Please move near a window and retry, or enter your business address manually.',
         permission: {
           status: 'granted',
           canAskAgain: true,
@@ -400,7 +400,7 @@ export async function requestLocationAndDetectAddress(): Promise<LocationDetecti
       ok: false,
       errorCode: 'UNAVAILABLE',
       message:
-        'Unable to access device location at this moment. Please enter your facility address manually below.',
+        'Unable to access device location at this moment. Please enter your business address manually below.',
       permission: {
         status: 'undetermined',
         canAskAgain: true,

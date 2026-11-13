@@ -147,6 +147,22 @@ def verify_qr(
     stop.execution_status = RouteStopStatus.ARRIVED
     stop.arrived_at = stop.arrived_at or now
 
+    try:
+        from app.services.pickup_event_service import record_pickup_event
+        record_pickup_event(
+            db=db,
+            pickup_id=pickup.id,
+            event_type="COLLECTION_STARTED",
+            title="Collection Started (QR Verified)",
+            description=f"Driver verified customer facility QR code",
+            actor_type="DRIVER",
+            actor_id=user.id,
+            actor_name=user.name if hasattr(user, "name") else "Driver",
+            metadata_json={"qr_verified_at": now.isoformat()},
+        )
+    except Exception:
+        pass
+
     db.commit()
     db.refresh(stop)
 
@@ -261,6 +277,22 @@ def verify_otp(
     stop.execution_status = (
         RouteStopStatus.IN_PROGRESS
     )
+
+    try:
+        from app.services.pickup_event_service import record_pickup_event
+        record_pickup_event(
+            db=db,
+            pickup_id=pickup.id,
+            event_type="OTP_VERIFIED",
+            title="OTP Verified",
+            description="Customer digital handover OTP verified successfully",
+            actor_type="DRIVER",
+            actor_id=user.id,
+            actor_name=user.name if hasattr(user, "name") else "Driver",
+            metadata_json={"otp_verified_at": now.isoformat()},
+        )
+    except Exception:
+        pass
 
     db.commit()
     db.refresh(stop)

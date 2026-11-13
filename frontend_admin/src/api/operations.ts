@@ -6,6 +6,11 @@ import {
   PickupAdminUpdate,
   PickupStatus,
   PickupHistoryResponse,
+  PickupMonitoringListResponse,
+  PickupMonitoringDetailResponse,
+  PickupEventItem,
+  DriverLiveLocationResponse,
+  PickupReassignDriverRequest,
   RouteResponse,
   RouteStatus,
   RouteCreate,
@@ -377,6 +382,47 @@ export const pickupsApi = {
     search?: string;
   }): Promise<PickupHistoryResponse> => {
     const { data } = await apiClient.get<PickupHistoryResponse>('/api/admin/pickups/history', { params });
+    return data;
+  },
+
+  getMonitoring: async (params?: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    status?: string;
+    customer_type?: string;
+    driver_id?: number;
+    start_date?: string;
+    end_date?: string;
+    delayed_only?: boolean;
+  }): Promise<PickupMonitoringListResponse> => {
+    const { data } = await apiClient.get<PickupMonitoringListResponse>('/api/admin/pickups/monitoring', { params });
+    return data;
+  },
+
+  getMonitoringDetail: async (pickupId: string | number): Promise<PickupMonitoringDetailResponse> => {
+    const { data } = await apiClient.get<PickupMonitoringDetailResponse>(`/api/admin/pickups/${pickupId}/monitoring-detail`);
+    return data;
+  },
+
+  getEvents: async (pickupId: string | number): Promise<PickupEventItem[]> => {
+    const { data } = await apiClient.get<PickupEventItem[]>(`/api/admin/pickups/${pickupId}/events`);
+    return data;
+  },
+
+  getDriverLocation: async (pickupId: string | number): Promise<DriverLiveLocationResponse> => {
+    const { data } = await apiClient.get<DriverLiveLocationResponse>(`/api/admin/pickups/${pickupId}/driver-location`);
+    return data;
+  },
+
+  reassignDriver: async (
+    pickupId: string | number,
+    payload: PickupReassignDriverRequest
+  ): Promise<PickupMonitoringDetailResponse> => {
+    const { data } = await apiClient.post<PickupMonitoringDetailResponse>(
+      `/api/admin/pickups/${pickupId}/reassign-driver`,
+      payload
+    );
     return data;
   },
 };

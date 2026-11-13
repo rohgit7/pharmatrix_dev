@@ -1,20 +1,57 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { api } from './api';
 import { storage } from './storage';
 
+// Safe shim for ExpoApplication native module in environments where unlinked (e.g. Expo Go / bare Android)
+if (typeof globalThis !== 'undefined') {
+  const g = globalThis as any;
+  if (!g.expo) {
+    g.expo = {};
+  }
+  if (!g.expo.modules) {
+    g.expo.modules = {};
+  }
+  if (!g.expo.modules.ExpoApplication) {
+    g.expo.modules.ExpoApplication = {
+      applicationId: 'com.pharmatrix.customer',
+      applicationName: 'Pharmatrix Customer',
+      nativeApplicationVersion: '1.0.0',
+      nativeBuildVersion: '1',
+      androidId: 'customer-device',
+      getInstallationTimeAsync: async () => Date.now(),
+      getLastUpdateTimeAsync: async () => Date.now(),
+      getIosPushNotificationServiceEnvironmentAsync: async () => 'development',
+    };
+  }
+}
+
+// Safely require expo-notifications to prevent module-level crashes if native dependencies are missing
+let Notifications: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  Notifications = require('expo-notifications');
+} catch (err) {
+  console.warn('[Customer Notifications] expo-notifications or native module unavailable:', err);
+}
+
 // Configure foreground presentation behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Notifications && typeof Notifications.setNotificationHandler === 'function') {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch (error) {
+    console.warn('[Customer Notifications] Failed to set notification handler:', error);
+  }
+}
 
 export const ANDROID_CHANNELS = {
   PICKUP_UPDATES: 'pickup_updates',
@@ -26,7 +63,7 @@ export const ANDROID_CHANNELS = {
  * Configure Android notification channels for Pharmatrix Customer app
  */
 export async function setupAndroidNotificationChannels(): Promise<void> {
-  if (Platform.OS !== 'android') return;
+  if (Platform.OS !== 'android' || !Notifications?.setNotificationChannelAsync) return;
 
   try {
     await Notifications.setNotificationChannelAsync(ANDROID_CHANNELS.PICKUP_UPDATES, {
@@ -66,6 +103,11 @@ export async function setupAndroidNotificationChannels(): Promise<void> {
  * Request notification permissions and register the Expo push token with the backend
  */
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
+  if (!Notifications) {
+    console.log('[Customer Notifications] Notifications module unavailable on this device.');
+    return null;
+  }
+
   await setupAndroidNotificationChannels();
 
   if (Platform.OS === 'web') {
@@ -99,7 +141,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     const tokenResponse = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined
     );
-    const pushToken = tokenResponse.data;
+    const pushToken = tokenResponse?.data;
 
     if (pushToken) {
       // Register with Pharmatrix backend
@@ -150,36 +192,53 @@ export type NotificationTapHandler = (payload: {
 export function setupNotificationListeners(
   onNotificationTapped: NotificationTapHandler
 ): () => void {
-  // 1. Handle notification tapped while app is foregrounded / backgrounded
-  const responseSubscription = Notifications.addNotificationResponseReceivedListener(
-    (response) => {
-      const data = response.notification.request.content.data || {};
-      console.log('[Notifications] Notification tapped with data:', data);
-      onNotificationTapped(data);
-    }
-  );
+  if (!Notifications?.addNotificationResponseReceivedListener) {
+    return () => {};
+  }
 
-  // 2. Handle notification received in foreground
-  const receivedSubscription = Notifications.addNotificationReceivedListener(
-    (notification) => {
-      const data = notification.request.content.data || {};
-      console.log('[Notifications] Notification received in foreground:', data);
-    }
-  );
+  try {
+    // 1. Handle notification tapped while app is foregrounded / backgrounded
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(
+      (response: any) => {
+        const data = response?.notification?.request?.content?.data || {};
+        console.log('[Notifications] Notification tapped with data:', data);
+        onNotificationTapped(data);
+      }
+    );
 
-  // 3. Handle cold boot from notification tap
-  Notifications.getLastNotificationResponseAsync().then((response) => {
-    if (response) {
-      const data = response.notification.request.content.data || {};
-      console.log('[Notifications] App cold-started from notification tap:', data);
-      onNotificationTapped(data);
-    }
-  }).catch((err) => {
-    console.warn('[Notifications] Error checking last notification response:', err);
-  });
+    // 2. Handle notification received in foreground
+    const receivedSubscription = Notifications.addNotificationReceivedListener(
+      (notification: any) => {
+        const data = notification?.request?.content?.data || {};
+        console.log('[Notifications] Notification received in foreground:', data);
+      }
+    );
 
-  return () => {
-    responseSubscription.remove();
-    receivedSubscription.remove();
-  };
+    // 3. Handle cold boot from notification tap
+    if (typeof Notifications.getLastNotificationResponseAsync === 'function') {
+      Notifications.getLastNotificationResponseAsync()
+        .then((response: any) => {
+          if (response) {
+            const data = response?.notification?.request?.content?.data || {};
+            console.log('[Notifications] App cold-started from notification tap:', data);
+            onNotificationTapped(data);
+          }
+        })
+        .catch((err: any) => {
+          console.warn('[Notifications] Error checking last notification response:', err);
+        });
+    }
+
+    return () => {
+      try {
+        responseSubscription?.remove();
+        receivedSubscription?.remove();
+      } catch {
+        // Ignore removal errors
+      }
+    };
+  } catch (err) {
+    console.warn('[Customer Notifications] Failed to setup notification listeners:', err);
+    return () => {};
+  }
 }

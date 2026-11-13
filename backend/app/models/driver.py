@@ -79,6 +79,19 @@ class Driver(Base):
         nullable=False,
     )
 
+    current_latitude: Mapped[float | None] = mapped_column(
+        nullable=True,
+    )
+
+    current_longitude: Mapped[float | None] = mapped_column(
+        nullable=True,
+    )
+
+    last_location_update: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

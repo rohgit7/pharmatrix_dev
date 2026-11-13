@@ -39,3 +39,11 @@ class FailStopRequest(BaseModel):
 class UploadProofBase64Request(BaseModel):
     image_base64: str = Field(min_length=1)
     file_name: str | None = Field(default="collection_proof.jpg")
+
+
+class DriverLocationPingRequest(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    speed: float | None = None
+    heading: float | None = None
+    accuracy_meters: float | None = None

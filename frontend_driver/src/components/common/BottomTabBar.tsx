@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing, radii } from '../../theme';
 
-export type TabName = 'operations' | 'routes' | 'pickups' | 'profile';
+export type TabName = 'operations' | 'routes' | 'pickups' | 'history' | 'profile';
 
 interface BottomTabBarProps {
   currentTab: TabName;
@@ -18,6 +18,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({ currentTab, onTabCha
     { id: 'operations', label: 'Operations', icon: 'grid-outline', activeIcon: 'grid' },
     { id: 'routes', label: 'Routes', icon: 'map-outline', activeIcon: 'map' },
     { id: 'pickups', label: 'Pickups', icon: 'cube-outline', activeIcon: 'cube' },
+    { id: 'history', label: 'History', icon: 'time-outline', activeIcon: 'time' },
     { id: 'profile', label: 'Profile', icon: 'person-circle-outline', activeIcon: 'person-circle' },
   ];
 
@@ -75,8 +76,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radii.md,
-    marginHorizontal: 4,
-    gap: 3,
+    marginHorizontal: 2,
+    gap: 2,
   },
   activeTabBtn: {
     backgroundColor: colors.lightAccent,

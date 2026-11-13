@@ -1,7 +1,10 @@
 from datetime import date, datetime, time as dt_time
+import logging
 import secrets
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 
@@ -23,15 +26,27 @@ from app.models.route import Route
 from app.models.route_stop import RouteStop
 from app.models.user import User, UserRole
 from app.schemas.pickup import (
+    DriverLiveLocationResponse,
     PickupAdminCreate,
     PickupAdminResponse,
     PickupAdminUpdate,
     PickupCancelRequest,
+    PickupEventItem,
     PickupHistoryItem,
     PickupHistoryResponse,
+    PickupMonitoringDetailResponse,
+    PickupMonitoringListResponse,
+    PickupReassignDriverRequest,
     PickupScheduleRequest,
 )
 from app.services.audit_service import log_operational_audit
+from app.services.pickup_event_service import get_chronological_pickup_events
+from app.services.pickup_monitoring_service import (
+    build_pickup_monitoring_detail,
+    get_driver_live_location_for_pickup,
+    list_pickup_monitoring,
+    reassign_pickup_driver,
+)
 from app.services.pickup_service import (
     cancel_pickup,
     generate_pickup_code,
@@ -39,6 +54,8 @@ from app.services.pickup_service import (
     schedule_pickup,
 )
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/admin/pickups",
@@ -146,6 +163,71 @@ def _enrich_pickup_response(p: Pickup, tomorrow: date) -> PickupAdminResponse:
         route_status=route.status.value if route else None,
         is_eligible_for_tomorrow=is_eligible,
         ineligibility_reason=ineligibility_reason,
+    )
+
+
+def _resolve_pickup(db: Session, pickup_id: str | UUID | int) -> Pickup:
+    if isinstance(pickup_id, UUID):
+        p = db.query(Pickup).filter(Pickup.public_id == pickup_id).first()
+        if p:
+            return p
+    if isinstance(pickup_id, int):
+        p = db.query(Pickup).filter(Pickup.id == pickup_id).first()
+        if p:
+            return p
+
+    str_id = str(pickup_id).strip()
+    try:
+        u_val = UUID(str_id)
+        p = db.query(Pickup).filter(Pickup.public_id == u_val).first()
+        if p:
+            return p
+    except (ValueError, AttributeError):
+        pass
+
+    if str_id.isdigit():
+        p = db.query(Pickup).filter(Pickup.id == int(str_id)).first()
+        if p:
+            return p
+
+    p = db.query(Pickup).filter(Pickup.pickup_code.ilike(str_id)).first()
+    if p:
+        return p
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Pickup '{pickup_id}' not found",
+    )
+
+
+@router.get(
+    "/monitoring",
+    response_model=PickupMonitoringListResponse,
+    summary="List all pickups with live monitoring filters and lifecycle counters",
+)
+def admin_pickup_monitoring_list(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    search: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    customer_type: str | None = Query(default=None),
+    driver_id: int | None = Query(default=None),
+    start_date: datetime | None = Query(default=None),
+    end_date: datetime | None = Query(default=None),
+    delayed_only: bool = Query(default=False),
+    db: Session = Depends(get_db),
+):
+    return list_pickup_monitoring(
+        db=db,
+        page=page,
+        page_size=page_size,
+        search=search,
+        status_filter=status,
+        customer_type=customer_type,
+        driver_id=driver_id,
+        start_date=start_date,
+        end_date=end_date,
+        delayed_only=delayed_only,
     )
 
 
@@ -312,6 +394,242 @@ def admin_get_pickup(
     return _enrich_pickup_response(pickup, tomorrow)
 
 
+@router.get(
+    "/{pickup_id}/monitoring-detail",
+    response_model=PickupMonitoringDetailResponse,
+    summary="Get complete live monitoring details, progress timeline, and financials",
+)
+def admin_get_pickup_monitoring_detail(
+    pickup_id: str,
+    db: Session = Depends(get_db),
+):
+    pickup = _resolve_pickup(db, pickup_id)
+    return build_pickup_monitoring_detail(db=db, pickup=pickup)
+
+
+@router.get(
+    "/{pickup_id}/events",
+    response_model=list[PickupEventItem],
+    summary="Get complete chronological activity and audit log for a pickup",
+)
+def admin_get_pickup_events(
+    pickup_id: str,
+    db: Session = Depends(get_db),
+):
+    pickup = _resolve_pickup(db, pickup_id)
+    raw_events = get_chronological_pickup_events(db, pickup)
+    return [
+        PickupEventItem(
+            id=ev["id"],
+            event_type=ev["event_type"],
+            title=ev["title"],
+            description=ev.get("description"),
+            actor_type=ev["actor_type"],
+            actor_id=ev.get("actor_id"),
+            actor_name=ev["actor_name"],
+            metadata=ev.get("metadata", {}),
+            created_at=datetime.fromisoformat(ev["created_at"]),
+            source=ev["source"],
+        )
+        for ev in raw_events
+    ]
+
+
+@router.get(
+    "/{pickup_id}/driver-location",
+    response_model=DriverLiveLocationResponse,
+    summary="Get live GPS telemetry for assigned driver",
+)
+def admin_get_pickup_driver_location(
+    pickup_id: str,
+    db: Session = Depends(get_db),
+):
+    pickup = _resolve_pickup(db, pickup_id)
+    return get_driver_live_location_for_pickup(db=db, pickup=pickup)
+
+
+@router.post(
+    "/{pickup_id}/reassign-driver",
+    response_model=PickupMonitoringDetailResponse,
+    summary="Reassign driver/vehicle for a pickup with recorded audit event",
+)
+def admin_reassign_driver_for_pickup(
+    pickup_id: str,
+    data: PickupReassignDriverRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    pickup = _resolve_pickup(db, pickup_id)
+    reassign_pickup_driver(
+        db=db,
+        pickup=pickup,
+        driver_id=data.driver_id,
+        vehicle_id=data.vehicle_id,
+        reason=data.reason,
+        admin_user=current_user,
+    )
+    return build_pickup_monitoring_detail(db=db, pickup=pickup)
+
+
+stream_router = APIRouter(
+    prefix="/api/admin/pickups",
+    tags=["Admin - Pickups Live Stream"],
+)
+
+
+def _get_admin_for_stream(
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
+    token: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> User:
+    raw_token = credentials.credentials if credentials else token
+    if not raw_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token",
+        )
+    from app.core.auth import extract_auth_user_info
+    auth_user_id, token_email = extract_auth_user_info(raw_token)
+    user = db.query(User).filter(User.auth_user_id == auth_user_id).first()
+    if not user and token_email:
+        user = db.query(User).filter(User.email.ilike(token_email.strip().lower())).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User profile not found",
+        )
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
+    return user
+
+
+@stream_router.get(
+    "/{pickup_id}/live-stream",
+    summary="Event-driven Server-Sent Events (SSE) telemetry stream for a selected pickup",
+)
+async def admin_pickup_live_stream(
+    pickup_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(_get_admin_for_stream),
+):
+    pickup = _resolve_pickup(db, pickup_id)
+    pickup_pk = pickup.id
+
+    async def sse_generator():
+        import asyncio
+        from app.core.database import SessionLocal
+        from app.core.live_bus import pickup_live_bus
+
+        # 1. Immediate initial snapshot
+        s_db = SessionLocal()
+        is_terminal = False
+        last_hash = ""
+        try:
+            p = s_db.query(Pickup).filter(Pickup.id == pickup_pk).first()
+            if not p:
+                return
+
+            is_terminal = p.status in [PickupStatus.COMPLETED, PickupStatus.CANCELLED, PickupStatus.FAILED]
+            detail = build_pickup_monitoring_detail(s_db, p)
+            last_hash = f"{p.status.value}:{p.updated_at.isoformat() if p.updated_at else ''}"
+            payload = detail.model_dump_json()
+            yield f"event: pickup_update\ndata: {payload}\n\n"
+
+            # If already terminal, close stream gracefully - no active monitoring needed
+            if is_terminal:
+                yield "event: stream_end\ndata: {\"reason\": \"terminal_status\", \"status\": \"" + p.status.value + "\"}\n\n"
+                return
+        except Exception as init_err:
+            logger.warning("Error generating initial SSE snapshot: %s", init_err)
+            return
+        finally:
+            s_db.close()
+
+        # 2. Event-driven reactivity: wait for actual domain events (driver GPS, status changes)
+        # Replaces continuous 4-second DB polling with reactive asyncio events.
+        event = asyncio.Event()
+        pickup_live_bus.subscribe(pickup_pk, event)
+
+        try:
+            start_time = asyncio.get_event_loop().time()
+            max_stream_duration = 900.0  # 15 minutes max per stream session
+
+            while True:
+                if await request.is_disconnected():
+                    break
+
+                elapsed = asyncio.get_event_loop().time() - start_time
+                if elapsed >= max_stream_duration:
+                    yield ": keepalive_session_renew\n\n"
+                    break
+
+                # Sleep-wait until a real domain event occurs or 20s keepalive tick fires
+                has_event = False
+                try:
+                    await asyncio.wait_for(event.wait(), timeout=20.0)
+                    event.clear()
+                    has_event = True
+                except asyncio.TimeoutError:
+                    has_event = False
+
+                if await request.is_disconnected():
+                    break
+
+                if not has_event:
+                    # Idle tick: emit a 12-byte SSE comment to keep connection alive WITHOUT hitting the database!
+                    yield ": keepalive\n\n"
+                    continue
+
+                # A real event occurred (e.g. driver GPS ping, status transition, OTP confirmation).
+                # Query DB only on actual changes.
+                s_db = SessionLocal()
+                try:
+                    p = s_db.query(Pickup).filter(Pickup.id == pickup_pk).first()
+                    if not p:
+                        break
+
+                    quick_hash = f"{p.status.value}:{p.updated_at.isoformat() if p.updated_at else ''}"
+                    
+                    # Include assigned driver live coordinate telemetry in diff hash
+                    drv_telemetry = ""
+                    if p.route_stops and p.route_stops[0].route and p.route_stops[0].route.driver:
+                        d = p.route_stops[0].route.driver
+                        drv_telemetry = f":{d.current_latitude}:{d.current_longitude}:{d.last_location_update}"
+
+                    combined_hash = quick_hash + drv_telemetry
+                    if combined_hash != last_hash:
+                        last_hash = combined_hash
+                        detail = build_pickup_monitoring_detail(s_db, p)
+                        yield f"event: pickup_update\ndata: {detail.model_dump_json()}\n\n"
+
+                        if p.status in [PickupStatus.COMPLETED, PickupStatus.CANCELLED, PickupStatus.FAILED]:
+                            yield "event: stream_end\ndata: {\"reason\": \"terminal_status\", \"status\": \"" + p.status.value + "\"}\n\n"
+                            break
+                    else:
+                        yield ": keepalive\n\n"
+                except Exception as stream_err:
+                    logger.warning("SSE live stream error: %s", stream_err)
+                    break
+                finally:
+                    s_db.close()
+        finally:
+            pickup_live_bus.unsubscribe(pickup_pk, event)
+
+    return StreamingResponse(
+        sse_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.post(
     "/",
     response_model=PickupAdminResponse,
@@ -454,7 +772,7 @@ def admin_reschedule_next_day(
         entity_id=pickup.id,
         entity_code=pickup.pickup_code,
         actor_id=current_user.id,
-        actor_name=current_user.full_name,
+        actor_name=current_user.name,
         details={
             "old_status": old_status,
             "new_scheduled_date": scheduled_dt.isoformat(),

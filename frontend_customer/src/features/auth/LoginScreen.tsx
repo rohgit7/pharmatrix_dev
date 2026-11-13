@@ -154,7 +154,7 @@ export const LoginScreen: React.FC = () => {
         </View>
 
         <View style={styles.headerSection}>
-          <Text style={styles.title}>Sign in to your facility</Text>
+          <Text style={styles.title}>Sign in to your account</Text>
           <Text style={styles.subtitle}>
             Schedule pharmaceutical waste pickups, verify weigh-ins, and manage payments.
           </Text>
@@ -179,7 +179,7 @@ export const LoginScreen: React.FC = () => {
               accessibilityRole="tab"
               accessibilityState={{ selected: false }}
             >
-              <Text style={styles.modeTabText}>Register Facility</Text>
+              <Text style={styles.modeTabText}>Create Account</Text>
             </TouchableOpacity>
           </View>
 
@@ -196,7 +196,7 @@ export const LoginScreen: React.FC = () => {
               <Mail size={17} color={colors.textSecondary} />
               <TextInput
                 style={styles.input}
-                placeholder="facility@organization.com"
+                placeholder="contact@business.com"
                 placeholderTextColor={colors.textMuted}
                 value={email}
                 onChangeText={(v) => {

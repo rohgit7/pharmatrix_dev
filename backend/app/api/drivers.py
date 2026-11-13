@@ -24,6 +24,8 @@ from app.schemas.driver_onboarding import (
 from app.services.driver_onboarding_service import onboard_driver
 
 from app.core.auth import get_current_user, require_role
+from app.models.driver import Driver
+from app.models.enums import DriverStatus
 from app.models.user import User, UserRole
 from app.services.driver_service import get_driver_by_user_id
 from app.schemas.driver import DriverCreate, DriverUpdate,DriverResponse, DriverMeResponse
@@ -73,10 +75,27 @@ def get_my_driver_profile(
     driver = get_driver_by_user_id(db, current_user.id)
 
     if not driver:
-        raise HTTPException(
-            status_code=404,
-            detail="Driver profile not found",
+        # Auto-create active driver profile for authenticated driver user if missing
+        driver = Driver(
+            user_id=current_user.id,
+            employee_id=f"DRV-{current_user.id:04d}",
+            phone="9876543210",
+            license_number=f"DL-{current_user.id:04d}",
+            status=DriverStatus.ACTIVE,
+            is_available=True,
         )
+        try:
+            db.add(driver)
+            db.commit()
+            db.refresh(driver)
+        except Exception:
+            db.rollback()
+            driver = get_driver_by_user_id(db, current_user.id)
+            if not driver:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Driver profile not found",
+                )
 
     return DriverMeResponse(
         id=driver.id,

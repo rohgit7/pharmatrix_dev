@@ -24,6 +24,7 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
+  Activity,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -39,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       group: 'OPERATIONS',
       items: [
         { name: 'Overview', to: '/', icon: LayoutDashboard },
+        { name: 'Pickup Monitoring', to: '/pickup-monitoring', icon: Activity },
         { name: '1. Pickup Planning', to: '/pickups', icon: CalendarCheck },
         { name: '2. Route Optimization', to: '/route-optimization', icon: Route },
         { name: '3. Fleet Assignment', to: '/fleet', icon: Users },

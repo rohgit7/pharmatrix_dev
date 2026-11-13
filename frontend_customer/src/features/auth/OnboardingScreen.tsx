@@ -229,7 +229,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
     const phoneDigits = businessPhone.replace(/\D/g, '');
 
     if (cleanDisplay.length < 2) {
-      errs.displayName = 'Enter your business or facility name';
+      errs.displayName = 'Enter your business or organization name';
     }
     if (cleanLegal.length < 2) {
       errs.legalName = 'Enter the registered legal entity name';
@@ -382,14 +382,14 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
             </View>
 
             <Text style={styles.completionOverline}>ONBOARDING COMPLETE</Text>
-            <Text style={styles.completionTitle}>Facility Registered Successfully</Text>
+            <Text style={styles.completionTitle}>Business Registered Successfully</Text>
             <Text style={styles.completionSubtitle}>
-              Your facility account and pickup location are now active on the Pharmatrix network.
+              Your customer account and pickup location are now active on the Pharmatrix network.
             </Text>
 
             <View style={styles.completionSummaryBox}>
               <View style={styles.completionRow}>
-                <Text style={styles.completionLabel}>Facility Name</Text>
+                <Text style={styles.completionLabel}>Business Name</Text>
                 <Text style={styles.completionValue}>
                   {completedCustomer?.display_name || displayName}
                 </Text>
@@ -405,7 +405,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
               </View>
               <View style={styles.completionDivider} />
               <View style={styles.completionRow}>
-                <Text style={styles.completionLabel}>Facility Category</Text>
+                <Text style={styles.completionLabel}>Customer Type</Text>
                 <Text style={styles.completionValue}>{customerType}</Text>
               </View>
               <View style={styles.completionDivider} />
@@ -460,15 +460,15 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
     },
     2: {
       title: 'Business Profile',
-      subtitle: 'Select your facility type and enter your organization details.',
+      subtitle: 'Select your customer type and enter your organization details.',
     },
     3: {
       title: 'Pickup Location',
-      subtitle: 'Set your facility address using GPS, map pin, or manual entry.',
+      subtitle: 'Set your business address using GPS, map pin, or manual entry.',
     },
     4: {
       title: 'Review & Complete',
-      subtitle: 'Verify your account, facility profile, and pickup location before submitting.',
+      subtitle: 'Verify your account, business profile, and pickup location before submitting.',
     },
   };
 
@@ -575,7 +575,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
                           setStep1Errors((prev) => ({ ...prev, email: undefined }));
                         }
                       }}
-                      placeholder="name@facility.com"
+                      placeholder="name@business.com"
                       placeholderTextColor={colors.textMuted}
                       keyboardType="email-address"
                       autoCapitalize="none"
@@ -660,7 +660,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
         {/* ==================== STEP 2: BUSINESS PROFILE ==================== */}
         {step === 2 ? (
           <>
-            <Text style={styles.sectionHeading}>Select Facility Category</Text>
+            <Text style={styles.sectionHeading}>Select Customer Category</Text>
             <View style={styles.typeGrid}>
               {CUSTOMER_TYPES.map((item) => {
                 const IconComp = item.icon;
@@ -696,7 +696,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
               <Text style={styles.cardTitle}>Organization Details</Text>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.label}>Business / Facility Display Name *</Text>
+                <Text style={styles.label}>Business / Organization Display Name *</Text>
                 <TextInput
                   style={[styles.input, !!step2Errors.displayName && styles.inputError]}
                   value={displayName}
@@ -1019,7 +1019,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
               onClearFieldError={(field) =>
                 setLocationErrors((prev) => ({ ...prev, [field]: undefined }))
               }
-              defaultBranchPlaceholder={`${displayName.trim() || 'Main Facility'} - Pickup Point`}
+              defaultBranchPlaceholder={`${displayName.trim() || 'Main Branch'} - Pickup Point`}
             />
 
             <View style={styles.stepActionsRow}>

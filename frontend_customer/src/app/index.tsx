@@ -227,7 +227,7 @@ export default function MainCustomerPortal() {
         };
       case 'profile':
         return {
-          title: 'Facility Profile',
+          title: 'Business Profile',
           subtitle: 'Addresses & account settings',
         };
     }

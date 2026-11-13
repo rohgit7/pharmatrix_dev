@@ -280,10 +280,10 @@ export const BusinessLocationPicker: React.FC<BusinessLocationPickerProps> = ({
             <MapPin size={18} color={colors.accent} />
           </View>
           <View style={styles.purposeTextCol}>
-            <Text style={styles.purposeTitle}>Why we need your facility location</Text>
+            <Text style={styles.purposeTitle}>Why we need your business location</Text>
             <Text style={styles.purposeBody}>
               Pharmatrix uses your pickup address and coordinates to assign nearby collection
-              vehicles and navigate drivers directly to your facility entrance.
+              vehicles and navigate drivers directly to your business entrance.
             </Text>
           </View>
         </View>
@@ -347,7 +347,7 @@ export const BusinessLocationPicker: React.FC<BusinessLocationPickerProps> = ({
             <View style={{ flex: 1 }}>
               <Text style={styles.panelTitle}>Automatic GPS Detection</Text>
               <Text style={styles.panelSubtitle}>
-                Detect your facility coordinates and pre-fill your pickup address.
+                Detect your business coordinates and pre-fill your pickup address.
               </Text>
             </View>
             <View
@@ -466,7 +466,7 @@ export const BusinessLocationPicker: React.FC<BusinessLocationPickerProps> = ({
             <View style={{ flex: 1 }}>
               <Text style={styles.panelTitle}>Interactive Map Pin Selector</Text>
               <Text style={styles.panelSubtitle}>
-                Tap anywhere on the map grid or nudge the pin to mark your exact facility gate.
+                Tap anywhere on the map grid or nudge the pin to mark your exact pickup entrance.
               </Text>
             </View>
             <TouchableOpacity
@@ -665,8 +665,8 @@ export const BusinessLocationPicker: React.FC<BusinessLocationPickerProps> = ({
         <View style={styles.addressFormHeader}>
           <Text style={styles.addressFormTitle}>
             {hasVerifiedCoordinates
-              ? 'Review & Complete Facility Address'
-              : 'Facility Pickup Address'}
+              ? 'Review & Complete Pickup Address'
+              : 'Business Pickup Address'}
           </Text>
           <View
             style={[
@@ -825,7 +825,7 @@ export function validateBusinessLocationForm(
   const errs: BusinessLocationFieldErrors = {};
 
   if (!loc.name || loc.name.trim().length < 2) {
-    errs.name = 'Enter the building, branch, or facility name';
+    errs.name = 'Enter the building, shop, or branch name';
   }
   if (!loc.addressLine1 || loc.addressLine1.trim().length < 3) {
     errs.addressLine1 = 'Enter the street and area address';

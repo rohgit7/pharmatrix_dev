@@ -49,4 +49,5 @@ from app.models.payment import Payment
 from app.models.razorpay_order import RazorpayOrder
 from app.models.razorpay_webhook_event import RazorpayWebhookEvent
 from app.models.audit_log import AuditLog
+from app.models.event import PickupEvent
 from app.models.optimization_run import OptimizationRun, OptimizationRunPickup

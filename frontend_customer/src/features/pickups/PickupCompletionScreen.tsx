@@ -60,7 +60,7 @@ export const PickupCompletionScreen: React.FC<PickupCompletionScreenProps> = ({
             <h1>PHARMATRIX COLLECTION RECEIPT</h1>
             <div class="meta">Pickup ID: ${details.pickup_code} | Status: ${formatStatusLabel(details.status)}</div>
             <div class="box">
-              <div class="row"><span class="bold">Location:</span><span>${details.location?.name || 'Registered Facility'}</span></div>
+              <div class="row"><span class="bold">Location:</span><span>${details.location?.name || 'Registered Location'}</span></div>
               <div class="row"><span class="bold">Final Weight:</span><span>${details.actual_weight_kg ?? details.estimated_weight_kg ?? 0} kg</span></div>
               <div class="row"><span class="bold">Completion Date:</span><span>${details.collected_at ? new Date(details.collected_at).toLocaleString('en-IN') : 'Completed'}</span></div>
               <div class="row"><span class="bold">OTP Verification:</span><span>${details.otp_status.otp_verified ? 'Verified' : 'Completed'}</span></div>

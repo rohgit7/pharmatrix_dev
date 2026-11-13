@@ -1,3 +1,4 @@
+import '../setup';
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +14,7 @@ import { LoginScreen } from '../features/auth/LoginScreen';
 import { OperationsScreen } from '../features/home/OperationsScreen';
 import { RoutesScreen } from '../features/routes/RoutesScreen';
 import { PickupsScreen } from '../features/pickups/PickupsScreen';
+import { WorkHistoryScreen } from '../features/history/WorkHistoryScreen';
 import { ProfileScreen } from '../features/handover/ProfileScreen';
 import { colors, radii, spacing, typography, shadows } from '../theme';
 import { setupNotificationListeners } from '../services/notifications';
@@ -32,6 +34,8 @@ function MainNavigator() {
         setCurrentTab('routes');
       } else if (screen === 'pickups' || pickup_id) {
         setCurrentTab('pickups');
+      } else if (screen === 'history') {
+        setCurrentTab('history');
       } else if (screen === 'profile') {
         setCurrentTab('profile');
       } else if (screen === 'operations') {
@@ -68,6 +72,8 @@ function MainNavigator() {
         return 'Routes';
       case 'pickups':
         return 'Pickups Pipeline';
+      case 'history':
+        return 'Work History';
       case 'profile':
         return 'Profile';
       default:
@@ -83,6 +89,8 @@ function MainNavigator() {
         return <RoutesScreen onNavigateToTab={setCurrentTab} />;
       case 'pickups':
         return <PickupsScreen onNavigateToTab={setCurrentTab} />;
+      case 'history':
+        return <WorkHistoryScreen onNavigateToTab={setCurrentTab} />;
       case 'profile':
         return <ProfileScreen />;
     }

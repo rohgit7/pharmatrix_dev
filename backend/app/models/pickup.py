@@ -200,4 +200,11 @@ class Pickup(Base):
         "OptimizationRunPickup",
         back_populates="pickup",
         cascade="all, delete-orphan",
+    )
+
+    events = relationship(
+        "PickupEvent",
+        back_populates="pickup",
+        cascade="all, delete-orphan",
+        order_by="PickupEvent.created_at.asc()",
     )

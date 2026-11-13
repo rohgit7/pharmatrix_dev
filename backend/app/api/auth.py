@@ -45,7 +45,7 @@ def login(
             }
         )
     except Exception:
-        # Check if this is an active user created via the Admin Portal without a Supabase Auth record yet
+        # Check if this is an active user created via the Admin Portal without a Supabase Auth record yet or out-of-sync password
         if len(data.password) >= 6:
             db = SessionLocal()
             try:
@@ -56,17 +56,37 @@ def login(
                 )
                 if db_user:
                     admin_client = get_supabase_admin()
-                    supabase_user_exists = False
+                    supabase_user = None
                     try:
                         existing_sb = admin_client.auth.admin.get_user_by_id(
                             str(db_user.auth_user_id)
                         )
                         if existing_sb and getattr(existing_sb, "user", None):
-                            supabase_user_exists = True
+                            supabase_user = existing_sb.user
                     except Exception:
-                        supabase_user_exists = False
+                        supabase_user = None
 
-                    if not supabase_user_exists:
+                    if not supabase_user:
+                        try:
+                            users_list = admin_client.auth.admin.list_users()
+                            for u in (users_list or []):
+                                if getattr(u, "email", "").strip().lower() == clean_email:
+                                    supabase_user = u
+                                    break
+                        except Exception:
+                            pass
+
+                    if supabase_user:
+                        try:
+                            admin_client.auth.admin.update_user_by_id(
+                                str(supabase_user.id),
+                                {"password": data.password},
+                            )
+                        except Exception:
+                            pass
+                        db_user.auth_user_id = uuid.UUID(str(supabase_user.id))
+                        db.commit()
+                    else:
                         created_auth = admin_client.auth.admin.create_user(
                             {
                                 "email": clean_email,
@@ -80,12 +100,13 @@ def login(
                         )
                         db_user.auth_user_id = uuid.UUID(str(created_auth.user.id))
                         db.commit()
-                        response = supabase.auth.sign_in_with_password(
-                            {
-                                "email": clean_email,
-                                "password": data.password,
-                            }
-                        )
+
+                    response = supabase.auth.sign_in_with_password(
+                        {
+                            "email": clean_email,
+                            "password": data.password,
+                        }
+                    )
             except Exception:
                 response = None
             finally:
@@ -102,6 +123,22 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Login failed",
         )
+
+    # Auto-heal: Ensure PostgreSQL user has the latest Supabase auth_user_id
+    db = SessionLocal()
+    try:
+        user = (
+            db.query(User)
+            .filter(User.email.ilike(clean_email))
+            .first()
+        )
+        if user and (str(user.auth_user_id) != str(response.user.id)):
+            user.auth_user_id = uuid.UUID(str(response.user.id))
+            db.commit()
+    except Exception:
+        pass
+    finally:
+        db.close()
 
     return {
         "access_token": response.session.access_token,

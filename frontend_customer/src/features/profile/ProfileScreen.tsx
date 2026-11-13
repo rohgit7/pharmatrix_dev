@@ -83,7 +83,7 @@ export const ProfileScreen: React.FC = () => {
       });
       await refreshProfile();
       setEditing(false);
-      setFeedback('Facility profile updated.');
+      setFeedback('Business profile updated.');
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to update profile.');
     } finally {

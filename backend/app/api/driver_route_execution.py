@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from fastapi import File, UploadFile
 from app.core.auth import get_current_user, require_role
@@ -8,6 +8,7 @@ from app.models.user import User, UserRole
 from app.schemas.route_execution import (
     ArriveAtStopRequest,
     CompletePickupRequest,
+    DriverLocationPingRequest,
     FailStopRequest,
     UploadProofBase64Request,
     WeighPickupRequest,
@@ -299,4 +300,50 @@ def upload_collection_proof_base64_endpoint(
         "stop_id": stop.id,
         "proof_uploaded": True,
         "proof_uploaded_at": stop.proof_uploaded_at,
+    }
+
+
+@router.post("/location", summary="Driver live GPS telemetry ping")
+def update_driver_location_endpoint(
+    data: DriverLocationPingRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from datetime import datetime, timezone
+    from app.models.driver import Driver
+    driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found")
+    driver.current_latitude = data.latitude
+    driver.current_longitude = data.longitude
+    driver.last_location_update = datetime.now(timezone.utc)
+    db.commit()
+
+    # Notify live monitoring subscribers of active stops on this driver's route
+    try:
+        from app.core.live_bus import pickup_live_bus
+        from app.models.route import Route
+        from app.models.route_stop import RouteStop
+        from app.models.enums import RouteStatus
+        active_stops = (
+            db.query(RouteStop.pickup_id)
+            .join(Route, RouteStop.route_id == Route.id)
+            .filter(
+                Route.driver_id == driver.id,
+                Route.status == RouteStatus.IN_PROGRESS,
+                RouteStop.pickup_id.isnot(None),
+            )
+            .all()
+        )
+        pids = [s[0] for s in active_stops if s[0]]
+        if pids:
+            pickup_live_bus.notify_pickups(pids)
+    except Exception:
+        pass
+    return {
+        "status": "success",
+        "driver_id": driver.id,
+        "latitude": driver.current_latitude,
+        "longitude": driver.current_longitude,
+        "updated_at": driver.last_location_update.isoformat(),
     }

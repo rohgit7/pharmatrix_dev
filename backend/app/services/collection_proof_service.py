@@ -227,6 +227,23 @@ def _save_proof_bytes(
     stop.proof_storage_path = storage_path
     stop.proof_uploaded_at = datetime.now(timezone.utc)
 
+    if stop.stop_type == RouteStopType.PICKUP and stop.pickup:
+        try:
+            from app.services.pickup_event_service import record_pickup_event
+            record_pickup_event(
+                db=db,
+                pickup_id=stop.pickup.id,
+                event_type="PROOF_UPLOADED",
+                title="Collection Evidence Uploaded",
+                description="Driver photographed and uploaded sealed collection proof",
+                actor_type="DRIVER",
+                actor_id=user.id,
+                actor_name=user.name if hasattr(user, "name") else "Driver",
+                metadata_json={"proof_storage_path": storage_path},
+            )
+        except Exception:
+            pass
+
     db.commit()
     db.refresh(stop)
 
