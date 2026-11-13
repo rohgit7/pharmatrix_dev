@@ -43,6 +43,12 @@ import {
   PickupStatus,
   WasteCategoriesMetadata,
 } from '../../services/api';
+import {
+  BusinessLocationFieldErrors,
+  BusinessLocationFormValue,
+  BusinessLocationPicker,
+  validateBusinessLocationForm,
+} from '../../components/location/BusinessLocationPicker';
 
 interface RequestPickupScreenProps {
   locations: CustomerLocation[];
@@ -68,14 +74,20 @@ export const RequestPickupScreen: React.FC<RequestPickupScreenProps> = ({
     locations[0]?.id ?? null
   );
   const [addLocModal, setAddLocModal] = useState(false);
-  const [newLocName, setNewLocName] = useState('');
-  const [newLocCode, setNewLocCode] = useState('');
-  const [newLocAddress, setNewLocAddress] = useState('');
-  const [newLocCity, setNewLocCity] = useState('');
-  const [newLocState, setNewLocState] = useState('');
-  const [newLocPin, setNewLocPin] = useState('');
-  const [newLocContactName, setNewLocContactName] = useState('');
-  const [newLocContactPhone, setNewLocContactPhone] = useState('');
+  const [newLocForm, setNewLocForm] = useState<BusinessLocationFormValue>({
+    name: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: locations[0]?.city || '',
+    state: locations[0]?.state || '',
+    postalCode: '',
+    contactName: locations[0]?.contact_name || '',
+    contactPhone: locations[0]?.contact_phone || '',
+    latitude: null,
+    longitude: null,
+    locationSource: 'MANUAL',
+  });
+  const [newLocErrors, setNewLocErrors] = useState<BusinessLocationFieldErrors>({});
   const [savingLoc, setSavingLoc] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
@@ -205,23 +217,28 @@ export const RequestPickupScreen: React.FC<RequestPickupScreenProps> = ({
   };
 
   const openAddLocationModal = () => {
-    const defaultCity = locations[0]?.city || '';
-    const defaultState = locations[0]?.state || '';
-    setNewLocCity(defaultCity);
-    setNewLocState(defaultState);
+    setNewLocForm({
+      name: '',
+      addressLine1: '',
+      addressLine2: '',
+      city: locations[0]?.city || '',
+      state: locations[0]?.state || '',
+      postalCode: '',
+      contactName: locations[0]?.contact_name || '',
+      contactPhone: locations[0]?.contact_phone || '',
+      latitude: null,
+      longitude: null,
+      locationSource: 'MANUAL',
+    });
+    setNewLocErrors({});
     setModalError(null);
     setAddLocModal(true);
   };
 
   const handleAddLocation = async () => {
-    if (
-      !newLocName.trim() ||
-      !newLocAddress.trim() ||
-      !newLocCity.trim() ||
-      !newLocState.trim() ||
-      !newLocPin.trim() ||
-      !newLocContactPhone.trim()
-    ) {
+    const errs = validateBusinessLocationForm(newLocForm);
+    setNewLocErrors(errs);
+    if (Object.keys(errs).length > 0) {
       setModalError('Please complete all required location fields.');
       return;
     }
@@ -229,28 +246,21 @@ export const RequestPickupScreen: React.FC<RequestPickupScreenProps> = ({
     setModalError(null);
     try {
       const created = await api.addLocation({
-        location_code:
-          newLocCode.trim() ||
-          `LOC-${String(locations.length + 1).padStart(3, '0')}`,
-        name: newLocName.trim(),
-        address_line_1: newLocAddress.trim(),
-        city: newLocCity.trim(),
-        state: newLocState.trim(),
-        postal_code: newLocPin.trim(),
-        latitude: 12.9716,
-        longitude: 77.5946,
-        contact_name: newLocContactName.trim() || 'Facility Coordinator',
-        contact_phone: newLocContactPhone.trim(),
+        location_code: `LOC-${String(locations.length + 1).padStart(3, '0')}`,
+        name: newLocForm.name.trim(),
+        address_line_1: newLocForm.addressLine1.trim(),
+        address_line_2: newLocForm.addressLine2.trim() || undefined,
+        city: newLocForm.city.trim(),
+        state: newLocForm.state.trim(),
+        postal_code: newLocForm.postalCode.trim(),
+        latitude: newLocForm.latitude,
+        longitude: newLocForm.longitude,
+        contact_name: newLocForm.contactName.trim(),
+        contact_phone: newLocForm.contactPhone.trim(),
       });
       await onRefreshLocations();
       setSelectedLocationId(created.id);
       setAddLocModal(false);
-      setNewLocName('');
-      setNewLocCode('');
-      setNewLocAddress('');
-      setNewLocPin('');
-      setNewLocContactName('');
-      setNewLocContactPhone('');
     } catch (err: any) {
       setModalError(err?.message || 'Failed to register location.');
     } finally {
@@ -949,87 +959,15 @@ export const RequestPickupScreen: React.FC<RequestPickupScreenProps> = ({
                   </View>
                 ) : null}
 
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Branch / Location Name *</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="Main Pharmacy / Annex B"
-                    placeholderTextColor={colors.textMuted}
-                    value={newLocName}
-                    onChangeText={setNewLocName}
-                  />
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Street Address *</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="Building, street, and area"
-                    placeholderTextColor={colors.textMuted}
-                    value={newLocAddress}
-                    onChangeText={setNewLocAddress}
-                  />
-                </View>
-
-                <View style={styles.twoColRow}>
-                  <View style={[styles.fieldGroup, styles.colHalf]}>
-                    <Text style={styles.fieldLabel}>City *</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      value={newLocCity}
-                      onChangeText={setNewLocCity}
-                      placeholder="City"
-                      placeholderTextColor={colors.textMuted}
-                    />
-                  </View>
-                  <View style={[styles.fieldGroup, styles.colHalf]}>
-                    <Text style={styles.fieldLabel}>PIN Code *</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      value={newLocPin}
-                      onChangeText={setNewLocPin}
-                      keyboardType="number-pad"
-                      maxLength={6}
-                      placeholder="560001"
-                      placeholderTextColor={colors.textMuted}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>State *</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    value={newLocState}
-                    onChangeText={setNewLocState}
-                    placeholder="State"
-                    placeholderTextColor={colors.textMuted}
-                  />
-                </View>
-
-                <View style={styles.twoColRow}>
-                  <View style={[styles.fieldGroup, styles.colHalf]}>
-                    <Text style={styles.fieldLabel}>Site Contact Name</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="Coordinator"
-                      placeholderTextColor={colors.textMuted}
-                      value={newLocContactName}
-                      onChangeText={setNewLocContactName}
-                    />
-                  </View>
-                  <View style={[styles.fieldGroup, styles.colHalf]}>
-                    <Text style={styles.fieldLabel}>Contact Phone *</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="+91 9876543210"
-                      placeholderTextColor={colors.textMuted}
-                      keyboardType="phone-pad"
-                      value={newLocContactPhone}
-                      onChangeText={setNewLocContactPhone}
-                    />
-                  </View>
-                </View>
+                <BusinessLocationPicker
+                  value={newLocForm}
+                  onChange={setNewLocForm}
+                  errors={newLocErrors}
+                  onClearFieldError={(f) =>
+                    setNewLocErrors((prev) => ({ ...prev, [f]: undefined }))
+                  }
+                  compactHeader
+                />
               </ScrollView>
 
               <View style={styles.modalActions}>

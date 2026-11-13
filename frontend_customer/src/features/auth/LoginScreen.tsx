@@ -14,12 +14,13 @@ import {
   ShieldCheck,
   Mail,
   Lock,
-  User as UserIcon,
   Server,
   Eye,
   EyeOff,
   CheckCircle2,
   AlertCircle,
+  Building2,
+  ArrowRight,
 } from 'lucide-react-native';
 import { colors, spacing, borderRadius } from '../../theme';
 import { PrimaryButton } from '../../components/common/PrimaryButton';
@@ -30,11 +31,11 @@ import {
   setCustomApiBaseUrl,
   testApiConnection,
 } from '../../services/api';
+import { OnboardingScreen } from './OnboardingScreen';
 
 export const LoginScreen: React.FC = () => {
-  const { login, registerAndLogin } = useAuth();
+  const { login } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -64,11 +65,13 @@ export const LoginScreen: React.FC = () => {
     };
   }, []);
 
+  if (mode === 'register') {
+    return <OnboardingScreen onBackToSignIn={() => setMode('login')} />;
+  }
+
   const isEmailValid = email.trim().includes('@') && email.trim().includes('.');
-  const isPasswordValid =
-    mode === 'register' ? password.length >= 8 : password.length >= 6;
-  const isNameValid = mode === 'login' || name.trim().length >= 2;
-  const canSubmit = isEmailValid && isPasswordValid && isNameValid && !submitting;
+  const isPasswordValid = password.length >= 6;
+  const canSubmit = isEmailValid && isPasswordValid && !submitting;
 
   const handleSubmit = async () => {
     setErrorMsg(null);
@@ -77,25 +80,13 @@ export const LoginScreen: React.FC = () => {
       return;
     }
     if (!isPasswordValid) {
-      setErrorMsg(
-        mode === 'register'
-          ? 'Password must be at least 8 characters.'
-          : 'Enter your account password.'
-      );
-      return;
-    }
-    if (!isNameValid) {
-      setErrorMsg('Enter your full name.');
+      setErrorMsg('Enter your account password.');
       return;
     }
 
     setSubmitting(true);
     try {
-      if (mode === 'login') {
-        await login(email.trim(), password);
-      } else {
-        await registerAndLogin(name.trim(), email.trim(), password);
-      }
+      await login(email.trim(), password);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Sign in failed. Please check your credentials.');
     } finally {
@@ -152,8 +143,8 @@ export const LoginScreen: React.FC = () => {
                     serverOnline === true
                       ? colors.success
                       : serverOnline === false
-                      ? colors.error
-                      : colors.warning,
+                        ? colors.error
+                        : colors.warning,
                 },
               ]}
             />
@@ -163,13 +154,9 @@ export const LoginScreen: React.FC = () => {
         </View>
 
         <View style={styles.headerSection}>
-          <Text style={styles.title}>
-            {mode === 'login' ? 'Sign in to your facility' : 'Create customer account'}
-          </Text>
+          <Text style={styles.title}>Sign in to your facility</Text>
           <Text style={styles.subtitle}>
-            {mode === 'login'
-              ? 'Manage waste pickups, weigh-in handovers, and payments.'
-              : 'Register your pharmacy, distributor, hospital, or clinic.'}
+            Schedule pharmaceutical waste pickups, verify weigh-ins, and manage payments.
           </Text>
         </View>
 
@@ -177,43 +164,22 @@ export const LoginScreen: React.FC = () => {
         <Card variant="elevated" padding="xl" style={styles.authCard}>
           <View style={styles.modeTabs}>
             <TouchableOpacity
-              style={[styles.modeTab, mode === 'login' && styles.modeTabActive]}
-              onPress={() => {
-                setMode('login');
-                setErrorMsg(null);
-              }}
+              style={[styles.modeTab, styles.modeTabActive]}
               accessibilityRole="tab"
-              accessibilityState={{ selected: mode === 'login' }}
+              accessibilityState={{ selected: true }}
             >
-              <Text
-                style={[
-                  styles.modeTabText,
-                  mode === 'login' && styles.modeTabTextActive,
-                ]}
-              >
-                Sign In
-              </Text>
+              <Text style={[styles.modeTabText, styles.modeTabTextActive]}>Sign In</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.modeTab,
-                mode === 'register' && styles.modeTabActive,
-              ]}
+              style={styles.modeTab}
               onPress={() => {
-                setMode('register');
                 setErrorMsg(null);
+                setMode('register');
               }}
               accessibilityRole="tab"
-              accessibilityState={{ selected: mode === 'register' }}
+              accessibilityState={{ selected: false }}
             >
-              <Text
-                style={[
-                  styles.modeTabText,
-                  mode === 'register' && styles.modeTabTextActive,
-                ]}
-              >
-                Create Account
-              </Text>
+              <Text style={styles.modeTabText}>Register Facility</Text>
             </TouchableOpacity>
           </View>
 
@@ -221,26 +187,6 @@ export const LoginScreen: React.FC = () => {
             <View style={styles.errorBanner}>
               <AlertCircle size={16} color={colors.error} />
               <Text style={styles.errorText}>{errorMsg}</Text>
-            </View>
-          ) : null}
-
-          {mode === 'register' ? (
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Representative Name</Text>
-              <View style={styles.inputWrap}>
-                <UserIcon size={17} color={colors.textSecondary} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Full name"
-                  placeholderTextColor={colors.textMuted}
-                  value={name}
-                  onChangeText={(v) => {
-                    setName(v);
-                    if (errorMsg) setErrorMsg(null);
-                  }}
-                  autoCapitalize="words"
-                />
-              </View>
             </View>
           ) : null}
 
@@ -270,9 +216,7 @@ export const LoginScreen: React.FC = () => {
               <Lock size={17} color={colors.textSecondary} />
               <TextInput
                 style={styles.input}
-                placeholder={
-                  mode === 'register' ? 'Minimum 8 characters' : 'Enter password'
-                }
+                placeholder="Enter password"
                 placeholderTextColor={colors.textMuted}
                 value={password}
                 onChangeText={(v) => {
@@ -286,9 +230,7 @@ export const LoginScreen: React.FC = () => {
                 onPress={() => setShowPassword((prev) => !prev)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 accessibilityRole="button"
-                accessibilityLabel={
-                  showPassword ? 'Hide password' : 'Show password'
-                }
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? (
                   <EyeOff size={18} color={colors.textSecondary} />
@@ -300,7 +242,7 @@ export const LoginScreen: React.FC = () => {
           </View>
 
           <PrimaryButton
-            title={mode === 'login' ? 'Sign In' : 'Create Account'}
+            title="Sign In"
             onPress={handleSubmit}
             loading={submitting}
             disabled={!canSubmit}
@@ -308,6 +250,27 @@ export const LoginScreen: React.FC = () => {
             style={styles.submitBtn}
           />
         </Card>
+
+        {/* Prominent New Customer Onboarding Callout */}
+        <TouchableOpacity
+          style={styles.registerCalloutCard}
+          onPress={() => {
+            setErrorMsg(null);
+            setMode('register');
+          }}
+          activeOpacity={0.8}
+        >
+          <View style={styles.registerCalloutIcon}>
+            <Building2 size={20} color={colors.accent} />
+          </View>
+          <View style={styles.registerCalloutTextCol}>
+            <Text style={styles.registerCalloutTitle}>New to Pharmatrix?</Text>
+            <Text style={styles.registerCalloutSub}>
+              Register your Pharmacy, Distributor, Hospital, or Clinic in 4 guided steps.
+            </Text>
+          </View>
+          <ArrowRight size={18} color={colors.primary} />
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Server Config Modal */}
@@ -323,9 +286,7 @@ export const LoginScreen: React.FC = () => {
         >
           <Card variant="elevated" padding="xl" style={styles.modalCard}>
             <Text style={styles.modalTitle}>Backend Server</Text>
-            <Text style={styles.modalDesc}>
-              Pharmatrix API endpoint URL
-            </Text>
+            <Text style={styles.modalDesc}>Pharmatrix API endpoint URL</Text>
 
             <View style={[styles.inputWrap, { marginVertical: spacing.md }]}>
               <Server size={17} color={colors.textSecondary} />
@@ -368,15 +329,12 @@ export const LoginScreen: React.FC = () => {
                 title="Test & Save"
                 onPress={handleTestServer}
                 loading={probeStatus.testing}
-                variant="accent"
-                size="md"
                 style={{ flex: 1 }}
               />
               <PrimaryButton
                 title="Close"
-                onPress={() => setServerModalVisible(false)}
                 variant="outline"
-                size="md"
+                onPress={() => setServerModalVisible(false)}
                 style={{ flex: 1 }}
               />
             </View>
@@ -394,24 +352,20 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.xxl,
-    justifyContent: 'center',
-    maxWidth: 460,
-    width: '100%',
-    alignSelf: 'center',
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.xl,
   },
   brandGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    flexShrink: 1,
   },
   brandBadge: {
     width: 44,
@@ -422,13 +376,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandTextWrap: {
-    flexShrink: 1,
+    gap: 1,
   },
   brandTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   brandSub: {
     fontSize: 12,
@@ -438,14 +392,13 @@ const styles = StyleSheet.create({
   serverBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: borderRadius.full,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: borderRadius.pill,
-    gap: 6,
-    flexShrink: 0,
   },
   statusDot: {
     width: 7,
@@ -461,28 +414,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     color: colors.textPrimary,
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
+    marginBottom: 6,
   },
   subtitle: {
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
-    marginTop: 4,
   },
   authCard: {
-    marginBottom: spacing.lg,
+    width: '100%',
   },
   modeTabs: {
     flexDirection: 'row',
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: colors.secondarySoft,
     borderRadius: borderRadius.md,
     padding: 4,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    marginBottom: spacing.xl,
   },
   modeTab: {
     flex: 1,
@@ -492,8 +443,6 @@ const styles = StyleSheet.create({
   },
   modeTabActive: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   modeTabText: {
     fontSize: 13,
@@ -507,17 +456,20 @@ const styles = StyleSheet.create({
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.errorBg,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
     gap: spacing.sm,
+    backgroundColor: colors.errorSoft,
+    borderWidth: 1,
+    borderColor: '#F5C2C7',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.lg,
   },
   errorText: {
     flex: 1,
     fontSize: 13,
     color: colors.error,
     fontWeight: '500',
+    lineHeight: 18,
   },
   fieldGroup: {
     marginBottom: spacing.lg,
@@ -531,33 +483,64 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    gap: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
-    minHeight: 48,
-    gap: spacing.sm,
+    height: 48,
+    backgroundColor: colors.background,
   },
   input: {
     flex: 1,
     fontSize: 15,
     color: colors.textPrimary,
-    paddingVertical: 10,
+    height: '100%',
   },
   submitBtn: {
     marginTop: spacing.xs,
+  },
+  registerCalloutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  registerCalloutIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  registerCalloutTextCol: {
+    flex: 1,
+    gap: 2,
+  },
+  registerCalloutTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  registerCalloutSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 17,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: colors.overlay,
     justifyContent: 'center',
-    padding: spacing.lg,
+    padding: spacing.xl,
   },
   modalCard: {
-    maxWidth: 420,
     width: '100%',
-    alignSelf: 'center',
   },
   modalTitle: {
     fontSize: 18,
@@ -572,16 +555,16 @@ const styles = StyleSheet.create({
   probeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
     padding: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
-    gap: spacing.sm,
   },
   probeOk: {
-    backgroundColor: colors.successBg,
+    backgroundColor: colors.successSoft,
   },
   probeErr: {
-    backgroundColor: colors.errorBg,
+    backgroundColor: colors.errorSoft,
   },
   probeText: {
     flex: 1,
@@ -590,7 +573,7 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.md,
     marginTop: spacing.xs,
   },
 });

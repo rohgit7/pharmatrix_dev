@@ -238,6 +238,12 @@ async def notification_worker_loop(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        from app.core.database import ensure_runtime_schema
+        ensure_runtime_schema()
+    except Exception:
+        logger.debug("Optional runtime schema sync skipped", exc_info=True)
+
     stop_event = asyncio.Event()
 
     worker_task = asyncio.create_task(

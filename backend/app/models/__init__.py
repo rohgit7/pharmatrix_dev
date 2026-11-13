@@ -31,6 +31,7 @@ from app.models.disposal_shipment import (
 )
 from app.models.disposal_certificate import DisposalCertificate
 from app.models.notification import Notification
+from app.models.device_token import DeviceToken
 from app.models.configuration import (
     Configuration,
     ConfigurationVersion,

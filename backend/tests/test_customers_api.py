@@ -361,3 +361,86 @@ def test_get_my_customer_rejects_non_customer():
     test_app.dependency_overrides[
         get_current_user
     ] = override_customer_user
+
+
+@patch("app.api.customers.create_customer")
+def test_onboard_customer_supports_hospital_and_clinic(create_customer_mock):
+    # Hospital
+    hosp_customer = make_customer()
+    hosp_customer.customer_type = CustomerType.HOSPITAL
+    create_customer_mock.return_value = hosp_customer
+
+    hosp_payload = make_onboard_payload()
+    hosp_payload["customer_type"] = "HOSPITAL"
+    hosp_payload["profile"] = {
+        "registration_number": "HOSP-2026-009",
+        "hospital_type": "Multi-Speciality",
+        "department_count": 8,
+    }
+    res_hosp = client.post("/api/customers/onboard", json=hosp_payload)
+    assert res_hosp.status_code == 201
+    assert res_hosp.json()["customer_type"] == "HOSPITAL"
+
+    # Clinic
+    clinic_customer = make_customer()
+    clinic_customer.customer_type = CustomerType.CLINIC
+    create_customer_mock.return_value = clinic_customer
+
+    clinic_payload = make_onboard_payload()
+    clinic_payload["customer_type"] = "CLINIC"
+    clinic_payload["profile"] = {
+        "registration_number": "CLIN-2026-011",
+        "clinic_type": "Outpatient Clinic",
+        "doctor_name": "Dr. Kavitha Rao",
+        "speciality": "General Medicine",
+    }
+    res_clinic = client.post("/api/customers/onboard", json=clinic_payload)
+    assert res_clinic.status_code == 201
+    assert res_clinic.json()["customer_type"] == "CLINIC"
+
+
+@patch("app.api.customers.create_customer")
+def test_onboard_customer_manual_location_without_gps_coordinates(create_customer_mock):
+    customer = make_customer()
+    create_customer_mock.return_value = customer
+
+    payload = make_onboard_payload()
+    payload["location"]["latitude"] = None
+    payload["location"]["longitude"] = None
+
+    response = client.post("/api/customers/onboard", json=payload)
+    assert response.status_code == 201
+
+    passed_data = create_customer_mock.call_args.kwargs["data"]
+    assert passed_data.location.latitude is None
+    assert passed_data.location.longitude is None
+
+
+def test_onboard_rejects_mismatched_coordinate_pair():
+    payload = make_onboard_payload()
+    payload["location"]["latitude"] = 12.9716
+    payload["location"]["longitude"] = None
+
+    response = client.post("/api/customers/onboard", json=payload)
+    assert response.status_code == 422
+
+
+def test_onboard_rejects_out_of_range_coordinates():
+    payload = make_onboard_payload()
+    payload["location"]["latitude"] = 105.0
+    payload["location"]["longitude"] = 77.5946
+
+    response = client.post("/api/customers/onboard", json=payload)
+    assert response.status_code == 422
+
+
+def test_onboard_rejects_invalid_phone_or_blank_address():
+    bad_phone_payload = make_onboard_payload()
+    bad_phone_payload["phone"] = "123"
+    res1 = client.post("/api/customers/onboard", json=bad_phone_payload)
+    assert res1.status_code == 422
+
+    blank_addr_payload = make_onboard_payload()
+    blank_addr_payload["location"]["address_line_1"] = "   "
+    res2 = client.post("/api/customers/onboard", json=blank_addr_payload)
+    assert res2.status_code == 422

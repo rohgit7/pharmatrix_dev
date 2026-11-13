@@ -12,14 +12,24 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.pharmatrix.customer"
+      "bundleIdentifier": "com.pharmatrix.customer",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Pharmatrix uses your foreground location to detect and verify your facility pickup address."
+      }
     },
     "android": {
       "package": "com.pharmatrix.customer",
       "adaptiveIcon": {
         "backgroundColor": "#201E1C"
       },
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -27,7 +37,20 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Pharmatrix uses your foreground location to detect and verify your facility pickup address."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0E7A60",
+          "defaultChannel": "pickup_updates"
+        }
+      ]
     ]
   }
 }

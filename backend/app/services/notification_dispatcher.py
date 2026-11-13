@@ -1,5 +1,6 @@
 from app.models.enums import NotificationChannel
 from app.notifications.email import EmailProvider
+from app.notifications.expo_push import ExpoPushProvider
 from app.notifications.in_app import InAppProvider
 from app.notifications.whatsapp import WhatsAppProvider
 
@@ -9,6 +10,7 @@ class NotificationDispatcher:
     def __init__(self):
         self.providers = {
             NotificationChannel.IN_APP: InAppProvider(),
+            NotificationChannel.PUSH: ExpoPushProvider(),
             NotificationChannel.WHATSAPP: WhatsAppProvider(),
             NotificationChannel.EMAIL: EmailProvider(),
         }

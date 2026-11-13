@@ -2,6 +2,10 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import api from '../services/api';
 import storage from '../services/storage';
 import { AuthUser, DriverProfile } from '../types/api';
+import {
+  deactivatePushNotificationsAsync,
+  registerForPushNotificationsAsync,
+} from '../services/notifications';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -70,6 +74,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             is_available: true,
           });
         }
+
+        registerForPushNotificationsAsync().catch(() => {});
       } catch (err: any) {
         // ONLY log out if explicitly rejected with 401
         if (err?.status === 401) {
@@ -115,12 +121,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setDriverProfile(fallbackDriver);
         await storage.setItem('driver_profile', JSON.stringify(fallbackDriver));
       }
+
+      registerForPushNotificationsAsync().catch(() => {});
     } finally {
       setIsLoading(false);
     }
   };
 
   const logout = async () => {
+    await deactivatePushNotificationsAsync().catch(() => {});
     await storage.clear();
     setUser(null);
     setDriverProfile(null);

@@ -34,7 +34,11 @@ from app.services.warehouse_intake_service import (
     create_warehouse_intake,
 )
 from app.services.notification_events import (
+    notify_driver_approaching,
+    notify_driver_arrived,
+    notify_payment_required,
     notify_pickup_completed,
+    notify_weight_recorded,
 )
 
 
@@ -209,6 +213,17 @@ def arrive_at_stop(
     stop.execution_status = RouteStopStatus.ARRIVED
     stop.arrived_at = datetime.now(timezone.utc)
 
+    if stop.stop_type == RouteStopType.PICKUP and stop.pickup and stop.pickup.customer:
+        try:
+            notify_driver_arrived(
+                db,
+                customer_user_id=stop.pickup.customer.user_id,
+                pickup_id=stop.pickup.id,
+                pickup_code=stop.pickup.pickup_code,
+            )
+        except Exception:
+            pass
+
     db.commit()
     db.refresh(stop)
 
@@ -319,6 +334,34 @@ def record_stop_weight(
 
     db.commit()
     db.refresh(stop)
+
+    if stop.stop_type == RouteStopType.PICKUP and stop.pickup and stop.pickup.customer:
+        try:
+            notify_weight_recorded(
+                db,
+                customer_user_id=stop.pickup.customer.user_id,
+                pickup_id=stop.pickup.id,
+                pickup_code=stop.pickup.pickup_code,
+                weight_kg=float(collected_weight_kg),
+            )
+        except Exception:
+            pass
+
+        inv = existing_invoice or (
+            db.query(Invoice).filter(Invoice.pickup_id == stop.pickup.id).first()
+        )
+        if inv and inv.total_amount:
+            try:
+                notify_payment_required(
+                    db,
+                    customer_user_id=stop.pickup.customer.user_id,
+                    pickup_id=stop.pickup.id,
+                    pickup_code=stop.pickup.pickup_code,
+                    amount=float(inv.total_amount),
+                    invoice_id=inv.id,
+                )
+            except Exception:
+                pass
 
     return stop
 

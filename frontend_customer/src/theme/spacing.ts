@@ -15,6 +15,7 @@ export const borderRadius = {
   lg: 14,
   xl: 18,
   pill: 9999,
+  full: 9999,
 };
 
 export const shadows = {

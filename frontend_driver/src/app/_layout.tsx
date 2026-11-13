@@ -15,12 +15,31 @@ import { RoutesScreen } from '../features/routes/RoutesScreen';
 import { PickupsScreen } from '../features/pickups/PickupsScreen';
 import { ProfileScreen } from '../features/handover/ProfileScreen';
 import { colors, radii, spacing, typography, shadows } from '../theme';
+import { setupNotificationListeners } from '../services/notifications';
 
 const queryClient = new QueryClient();
 
 function MainNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
   const [currentTab, setCurrentTab] = useState<TabName>('operations');
+
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    const unsubscribe = setupNotificationListeners((payload) => {
+      if (!payload) return;
+      const { screen, route_id, pickup_id } = payload;
+      if (screen === 'routes' || route_id) {
+        setCurrentTab('routes');
+      } else if (screen === 'pickups' || pickup_id) {
+        setCurrentTab('pickups');
+      } else if (screen === 'profile') {
+        setCurrentTab('profile');
+      } else if (screen === 'operations') {
+        setCurrentTab('operations');
+      }
+    });
+    return () => unsubscribe();
+  }, [isAuthenticated]);
 
   if (isLoading && !isAuthenticated) {
     return (

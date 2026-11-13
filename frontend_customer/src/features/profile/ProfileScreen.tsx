@@ -20,6 +20,7 @@ import {
   Edit3,
   Plus,
   AlertCircle,
+  Navigation,
 } from 'lucide-react-native';
 import {
   colors,
@@ -31,6 +32,13 @@ import { Card } from '../../components/common/Card';
 import { PrimaryButton } from '../../components/common/PrimaryButton';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
+import {
+  BusinessLocationFieldErrors,
+  BusinessLocationFormValue,
+  BusinessLocationPicker,
+  validateBusinessLocationForm,
+} from '../../components/location/BusinessLocationPicker';
+import { requestLocationAndDetectAddress } from '../../utils/location';
 
 export const ProfileScreen: React.FC = () => {
   const { user, customer, locations, refreshProfile, logout } = useAuth();
@@ -45,14 +53,22 @@ export const ProfileScreen: React.FC = () => {
 
   // Add Location Form
   const [addingLocation, setAddingLocation] = useState(false);
-  const [locName, setLocName] = useState('');
-  const [locAddress, setLocAddress] = useState('');
-  const [locCity, setLocCity] = useState(locations[0]?.city || '');
-  const [locState, setLocState] = useState(locations[0]?.state || '');
-  const [locPin, setLocPin] = useState('');
-  const [locContactName, setLocContactName] = useState(user?.name || '');
-  const [locContactPhone, setLocContactPhone] = useState(customer?.phone || '');
+  const [newLocForm, setNewLocForm] = useState<BusinessLocationFormValue>({
+    name: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: locations[0]?.city || '',
+    state: locations[0]?.state || '',
+    postalCode: '',
+    contactName: user?.name || '',
+    contactPhone: customer?.phone || '',
+    latitude: null,
+    longitude: null,
+    locationSource: 'MANUAL',
+  });
+  const [newLocErrors, setNewLocErrors] = useState<BusinessLocationFieldErrors>({});
   const [savingLoc, setSavingLoc] = useState(false);
+  const [verifyingLocId, setVerifyingLocId] = useState<number | null>(null);
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -76,14 +92,9 @@ export const ProfileScreen: React.FC = () => {
   };
 
   const handleAddLocation = async () => {
-    if (
-      !locName.trim() ||
-      !locAddress.trim() ||
-      !locCity.trim() ||
-      !locState.trim() ||
-      !locPin.trim() ||
-      !locContactPhone.trim()
-    ) {
+    const errs = validateBusinessLocationForm(newLocForm);
+    setNewLocErrors(errs);
+    if (Object.keys(errs).length > 0) {
       setErrorMsg('Please fill in all required address fields.');
       return;
     }
@@ -92,26 +103,60 @@ export const ProfileScreen: React.FC = () => {
     try {
       await api.addLocation({
         location_code: `LOC-${String(locations.length + 1).padStart(3, '0')}`,
-        name: locName.trim(),
-        address_line_1: locAddress.trim(),
-        city: locCity.trim(),
-        state: locState.trim(),
-        postal_code: locPin.trim(),
-        latitude: 12.9716,
-        longitude: 77.5946,
-        contact_name: locContactName.trim() || 'Facility Contact',
-        contact_phone: locContactPhone.trim(),
+        name: newLocForm.name.trim(),
+        address_line_1: newLocForm.addressLine1.trim(),
+        address_line_2: newLocForm.addressLine2.trim() || undefined,
+        city: newLocForm.city.trim(),
+        state: newLocForm.state.trim(),
+        postal_code: newLocForm.postalCode.trim(),
+        latitude: newLocForm.latitude,
+        longitude: newLocForm.longitude,
+        contact_name: newLocForm.contactName.trim(),
+        contact_phone: newLocForm.contactPhone.trim(),
       });
       await refreshProfile();
       setAddingLocation(false);
-      setLocName('');
-      setLocAddress('');
-      setLocPin('');
+      setNewLocForm({
+        name: '',
+        addressLine1: '',
+        addressLine2: '',
+        city: locations[0]?.city || '',
+        state: locations[0]?.state || '',
+        postalCode: '',
+        contactName: user?.name || '',
+        contactPhone: customer?.phone || '',
+        latitude: null,
+        longitude: null,
+        locationSource: 'MANUAL',
+      });
       setFeedback('Pickup address added.');
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to add location.');
     } finally {
       setSavingLoc(false);
+    }
+  };
+
+  const handleVerifyExistingLocationGps = async (locationId: number) => {
+    setVerifyingLocId(locationId);
+    setErrorMsg(null);
+    setFeedback(null);
+    try {
+      const outcome = await requestLocationAndDetectAddress();
+      if (!outcome.ok) {
+        setErrorMsg(outcome.message);
+        return;
+      }
+      await api.updateLocation(locationId, {
+        latitude: outcome.data.latitude,
+        longitude: outcome.data.longitude,
+      });
+      await refreshProfile();
+      setFeedback('GPS coordinates attached to pickup address.');
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Failed to update location GPS coordinates.');
+    } finally {
+      setVerifyingLocId(null);
     }
   };
 
@@ -360,73 +405,15 @@ export const ProfileScreen: React.FC = () => {
 
           {addingLocation ? (
             <View style={styles.addLocBox}>
-              <Text style={styles.inputLabel}>Branch / Location Name *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Main Pharmacy / Annex B"
-                placeholderTextColor={colors.textMuted}
-                value={locName}
-                onChangeText={setLocName}
+              <BusinessLocationPicker
+                value={newLocForm}
+                onChange={setNewLocForm}
+                errors={newLocErrors}
+                onClearFieldError={(f) =>
+                  setNewLocErrors((prev) => ({ ...prev, [f]: undefined }))
+                }
+                compactHeader
               />
-              <Text style={styles.inputLabel}>Street Address *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Street & building"
-                placeholderTextColor={colors.textMuted}
-                value={locAddress}
-                onChangeText={setLocAddress}
-              />
-              <View style={styles.twoColRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>City *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={locCity}
-                    onChangeText={setLocCity}
-                    placeholder="City"
-                    placeholderTextColor={colors.textMuted}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>PIN Code *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={locPin}
-                    onChangeText={setLocPin}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    placeholder="560001"
-                    placeholderTextColor={colors.textMuted}
-                  />
-                </View>
-              </View>
-              <Text style={styles.inputLabel}>State *</Text>
-              <TextInput
-                style={styles.input}
-                value={locState}
-                onChangeText={setLocState}
-                placeholder="State"
-                placeholderTextColor={colors.textMuted}
-              />
-              <View style={styles.twoColRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Site Contact</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={locContactName}
-                    onChangeText={setLocContactName}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Contact Phone *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={locContactPhone}
-                    onChangeText={setLocContactPhone}
-                    keyboardType="phone-pad"
-                  />
-                </View>
-              </View>
               <View style={styles.editActions}>
                 <PrimaryButton
                   title="Cancel"
@@ -447,20 +434,44 @@ export const ProfileScreen: React.FC = () => {
           ) : null}
 
           <View style={styles.locList}>
-            {locations.map((loc) => (
-              <View key={loc.id} style={styles.locCard}>
-                <View style={styles.locHeader}>
-                  <Text style={styles.locTitle}>{loc.name}</Text>
-                  <Text style={styles.locCode}>{loc.location_code}</Text>
+            {locations.map((loc) => {
+              const hasCoords =
+                typeof loc.latitude === 'number' && typeof loc.longitude === 'number';
+              return (
+                <View key={loc.id} style={styles.locCard}>
+                  <View style={styles.locHeader}>
+                    <Text style={styles.locTitle}>{loc.name}</Text>
+                    <Text style={styles.locCode}>{loc.location_code}</Text>
+                  </View>
+                  <Text style={styles.locAddress}>
+                    {[loc.address_line_1, loc.address_line_2].filter(Boolean).join(', ')},{' '}
+                    {loc.city}, {loc.state} {loc.postal_code}
+                  </Text>
+                  <View style={styles.locFooterRow}>
+                    <Text style={styles.locContact}>
+                      {loc.contact_name} · {loc.contact_phone}
+                    </Text>
+                    {hasCoords ? (
+                      <View style={styles.gpsTag}>
+                        <Navigation size={11} color={colors.success} />
+                        <Text style={styles.gpsTagText}>GPS Verified</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.attachGpsBtn}
+                        onPress={() => handleVerifyExistingLocationGps(loc.id)}
+                        disabled={verifyingLocId === loc.id}
+                      >
+                        <Navigation size={11} color={colors.accent} />
+                        <Text style={styles.attachGpsBtnText}>
+                          {verifyingLocId === loc.id ? 'Detecting...' : 'Attach GPS'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-                <Text style={styles.locAddress}>
-                  {loc.address_line_1}, {loc.city}, {loc.state} {loc.postal_code}
-                </Text>
-                <Text style={styles.locContact}>
-                  {loc.contact_name} · {loc.contact_phone}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </Card>
 
@@ -738,6 +749,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textPrimary,
     fontWeight: '600',
-    marginTop: 2,
+  },
+  locFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    gap: spacing.sm,
+  },
+  gpsTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.successSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+  },
+  gpsTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  attachGpsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.accentSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+  },
+  attachGpsBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.accent,
   },
 });

@@ -73,14 +73,14 @@ class CustomerLocation(Base):
         nullable=False,
     )
 
-    latitude: Mapped[float] = mapped_column(
+    latitude: Mapped[float | None] = mapped_column(
         Float,
-        nullable=False,
+        nullable=True,
     )
 
-    longitude: Mapped[float] = mapped_column(
+    longitude: Mapped[float | None] = mapped_column(
         Float,
-        nullable=False,
+        nullable=True,
     )
 
     contact_name: Mapped[str | None] = mapped_column(

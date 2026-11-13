@@ -94,7 +94,7 @@ def _claim_pending_notifications(
         )
     )
 
-    notifications = db.scalars(
+    query = (
         select(Notification)
         .where(
             Notification.status
@@ -111,7 +111,40 @@ def _claim_pending_notifications(
         .order_by(Notification.created_at)
         .limit(batch_size)
         .with_for_update(skip_locked=True)
-    ).all()
+    )
+
+    try:
+        notifications = db.scalars(query).all()
+    except Exception as exc:
+        if "notificationchannel" in str(exc) or "PUSH" in str(exc):
+            db.rollback()
+            try:
+                from app.core.database import ensure_runtime_schema
+                ensure_runtime_schema()
+                notifications = db.scalars(query).all()
+            except Exception:
+                db.rollback()
+                fallback_channels = [
+                    ch for ch in enabled_channels if ch != NotificationChannel.PUSH
+                ]
+                if not fallback_channels:
+                    return []
+                notifications = db.scalars(
+                    select(Notification)
+                    .where(
+                        Notification.status == NotificationStatus.PENDING,
+                        (
+                            Notification.last_attempt_at.is_(None)
+                            | (Notification.last_attempt_at <= retry_cutoff)
+                        ),
+                        Notification.channel.in_(fallback_channels),
+                    )
+                    .order_by(Notification.created_at)
+                    .limit(batch_size)
+                    .with_for_update(skip_locked=True)
+                ).all()
+        else:
+            raise
 
     for notification in notifications:
         notification.status = (
@@ -169,6 +202,14 @@ def process_pending_notifications(
             "notifications.whatsapp_enabled",
         )
 
+        try:
+            push_enabled = get_configuration_bool(
+                db,
+                "notifications.push_enabled",
+            )
+        except Exception:
+            push_enabled = True
+
         enabled_channels = []
 
         if email_enabled:
@@ -179,6 +220,11 @@ def process_pending_notifications(
         if whatsapp_enabled:
             enabled_channels.append(
                 NotificationChannel.WHATSAPP
+            )
+
+        if push_enabled:
+            enabled_channels.append(
+                NotificationChannel.PUSH
             )
 
         if not enabled_channels:
@@ -287,6 +333,28 @@ def process_pending_notifications(
                         ),
                         "parameters": parameters,
                     }
+
+                elif (
+                    notification.channel
+                    == NotificationChannel.PUSH
+                ):
+                    from app.models.device_token import DeviceToken
+
+                    meta = notification.notification_metadata or {}
+                    recipient = meta.get("expo_push_token")
+                    if not recipient:
+                        device = db.scalar(
+                            select(DeviceToken).where(
+                                DeviceToken.user_id == notification.user_id,
+                                DeviceToken.is_active.is_(True),
+                            )
+                        )
+                        if not device:
+                            raise ValueError(
+                                f"No active device tokens found for user {notification.user_id}"
+                            )
+                        recipient = device.expo_push_token
+                    provider_metadata = meta
 
                 else:
                     raise ValueError(

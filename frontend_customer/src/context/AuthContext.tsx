@@ -8,6 +8,10 @@ import {
   setUnauthorizedHandler,
 } from '../services/api';
 import { storage } from '../services/storage';
+import {
+  deactivatePushNotificationsAsync,
+  registerForPushNotificationsAsync,
+} from '../services/notifications';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -17,7 +21,15 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isOnboarded: boolean;
   login: (email: string, password: string) => Promise<void>;
-  registerAndLogin: (name: string, email: string, password: string) => Promise<void>;
+  registerAndLogin: (name: string, email: string, password: string, phone?: string) => Promise<void>;
+  registerAccountTokenOnly: (
+    name: string,
+    email: string,
+    password: string,
+    phone?: string
+  ) => Promise<AuthUser>;
+  submitOnboardingPayload: (payload: CustomerOnboardPayload) => Promise<CustomerMeResponse>;
+  finalizeOnboardingSession: () => Promise<void>;
   completeOnboarding: (payload: CustomerOnboardPayload) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -32,6 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const clearSession = useCallback(async () => {
+    await deactivatePushNotificationsAsync().catch(() => {});
     await storage.removeItem('access_token');
     await storage.removeItem('refresh_token');
     setUser(null);
@@ -58,6 +71,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const cust = await api.getCustomerMe();
     setCustomer(cust);
+
+    // Register push notification token on login / session restore
+    registerForPushNotificationsAsync().catch(() => {});
 
     if (cust.onboarded) {
       try {
@@ -101,18 +117,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const registerAndLogin = async (name: string, email: string, password: string) => {
-    try {
-      const regRes = await api.registerCustomer(name, email, password);
-      if (regRes.access_token) {
-        await storage.setItem('access_token', regRes.access_token);
-        if (regRes.refresh_token) {
-          await storage.setItem('refresh_token', regRes.refresh_token);
-        }
-        await loadCustomerContext();
-      } else {
-        await login(email, password);
+  const registerAccountTokenOnly = async (
+    name: string,
+    email: string,
+    password: string,
+    phone?: string
+  ): Promise<AuthUser> => {
+    const regRes = await api.registerCustomer(name, email, password, phone);
+    if (regRes.access_token) {
+      await storage.setItem('access_token', regRes.access_token);
+      if (regRes.refresh_token) {
+        await storage.setItem('refresh_token', regRes.refresh_token);
       }
+    } else {
+      const authData = await api.login(email, password);
+      await storage.setItem('access_token', authData.access_token);
+      if (authData.refresh_token) {
+        await storage.setItem('refresh_token', authData.refresh_token);
+      }
+    }
+    const me = await api.getMe();
+    return me;
+  };
+
+  const submitOnboardingPayload = async (
+    payload: CustomerOnboardPayload
+  ): Promise<CustomerMeResponse> => {
+    const created = await api.onboardCustomer(payload);
+    return created;
+  };
+
+  const finalizeOnboardingSession = async () => {
+    await loadCustomerContext();
+  };
+
+  const registerAndLogin = async (
+    name: string,
+    email: string,
+    password: string,
+    phone?: string
+  ) => {
+    try {
+      await registerAccountTokenOnly(name, email, password, phone);
+      await loadCustomerContext();
     } catch (error) {
       await clearSession();
       throw error;
@@ -144,6 +191,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isOnboarded: !!customer?.onboarded,
         login,
         registerAndLogin,
+        registerAccountTokenOnly,
+        submitOnboardingPayload,
+        finalizeOnboardingSession,
         completeOnboarding,
         logout,
         refreshProfile,
@@ -155,10 +205,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (!context) {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  return context;
+  return ctx;
 };
-

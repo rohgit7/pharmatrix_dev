@@ -163,4 +163,17 @@ def request_otp(
     db.commit()
     db.refresh(pickup)
 
+    if pickup.customer and pickup.customer.user_id:
+        try:
+            from app.services.notification_events import notify_otp_generated
+            notify_otp_generated(
+                db,
+                customer_user_id=pickup.customer.user_id,
+                pickup_id=pickup.id,
+                pickup_code=pickup.pickup_code,
+            )
+            db.commit()
+        except Exception:
+            pass
+
     return pickup, otp

@@ -84,11 +84,15 @@ def get_today_route(
                     state=location.state,
                     postal_code=location.postal_code,
 
-                    latitude=float(
-                        location.latitude
+                    latitude=(
+                        float(location.latitude)
+                        if location.latitude is not None
+                        else None
                     ),
-                    longitude=float(
-                        location.longitude
+                    longitude=(
+                        float(location.longitude)
+                        if location.longitude is not None
+                        else None
                     ),
 
                     estimated_weight_kg=(

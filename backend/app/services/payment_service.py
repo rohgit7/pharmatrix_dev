@@ -156,6 +156,22 @@ def record_payment(
             "payment reference or idempotency key."
         ) from exc
 
+    if invoice.customer and getattr(invoice.customer, "user_id", None):
+        try:
+            from app.services.notification_events import notify_payment_successful
+            pickup_code = invoice.pickup.pickup_code if getattr(invoice, "pickup", None) else None
+            notify_payment_successful(
+                db,
+                customer_user_id=invoice.customer.user_id,
+                pickup_id=invoice.pickup_id,
+                pickup_code=pickup_code,
+                amount=float(amount),
+                payment_reference=payment_reference,
+            )
+            db.flush()
+        except Exception:
+            pass
+
     return payment
 
 

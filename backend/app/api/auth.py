@@ -26,6 +26,7 @@ class RegisterCustomerRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
+    phone: str | None = Field(default=None, min_length=7, max_length=20)
 
 
 @router.post("/login")

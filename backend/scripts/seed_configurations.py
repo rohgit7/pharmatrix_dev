@@ -48,6 +48,13 @@ DEFAULT_CONFIGURATIONS = [
         "value": False,
     },
     {
+        "key": "notifications.push_enabled",
+        "description": "Enable Expo push notification delivery",
+        "data_type": "BOOLEAN",
+        "scope": "GLOBAL",
+        "value": True,
+    },
+    {
         "key": "logistics.default_vehicle_capacity_kg",
         "description": "Default operational vehicle capacity in kilograms",
         "data_type": "DECIMAL",

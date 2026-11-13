@@ -310,9 +310,22 @@ def add_my_location(
             detail="Customer profile not found",
         )
 
+    loc_code = (data.location_code or "").strip()
+    existing_codes = {
+        row[0]
+        for row in db.query(CustomerLocation.location_code)
+        .filter(CustomerLocation.customer_id == customer.id)
+        .all()
+    }
+    if not loc_code or loc_code in existing_codes:
+        idx = len(existing_codes) + 1
+        while f"LOC-{idx:03d}" in existing_codes:
+            idx += 1
+        loc_code = f"LOC-{idx:03d}"
+
     location = CustomerLocation(
         customer_id=customer.id,
-        location_code=data.location_code,
+        location_code=loc_code,
         name=data.name,
         address_line_1=data.address_line_1,
         address_line_2=data.address_line_2,

@@ -21,6 +21,7 @@ import { MyPickupsScreen } from '../features/pickups/MyPickupsScreen';
 import { HistoryScreen } from '../features/history/HistoryScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { api, DashboardData } from '../services/api';
+import { setupNotificationListeners } from '../services/notifications';
 
 type StackViewMode =
   | { type: 'tabs' }
@@ -70,6 +71,60 @@ export default function MainCustomerPortal() {
       loadDashboard();
     }
   }, [isAuthenticated, isOnboarded, loadDashboard]);
+
+  const handleNotificationTap = useCallback(async (payload: any) => {
+    if (!payload) return;
+    const { screen, pickup_public_id, pickup_id } = payload;
+
+    let targetPublicId = pickup_public_id;
+    if (!targetPublicId && pickup_id) {
+      try {
+        const history = await api.getPickupHistory();
+        const found = history.items.find(
+          (p: any) => String(p.id) === String(pickup_id) || p.public_id === String(pickup_id)
+        );
+        if (found) {
+          targetPublicId = found.public_id;
+        } else {
+          targetPublicId = String(pickup_id);
+        }
+      } catch {
+        targetPublicId = String(pickup_id);
+      }
+    }
+
+    if (targetPublicId) {
+      let subScreen: PickupFlowScreen = 'details';
+      if (screen === 'payment') subScreen = 'payment';
+      else if (screen === 'otp') subScreen = 'otp';
+      else if (screen === 'handover') subScreen = 'handover';
+      else if (screen === 'completion') subScreen = 'completion';
+
+      setStackView({
+        type: 'pickup_details',
+        pickupPublicId: targetPublicId,
+        subScreen,
+      });
+      return;
+    }
+
+    if (screen === 'pickups') {
+      setActiveTab('pickups');
+      setStackView({ type: 'tabs' });
+    } else if (screen === 'history') {
+      setActiveTab('history');
+      setStackView({ type: 'tabs' });
+    } else if (screen === 'profile') {
+      setActiveTab('profile');
+      setStackView({ type: 'tabs' });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !isOnboarded) return;
+    const unsubscribe = setupNotificationListeners(handleNotificationTap);
+    return () => unsubscribe();
+  }, [isAuthenticated, isOnboarded, handleNotificationTap]);
 
   if (authLoading) {
     return (

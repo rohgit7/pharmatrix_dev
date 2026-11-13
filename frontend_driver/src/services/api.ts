@@ -528,6 +528,52 @@ export const api = {
     }
     return this.failStop(routeId, stopId, `[${category}] ${notes}`);
   },
+
+  // Push Notifications & Device Tokens
+  async registerDeviceToken(
+    expoPushToken: string,
+    platform: string = Platform.OS,
+    deviceName?: string
+  ): Promise<{ id: number; expo_push_token: string; is_active: boolean }> {
+    return request('/api/notifications/devices', {
+      method: 'POST',
+      body: JSON.stringify({
+        expo_push_token: expoPushToken,
+        device_platform: platform,
+        device_name: deviceName,
+      }),
+    });
+  },
+
+  async deactivateDeviceToken(expoPushToken: string): Promise<{ status: string }> {
+    return request('/api/notifications/deactivate-device', {
+      method: 'POST',
+      body: JSON.stringify({ expo_push_token: expoPushToken }),
+    });
+  },
+
+  async getMyNotifications(): Promise<any[]> {
+    return request('/api/notifications/');
+  },
+
+  async markNotificationRead(notificationId: number): Promise<any> {
+    return request(`/api/notifications/${notificationId}/read`, {
+      method: 'POST',
+    });
+  },
+
+  async sendTestPushNotification(
+    title?: string,
+    body?: string
+  ): Promise<{ delivered_devices: number; message: string }> {
+    return request('/api/notifications/test-push', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: title || 'Pharmatrix Driver Test',
+        body: body || 'Driver test notification delivery.',
+      }),
+    });
+  },
 };
 
 export default api;

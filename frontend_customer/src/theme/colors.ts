@@ -11,19 +11,26 @@ export const colors = {
   surfaceMuted: '#F7F3ED',
   surfaceSubtle: '#F2ECE2',
   secondaryLight: '#F5EFE6',
+  secondarySoft: '#F5EFE6',
   accentDark: '#4B63D1',
   accentMuted: '#C7D3F9',
+  accentSoft: '#E5EBFF',
 
   // Semantic & Functional Colors
   success: '#1E7E34',
   successBg: '#E8F5E9',
+  successSoft: '#E8F5E9',
   successBorder: '#C8E6C9',
   warning: '#B45309',
   warningBg: '#FEF3C7',
+  warningSoft: '#FEF3C7',
   warningBorder: '#FDE68A',
   error: '#B91C1C',
   errorBg: '#FEE2E2',
+  errorSoft: '#FEE2E2',
   errorBorder: '#FECACA',
+  danger: '#B91C1C',
+  dangerSoft: '#FEE2E2',
   info: '#3E54AC',
   infoBg: '#E5EBFF',
 
@@ -35,6 +42,7 @@ export const colors = {
 
   // Borders & Dividers
   border: '#EADFD0',
+  borderStrong: '#D8CCBC',
   borderLight: '#F1EAE0',
   divider: '#EFE8DD',
 

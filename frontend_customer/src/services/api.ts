@@ -301,8 +301,8 @@ export interface CustomerLocation {
   city: string;
   state: string;
   postal_code: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   contact_name: string;
   contact_phone: string;
   service_time_seconds?: number;
@@ -361,8 +361,8 @@ export interface CustomerOnboardPayload {
     city: string;
     state: string;
     postal_code: string;
-    latitude: number;
-    longitude: number;
+    latitude?: number | null;
+    longitude?: number | null;
     contact_name: string;
     contact_phone: string;
     service_time_seconds?: number;
@@ -583,7 +583,8 @@ export const api = {
   async registerCustomer(
     name: string,
     email: string,
-    password: string
+    password: string,
+    phone?: string
   ): Promise<{
     id: number;
     auth_user_id: string;
@@ -595,7 +596,12 @@ export const api = {
   }> {
     return request('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
+      body: JSON.stringify({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        ...(phone && phone.trim() ? { phone: phone.trim() } : {}),
+      }),
     });
   },
 
@@ -641,14 +647,36 @@ export const api = {
     city: string;
     state: string;
     postal_code: string;
-    latitude: number;
-    longitude: number;
+    latitude?: number | null;
+    longitude?: number | null;
     contact_name: string;
     contact_phone: string;
     service_time_seconds?: number;
   }): Promise<CustomerLocation> {
     return request<CustomerLocation>('/api/customers/locations', {
       method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updateLocation(
+    locationId: number,
+    payload: {
+      name?: string;
+      address_line_1?: string;
+      address_line_2?: string;
+      city?: string;
+      state?: string;
+      postal_code?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      contact_name?: string;
+      contact_phone?: string;
+      is_active?: boolean;
+    }
+  ): Promise<CustomerLocation> {
+    return request<CustomerLocation>(`/api/customers/locations/${locationId}`, {
+      method: 'PATCH',
       body: JSON.stringify(payload),
     });
   },
@@ -803,6 +831,52 @@ export const api = {
     certificates_available: number;
   }> {
     return request('/api/customer/disposal/summary');
+  },
+
+  // Push Notifications & Device Tokens
+  async registerDeviceToken(
+    expoPushToken: string,
+    platform: string = Platform.OS,
+    deviceName?: string
+  ): Promise<{ id: number; expo_push_token: string; is_active: boolean }> {
+    return request('/api/notifications/devices', {
+      method: 'POST',
+      body: JSON.stringify({
+        expo_push_token: expoPushToken,
+        device_platform: platform,
+        device_name: deviceName,
+      }),
+    });
+  },
+
+  async deactivateDeviceToken(expoPushToken: string): Promise<{ status: string }> {
+    return request('/api/notifications/deactivate-device', {
+      method: 'POST',
+      body: JSON.stringify({ expo_push_token: expoPushToken }),
+    });
+  },
+
+  async getMyNotifications(): Promise<any[]> {
+    return request('/api/notifications/');
+  },
+
+  async markNotificationRead(notificationId: number): Promise<any> {
+    return request(`/api/notifications/${notificationId}/read`, {
+      method: 'POST',
+    });
+  },
+
+  async sendTestPushNotification(
+    title?: string,
+    body?: string
+  ): Promise<{ delivered_devices: number; message: string }> {
+    return request('/api/notifications/test-push', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: title || 'Pharmatrix Test',
+        body: body || 'Test notification delivery.',
+      }),
+    });
   },
 };
 

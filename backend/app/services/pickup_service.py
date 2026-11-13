@@ -315,6 +315,32 @@ def cancel_pickup(
     pickup.status = PickupStatus.CANCELLED
     pickup.failure_reason = reason
 
+    # If pickup was assigned to a driver route, notify the assigned driver
+    try:
+        from app.models.route_stop import RouteStop
+        from app.models.route import Route
+        from app.models.enums import RouteStatus
+        from app.services.notification_events import notify_driver_pickup_cancelled
+
+        assigned_stop = db.scalar(
+            select(RouteStop)
+            .join(Route, RouteStop.route_id == Route.id)
+            .where(
+                RouteStop.pickup_id == pickup.id,
+                Route.status.in_([RouteStatus.ASSIGNED, RouteStatus.IN_PROGRESS]),
+            )
+        )
+        if assigned_stop and assigned_stop.route and assigned_stop.route.driver and assigned_stop.route.driver.user_id:
+            notify_driver_pickup_cancelled(
+                db,
+                driver_user_id=assigned_stop.route.driver.user_id,
+                route_id=assigned_stop.route.id,
+                pickup_id=pickup.id,
+                pickup_code=pickup.pickup_code,
+            )
+    except Exception:
+        pass
+
     db.commit()
     db.refresh(pickup)
 

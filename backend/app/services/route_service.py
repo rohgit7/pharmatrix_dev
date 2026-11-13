@@ -25,7 +25,10 @@ from app.models.user import User
 from app.models.vehicle import Vehicle
 from app.models.warehouse import Warehouse
 from app.services.audit_service import log_operational_audit
-from app.services.notification_events import notify_driver_assigned
+from app.services.notification_events import (
+    notify_customer_driver_assigned,
+    notify_driver_assigned,
+)
 
 
 
@@ -698,6 +701,18 @@ def dispatch_route(
     for stop in route.stops:
         if stop.pickup:
             stop.pickup.status = PickupStatus.ASSIGNED
+            if stop.pickup.customer and stop.pickup.customer.user_id:
+                try:
+                    notify_customer_driver_assigned(
+                        db,
+                        customer_user_id=stop.pickup.customer.user_id,
+                        pickup_id=stop.pickup.id,
+                        pickup_code=stop.pickup.pickup_code,
+                        driver_name=getattr(driver, "name", None) or getattr(driver, "full_name", None),
+                        vehicle_reg=getattr(vehicle, "registration_number", None) or getattr(vehicle, "license_plate", None),
+                    )
+                except Exception:
+                    pass
 
     # Trigger notification
     try:

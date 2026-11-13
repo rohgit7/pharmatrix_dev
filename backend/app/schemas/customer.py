@@ -1,27 +1,42 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional
+import re
 
 from app.models.enums import CustomerType
 
 
 class LocationCreate(BaseModel):
-    location_code: str = Field(min_length=1, max_length=50)
+    location_code: str = Field(default="LOC-001", min_length=1, max_length=50)
     name: str = Field(min_length=1, max_length=150)
 
-    address_line_1: str
-    address_line_2: Optional[str] = None
+    address_line_1: str = Field(min_length=1, max_length=255)
+    address_line_2: Optional[str] = Field(default=None, max_length=255)
 
-    city: str
-    state: str
-    postal_code: str
+    city: str = Field(min_length=1, max_length=100)
+    state: str = Field(min_length=1, max_length=100)
+    postal_code: str = Field(min_length=4, max_length=20)
 
-    latitude: float
-    longitude: float
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
 
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
 
     service_time_seconds: int = 300
+
+    @field_validator("name", "address_line_1", "city", "state", "postal_code")
+    @classmethod
+    def validate_non_blank(cls, v: str) -> str:
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("Field cannot be blank")
+        return cleaned
+
+    @model_validator(mode="after")
+    def validate_coordinates_pair(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("Both latitude and longitude must be provided together when specifying GPS coordinates")
+        return self
 
 
 class PharmacyProfileCreate(BaseModel):
@@ -51,16 +66,33 @@ class ClinicProfileCreate(BaseModel):
 class CustomerOnboardRequest(BaseModel):
     customer_type: CustomerType
 
-    legal_name: str
-    display_name: str
+    legal_name: str = Field(min_length=2, max_length=255)
+    display_name: str = Field(min_length=2, max_length=255)
 
-    phone: str
+    phone: str = Field(min_length=7, max_length=20)
     email: Optional[str] = None
     gst_number: Optional[str] = None
 
     profile: Optional[dict] = None
 
     location: LocationCreate
+
+    @field_validator("legal_name", "display_name")
+    @classmethod
+    def validate_names(cls, v: str) -> str:
+        cleaned = v.strip()
+        if len(cleaned) < 2:
+            raise ValueError("Name must be at least 2 characters")
+        return cleaned
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        cleaned = v.strip()
+        digits = re.sub(r"\D", "", cleaned)
+        if len(digits) < 7 or len(digits) > 15:
+            raise ValueError("Enter a valid phone number (7 to 15 digits)")
+        return cleaned
 
 from datetime import datetime
 from uuid import UUID
@@ -98,8 +130,8 @@ class CustomerLocationResponse(BaseModel):
     city: str
     state: str
     postal_code: str
-    latitude: float
-    longitude: float
+    latitude: float | None = None
+    longitude: float | None = None
     contact_name: str | None = None
     contact_phone: str | None = None
     service_time_seconds: int = 300
@@ -121,8 +153,8 @@ class CustomerLocationAdminCreate(BaseModel):
     city: str = Field(min_length=1, max_length=100)
     state: str = Field(min_length=1, max_length=100)
     postal_code: str = Field(min_length=1, max_length=20)
-    latitude: float = Field(ge=-90, le=90)
-    longitude: float = Field(ge=-180, le=180)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
     contact_name: str | None = None
     contact_phone: str | None = None
     service_time_seconds: int = 300

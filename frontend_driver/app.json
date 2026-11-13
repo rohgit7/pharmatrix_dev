@@ -6,8 +6,28 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "pharmatrix-driver",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pharmatrix.driver"
+    },
+    "android": {
+      "package": "com.pharmatrix.driver",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
+    },
     "plugins": [
       "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#0E7A60",
+          "defaultChannel": "pickup_updates"
+        }
+      ],
       [
         "expo-camera",
         {
