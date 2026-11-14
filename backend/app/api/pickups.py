@@ -1,16 +1,19 @@
 from datetime import datetime, timezone
 from decimal import Decimal
+import html
 import math
 from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.auth import get_current_user, require_role
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.rate_limiter import limiter
 from app.models.customer import Customer
@@ -44,6 +47,7 @@ from app.schemas.razorpay import RazorpayPaymentVerificationRequest
 from app.services.configuration_runtime_service import get_active_version
 from app.services.customer_service import ensure_customer_pricing_assignment
 from app.services.invoice_service import InvoiceError, create_pickup_invoice
+from app.services.payment_service import record_payment
 from app.services.pickup_service import (
     cancel_pickup,
     create_pickup,
@@ -1250,6 +1254,482 @@ def verify_my_pickup_payment(
         "pickup_id": str(pickup.public_id),
         "pickup_code": pickup.pickup_code,
         "invoice": _serialize_invoice(db, invoice),
+    }
+
+
+@router.get("/{pickup_id}/checkout", response_class=HTMLResponse)
+def get_pickup_web_checkout(
+    pickup_id: UUID,
+    order_id: str | None = None,
+    db: Session = Depends(get_db),
+):
+    pickup = db.scalar(
+        select(Pickup).where(Pickup.public_id == pickup_id)
+    )
+    if pickup is None:
+        return HTMLResponse(
+            "<!DOCTYPE html><html><body style='font-family:sans-serif;text-align:center;padding:40px;'>"
+            "<h2>Pickup Not Found</h2><p>Please check the pickup link.</p></body></html>",
+            status_code=404,
+        )
+
+    invoice = db.scalar(
+        select(Invoice).where(Invoice.pickup_id == pickup.id)
+    )
+    if invoice is None:
+        return HTMLResponse(
+            "<!DOCTYPE html><html><body style='font-family:sans-serif;text-align:center;padding:40px;'>"
+            "<h2>Invoice Not Found</h2><p>An invoice has not yet been generated for this pickup.</p></body></html>",
+            status_code=404,
+        )
+
+    if invoice.status == "PAID" or Decimal(str(invoice.outstanding_amount)) <= Decimal("0"):
+        return HTMLResponse(
+            f"""<!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8"/>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+              <title>Pharmatrix Payment Complete</title>
+              <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; color: #0f172a; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
+                .card {{ background: #ffffff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 440px; width: 100%; padding: 32px; text-align: center; border: 1px solid #e2e8f0; }}
+                .badge {{ display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; background: #dcfce7; color: #16a34a; font-size: 32px; margin-bottom: 20px; }}
+                h2 {{ margin: 0 0 10px; font-size: 22px; color: #0f172a; }}
+                p {{ color: #64748b; font-size: 15px; line-height: 1.5; margin: 0 0 24px; }}
+                .meta {{ background: #f1f5f9; border-radius: 10px; padding: 14px; text-align: left; font-size: 14px; margin-bottom: 24px; }}
+                .meta div {{ display: flex; justify-content: space-between; margin-bottom: 6px; }}
+                .meta div:last-child {{ margin-bottom: 0; font-weight: 600; color: #0f172a; }}
+                .btn {{ display: block; width: 100%; box-sizing: border-box; background: #0284c7; color: #fff; text-decoration: none; padding: 14px 20px; border-radius: 10px; font-weight: 600; font-size: 16px; border: none; cursor: pointer; }}
+              </style>
+            </head>
+            <body>
+              <div class="card">
+                <div class="badge">✓</div>
+                <h2>Invoice Already Paid</h2>
+                <p>This pickup invoice has already been cleared. You can return to the Pharmatrix mobile application to proceed with pickup verification.</p>
+                <div class="meta">
+                  <div><span>Pickup:</span> <span>{html.escape(pickup.pickup_code)}</span></div>
+                  <div><span>Invoice:</span> <span>{html.escape(invoice.invoice_number)}</span></div>
+                  <div><span>Status:</span> <span style="color:#16a34a;">PAID</span></div>
+                </div>
+                <a href="pharmatrix://pickups/{pickup.public_id}" class="btn">Return to App</a>
+              </div>
+            </body>
+            </html>"""
+        )
+
+    rzp_order = None
+    if order_id:
+        rzp_order = db.scalar(
+            select(RazorpayOrder).where(
+                RazorpayOrder.razorpay_order_id == order_id,
+                RazorpayOrder.invoice_id == invoice.id,
+            )
+        )
+
+    if rzp_order is None:
+        rzp_order = db.scalar(
+            select(RazorpayOrder).where(
+                RazorpayOrder.invoice_id == invoice.id,
+                RazorpayOrder.status == "CREATED",
+            ).order_by(RazorpayOrder.id.desc())
+        )
+
+    if rzp_order is None:
+        order_dict = create_razorpay_order(
+            db=db,
+            invoice_id=invoice.id,
+            idempotency_key=f"checkout-web-{pickup.id}-{uuid4().hex[:12]}",
+        )
+        rzp_order = db.scalar(
+            select(RazorpayOrder).where(RazorpayOrder.razorpay_order_id == order_dict["order_id"])
+        )
+
+    key_id = settings.RAZORPAY_KEY_ID or ""
+    order_id_val = rzp_order.razorpay_order_id
+    amount_paise = rzp_order.amount_paise
+    currency = rzp_order.currency
+    amount_rupees = f"{(amount_paise / 100):.2f}"
+    customer_name = pickup.customer.display_name if pickup.customer else "Pharmatrix Customer"
+    customer_phone = pickup.customer.phone if (pickup.customer and pickup.customer.phone) else ""
+    customer_email = pickup.customer.email if (pickup.customer and pickup.customer.email) else ""
+    is_test_env = (
+        settings.APP_ENV.lower() != "production"
+        or (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_ID.startswith("rzp_test_"))
+        or settings.DEBUG
+    )
+
+    page_html = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pharmatrix Checkout - Pickup {html.escape(pickup.pickup_code)}</title>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; color: #0f172a; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }}
+    .card {{ background: #ffffff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 440px; width: 100%; padding: 28px; text-align: center; border: 1px solid #e2e8f0; }}
+    .logo-badge {{ display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 12px; background: #0284c7; color: #fff; font-size: 24px; font-weight: bold; margin-bottom: 12px; }}
+    h2 {{ margin: 0 0 6px; font-size: 20px; color: #0f172a; }}
+    .subtitle {{ color: #64748b; font-size: 14px; margin-bottom: 20px; }}
+    .meta-box {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: left; font-size: 14px; }}
+    .meta-row {{ display: flex; justify-content: space-between; margin-bottom: 8px; color: #475569; }}
+    .meta-row.total {{ margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-weight: 700; color: #0f172a; font-size: 17px; margin-bottom: 0; }}
+    .btn {{ display: block; width: 100%; box-sizing: border-box; background: #0284c7; color: #fff; text-decoration: none; padding: 14px 20px; border-radius: 10px; font-weight: 600; font-size: 16px; border: none; cursor: pointer; transition: background 0.2s; }}
+    .btn:hover {{ background: #0369a1; }}
+    .btn-sim {{ background: #059669; margin-top: 10px; }}
+    .btn-sim:hover {{ background: #047857; }}
+    .btn-outline {{ background: transparent; border: 1px solid #cbd5e1; color: #475569; margin-top: 10px; font-weight: 500; font-size: 14px; padding: 10px 16px; }}
+    .btn-outline:hover {{ background: #f1f5f9; }}
+    .status-box {{ display: none; margin-top: 20px; padding: 16px; border-radius: 10px; }}
+    .status-success {{ background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }}
+    .status-error {{ background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }}
+    .secure-note {{ margin-top: 18px; color: #94a3b8; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo-badge">P</div>
+    <h2>Pharmatrix Checkout</h2>
+    <div class="subtitle">Complete payment for pickup <b>{html.escape(pickup.pickup_code)}</b></div>
+
+    <div class="meta-box">
+      <div class="meta-row"><span>Invoice:</span> <span>{html.escape(invoice.invoice_number)}</span></div>
+      <div class="meta-row"><span>Order ID:</span> <span style="font-family:monospace;font-size:12px;">{html.escape(order_id_val)}</span></div>
+      <div class="meta-row"><span>Billed Weight:</span> <span>{f"{pickup.actual_weight_kg:.2f} kg" if pickup.actual_weight_kg else "10.00 kg"}</span></div>
+      <div class="meta-row total"><span>Total Payable:</span> <span>₹{amount_rupees}</span></div>
+    </div>
+
+    <div id="actionArea">
+      <button id="payBtn" class="btn" onclick="startRazorpay()">Pay ₹{amount_rupees} via Razorpay</button>
+      {"<button id='simBtn' class='btn btn-sim' onclick='simulatePayment()'>⚡ Instant Test Payment (Simulation)</button>" if is_test_env else ""}
+      <button class="btn btn-outline" onclick="window.history.back()">Back</button>
+    </div>
+
+    <div id="statusBox" class="status-box"></div>
+
+    <div class="secure-note">
+      🔒 256-bit SSL encrypted • Powered by Razorpay
+    </div>
+  </div>
+
+  <script>
+    var keyId = {repr(key_id)};
+    var orderId = {repr(order_id_val)};
+    var amountPaise = {amount_paise};
+    var currency = {repr(currency)};
+    var customerName = {repr(customer_name)};
+    var customerEmail = {repr(customer_email)};
+    var customerPhone = {repr(customer_phone)};
+    var pickupId = {repr(str(pickup.public_id))};
+
+    function showStatus(isSuccess, message) {{
+      var box = document.getElementById('statusBox');
+      box.style.display = 'block';
+      box.className = 'status-box ' + (isSuccess ? 'status-success' : 'status-error');
+      if (isSuccess) {{
+        document.getElementById('actionArea').style.display = 'none';
+        box.innerHTML = '<div style="font-size:24px;margin-bottom:8px;">✓</div><b>' + message + '</b><p style="margin:10px 0 16px;font-size:13px;">You can now switch back to the Pharmatrix app to view your collection OTP.</p><a href="pharmatrix://pickups/' + pickupId + '" class="btn" style="text-align:center;">Return to App</a>';
+      }} else {{
+        box.innerHTML = '<b>Payment Error</b><p style="margin:6px 0 0;font-size:13px;">' + message + '</p>';
+      }}
+    }}
+
+    function verifyPayment(response) {{
+      showStatus(false, 'Verifying payment with Pharmatrix server...');
+      fetch('/api/pickups/' + pickupId + '/payment/verify-web', {{
+        method: 'POST',
+        headers: {{ 'Content-Type': 'application/json' }},
+        body: JSON.stringify({{
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature
+        }})
+      }})
+      .then(function(res) {{ return res.json(); }})
+      .then(function(data) {{
+        if (data.status === 'PAID' || data.success || data.payment_id) {{
+          showStatus(true, 'Payment Completed Successfully!');
+        }} else {{
+          showStatus(false, data.detail || data.message || 'Payment verification failed.');
+        }}
+      }})
+      .catch(function(err) {{
+        showStatus(false, 'Network error during verification: ' + err.message);
+      }});
+    }}
+
+    function simulatePayment() {{
+      var simBtn = document.getElementById('simBtn');
+      if (simBtn) simBtn.disabled = true;
+      fetch('/api/pickups/' + pickupId + '/payment/simulate-test-web', {{
+        method: 'POST',
+        headers: {{ 'Content-Type': 'application/json' }}
+      }})
+      .then(function(res) {{ return res.json(); }})
+      .then(function(data) {{
+        if (data.status === 'PAID') {{
+          showStatus(true, 'Test Payment Completed Successfully!');
+        }} else {{
+          showStatus(false, data.detail || 'Test simulation failed.');
+          if (simBtn) simBtn.disabled = false;
+        }}
+      }})
+      .catch(function(err) {{
+        showStatus(false, err.message);
+        if (simBtn) simBtn.disabled = false;
+      }});
+    }}
+
+    function startRazorpay() {{
+      if (!window.Razorpay) {{
+        showStatus(false, 'Razorpay SDK failed to load. Please check your internet connection.');
+        return;
+      }}
+      var rzp = new Razorpay({{
+        key: keyId,
+        amount: amountPaise,
+        currency: currency,
+        name: 'Pharmatrix Logistics',
+        description: 'Pickup Payment ' + {repr(pickup.pickup_code)},
+        order_id: orderId,
+        prefill: {{
+          name: customerName,
+          email: customerEmail,
+          contact: customerPhone
+        }},
+        theme: {{ color: '#0284c7' }},
+        handler: function(response) {{
+          verifyPayment(response);
+        }},
+        modal: {{
+          ondismiss: function() {{
+            console.log('Checkout dismissed');
+          }}
+        }}
+      }});
+      rzp.on('payment.failed', function(resp) {{
+        showStatus(false, (resp.error && resp.error.description) ? resp.error.description : 'Payment failed.');
+      }});
+      rzp.open();
+    }}
+
+    // Auto-open Razorpay modal after small delay
+    window.addEventListener('DOMContentLoaded', function() {{
+      setTimeout(function() {{
+        try {{ startRazorpay(); }} catch(e) {{ console.log(e); }}
+      }}, 500);
+    }});
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(page_html)
+
+
+@router.post("/{pickup_id}/payment/verify-web")
+def verify_pickup_payment_web(
+    pickup_id: UUID,
+    data: RazorpayPaymentVerificationRequest,
+    db: Session = Depends(get_db),
+):
+    pickup = db.scalar(
+        select(Pickup).where(Pickup.public_id == pickup_id)
+    )
+    if pickup is None:
+        raise HTTPException(status_code=404, detail="Pickup not found.")
+
+    invoice = db.scalar(
+        select(Invoice).where(Invoice.pickup_id == pickup.id)
+    )
+    if invoice is None:
+        raise HTTPException(status_code=404, detail="Invoice not found.")
+
+    order = db.scalar(
+        select(RazorpayOrder).where(
+            RazorpayOrder.razorpay_order_id == data.razorpay_order_id,
+            RazorpayOrder.invoice_id == invoice.id,
+        )
+    )
+    if order is None:
+        raise HTTPException(status_code=404, detail="Payment order not found for this pickup.")
+
+    result = verify_razorpay_payment(
+        db=db,
+        razorpay_order_id=data.razorpay_order_id,
+        razorpay_payment_id=data.razorpay_payment_id,
+        razorpay_signature=data.razorpay_signature,
+    )
+    db.refresh(invoice)
+    return {
+        **result,
+        "pickup_id": str(pickup.public_id),
+        "pickup_code": pickup.pickup_code,
+        "invoice": _serialize_invoice(db, invoice),
+    }
+
+
+@router.post(
+    "/{pickup_id}/payment/simulate-test",
+    dependencies=[Depends(require_role(UserRole.CUSTOMER))],
+)
+def simulate_pickup_payment_test(
+    pickup_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if settings.APP_ENV.lower() == "production":
+        raise HTTPException(
+            status_code=404,
+            detail="Endpoint not found.",
+        )
+
+    is_test_env = (
+        settings.APP_ENV.lower() != "production"
+        and (
+            settings.DEBUG
+            or (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_ID.startswith("rzp_test_"))
+        )
+    )
+    if not is_test_env:
+        raise HTTPException(
+            status_code=403,
+            detail="Payment simulation is only available in development or test mode.",
+        )
+
+    pickup = get_customer_pickup(
+        db=db,
+        current_user=current_user,
+        pickup_id=pickup_id,
+    )
+
+    invoice = db.scalar(
+        select(Invoice).where(Invoice.pickup_id == pickup.id)
+    )
+    if invoice is None:
+        raise HTTPException(status_code=404, detail="Invoice not found for this pickup.")
+
+    if invoice.status == "PAID" or Decimal(str(invoice.outstanding_amount)) <= Decimal("0"):
+        return {
+            "status": "PAID",
+            "message": "Invoice already paid.",
+            "pickup_id": str(pickup.public_id),
+            "pickup_code": pickup.pickup_code,
+            "invoice": _serialize_invoice(db, invoice),
+        }
+
+    amount = Decimal(str(invoice.outstanding_amount))
+    payment = record_payment(
+        db=db,
+        invoice_id=invoice.id,
+        amount=amount,
+        payment_method="UPI",
+        payment_reference=f"sim_pay_{uuid4().hex[:12]}",
+        notes="Simulated test payment (Expo Go / Test mode)",
+    )
+
+    created_order = db.scalar(
+        select(RazorpayOrder)
+        .where(
+            RazorpayOrder.invoice_id == invoice.id,
+            RazorpayOrder.status == "CREATED",
+        )
+        .order_by(RazorpayOrder.id.desc())
+    )
+    if created_order is not None:
+        created_order.status = "PAID"
+        created_order.razorpay_payment_id = payment.payment_reference
+        created_order.paid_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(invoice)
+
+    return {
+        "status": "PAID",
+        "message": "Test payment simulation successful.",
+        "payment_id": payment.id,
+        "pickup_id": str(pickup.public_id),
+        "pickup_code": pickup.pickup_code,
+        "invoice": _serialize_invoice(db, invoice),
+    }
+
+
+@router.post("/{pickup_id}/payment/simulate-test-web")
+def simulate_pickup_payment_test_web(
+    pickup_id: UUID,
+    db: Session = Depends(get_db),
+):
+    if settings.APP_ENV.lower() == "production":
+        raise HTTPException(
+            status_code=404,
+            detail="Endpoint not found.",
+        )
+
+    is_test_env = (
+        settings.APP_ENV.lower() != "production"
+        and (
+            settings.DEBUG
+            or (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_ID.startswith("rzp_test_"))
+        )
+    )
+    if not is_test_env:
+        raise HTTPException(
+            status_code=403,
+            detail="Payment simulation is only available in development or test mode.",
+        )
+
+    pickup = db.scalar(
+        select(Pickup).where(Pickup.public_id == pickup_id)
+    )
+    if pickup is None:
+        raise HTTPException(status_code=404, detail="Pickup not found.")
+
+    invoice = db.scalar(
+        select(Invoice).where(Invoice.pickup_id == pickup.id)
+    )
+    if invoice is None:
+        raise HTTPException(status_code=404, detail="Invoice not found.")
+
+    if invoice.status == "PAID" or Decimal(str(invoice.outstanding_amount)) <= Decimal("0"):
+        return {
+            "status": "PAID",
+            "message": "Invoice already paid.",
+            "pickup_id": str(pickup.public_id),
+            "pickup_code": pickup.pickup_code,
+        }
+
+    amount = Decimal(str(invoice.outstanding_amount))
+    payment = record_payment(
+        db=db,
+        invoice_id=invoice.id,
+        amount=amount,
+        payment_method="UPI",
+        payment_reference=f"sim_web_{uuid4().hex[:12]}",
+        notes="Simulated test payment via Web Checkout",
+    )
+
+    created_order = db.scalar(
+        select(RazorpayOrder)
+        .where(
+            RazorpayOrder.invoice_id == invoice.id,
+            RazorpayOrder.status == "CREATED",
+        )
+        .order_by(RazorpayOrder.id.desc())
+    )
+    if created_order is not None:
+        created_order.status = "PAID"
+        created_order.razorpay_payment_id = payment.payment_reference
+        created_order.paid_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(invoice)
+
+    return {
+        "status": "PAID",
+        "message": "Simulated payment recorded successfully.",
+        "payment_id": payment.id,
+        "pickup_id": str(pickup.public_id),
+        "pickup_code": pickup.pickup_code,
     }
 
 

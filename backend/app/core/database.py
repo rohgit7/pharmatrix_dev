@@ -138,5 +138,49 @@ def ensure_runtime_schema():
         conn.execute(
             text("CREATE INDEX IF NOT EXISTS ix_pickup_events_created_at ON pickup_events (created_at)")
         )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS user_consents (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    consent_type VARCHAR(50) NOT NULL,
+                    policy_version VARCHAR(20) NOT NULL DEFAULT '1.0.0',
+                    status VARCHAR(20) NOT NULL DEFAULT 'CONSENTED',
+                    ip_address VARCHAR(45),
+                    user_agent VARCHAR(255),
+                    consented_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    withdrawn_at TIMESTAMPTZ
+                )
+                """
+            )
+        )
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_user_consents_user_id ON user_consents (user_id)")
+        )
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_user_consents_consent_type ON user_consents (consent_type)")
+        )
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_user_consents_status ON user_consents (status)")
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS marketing_preferences (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+                    email_promotions BOOLEAN NOT NULL DEFAULT false,
+                    sms_promotions BOOLEAN NOT NULL DEFAULT false,
+                    whatsapp_promotions BOOLEAN NOT NULL DEFAULT false,
+                    push_promotions BOOLEAN NOT NULL DEFAULT false,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+        )
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_marketing_preferences_user_id ON marketing_preferences (user_id)")
+        )
 
     _SCHEMA_ENSURED = True

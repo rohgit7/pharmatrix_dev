@@ -9,6 +9,7 @@ active driver-vehicle pair and dispatched to them.
 
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
+from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.enums import DriverStatus, VehicleStatus, VehicleType, PickupStatus, PickupPriority, RouteStatus
 from app.models.warehouse import Warehouse
@@ -23,6 +24,9 @@ from app.models.route_stop import RouteStop
 
 
 def seed_route_data():
+    if settings.APP_ENV.lower() == "production":
+        raise RuntimeError("CRITICAL: Route optimization seed script is disabled in PRODUCTION environments.")
+
     db = SessionLocal()
     try:
         # 1. Warehouse

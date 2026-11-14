@@ -124,7 +124,12 @@ def admin_create_customer(
 
         try:
             code = generate_customer_code(db, data.customer_type)
-        except Exception:
+        except Exception as exc:
+            if settings.APP_ENV.lower() == "production":
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to generate customer sequence code: {exc}",
+                )
             # Fallback if sequence is missing in test mock
             prefix = data.customer_type.value[:3].upper()
             code = f"{prefix}{uuid.uuid4().hex[:6].upper()}"

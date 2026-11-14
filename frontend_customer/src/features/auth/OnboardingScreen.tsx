@@ -8,6 +8,8 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {
   Building2,
@@ -31,6 +33,7 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import {
+  api,
   AuthUser,
   CustomerMeResponse,
   CustomerType,
@@ -131,6 +134,52 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
   const [sameLegalAsDisplay, setSameLegalAsDisplay] = useState(true);
   const [businessPhone, setBusinessPhone] = useState('');
   const [gstNumber, setGstNumber] = useState('');
+
+  // Legal Consent and Data Privacy
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreePrivacy, setAgreePrivacy] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [legalModal, setLegalModal] = useState<{
+    visible: boolean;
+    title: string;
+    loading: boolean;
+    content: string;
+  }>({
+    visible: false,
+    title: '',
+    loading: false,
+    content: '',
+  });
+
+  const openTermsModal = async () => {
+    setLegalModal({ visible: true, title: 'Terms and Conditions', loading: true, content: '' });
+    try {
+      const data = await api.getTermsAndConditions();
+      setLegalModal({ visible: true, title: 'Terms and Conditions', loading: false, content: data.content_markdown });
+    } catch {
+      setLegalModal({
+        visible: true,
+        title: 'Terms and Conditions',
+        loading: false,
+        content: 'Pharmatrix Terms and Conditions v1.0.0. Full document available at /legal/02_terms_and_conditions.md',
+      });
+    }
+  };
+
+  const openPrivacyModal = async () => {
+    setLegalModal({ visible: true, title: 'Privacy Policy', loading: true, content: '' });
+    try {
+      const data = await api.getPrivacyPolicy();
+      setLegalModal({ visible: true, title: 'Privacy Policy', loading: false, content: data.content_markdown });
+    } catch {
+      setLegalModal({
+        visible: true,
+        title: 'Privacy Policy',
+        loading: false,
+        content: 'Pharmatrix Privacy Policy v1.0.0. Full document available at /legal/01_privacy_policy.md',
+      });
+    }
+  };
 
   // Dynamic Type-Specific Fields
   const [pharmacyLicense, setPharmacyLicense] = useState('');
@@ -278,6 +327,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
   const handleCompleteRegistration = async () => {
     setSubmitError(null);
 
+    if (!activeAccountUser && (!agreeTerms || !agreePrivacy)) {
+      setSubmitError('Please review and accept both the Terms and Conditions and Privacy Policy to register.');
+      return;
+    }
+
     if (!validateStep2()) {
       setStep(2);
       return;
@@ -297,7 +351,13 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
           fullName.trim(),
           email.trim().toLowerCase(),
           password,
-          mobileNumber.trim()
+          mobileNumber.trim(),
+          {
+            accept_terms: agreeTerms,
+            accept_privacy: agreePrivacy,
+            policy_version: '1.0.0',
+            marketing_opt_in: marketingOptIn,
+          }
         );
         setCreatedAuthUser(currentAuth);
       }
@@ -1162,6 +1222,64 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
               </View>
             </View>
 
+            {/* Legal Consent & Terms (Mandatory under DPDPA 2023) */}
+            <View style={styles.consentContainer}>
+              <Text style={styles.consentHeading}>Legal & Regulatory Consent</Text>
+
+              <TouchableOpacity
+                style={styles.consentRow}
+                onPress={() => setAgreeTerms(!agreeTerms)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.checkbox, agreeTerms && styles.checkboxActive]}>
+                  {agreeTerms ? <CheckCircle2 size={16} color="#ffffff" /> : null}
+                </View>
+                <View style={styles.consentTextWrap}>
+                  <Text style={styles.consentText}>
+                    I have read and agree to the{' '}
+                    <Text style={styles.legalLink} onPress={openTermsModal}>
+                      Terms and Conditions (v1.0.0)
+                    </Text>{' '}
+                    governing waste collection, weighing, and regulatory compliance. *
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.consentRow}
+                onPress={() => setAgreePrivacy(!agreePrivacy)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.checkbox, agreePrivacy && styles.checkboxActive]}>
+                  {agreePrivacy ? <CheckCircle2 size={16} color="#ffffff" /> : null}
+                </View>
+                <View style={styles.consentTextWrap}>
+                  <Text style={styles.consentText}>
+                    I accept the{' '}
+                    <Text style={styles.legalLink} onPress={openPrivacyModal}>
+                      Privacy Policy (v1.0.0)
+                    </Text>{' '}
+                    and consent to processing of pharmacy premises & logistics data. *
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.consentRow}
+                onPress={() => setMarketingOptIn(!marketingOptIn)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.checkbox, marketingOptIn && styles.checkboxActive]}>
+                  {marketingOptIn ? <CheckCircle2 size={16} color="#ffffff" /> : null}
+                </View>
+                <View style={styles.consentTextWrap}>
+                  <Text style={styles.consentText}>
+                    (Optional) I agree to receive promotional updates, price alerts, and service announcements.
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.stepActionsRow}>
               <TouchableOpacity
                 style={styles.backStepBtn}
@@ -1182,6 +1300,35 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onBackToSign
           </>
         ) : null}
       </ScrollView>
+
+      {/* Legal Document Viewer Modal */}
+      <Modal
+        visible={legalModal.visible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setLegalModal((prev) => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.legalModalContainer}>
+          <View style={styles.legalModalHeader}>
+            <Text style={styles.legalModalTitle}>{legalModal.title}</Text>
+            <TouchableOpacity
+              onPress={() => setLegalModal((prev) => ({ ...prev, visible: false }))}
+              style={styles.legalModalCloseBtn}
+            >
+              <Text style={styles.legalModalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+          {legalModal.loading ? (
+            <View style={styles.legalModalLoading}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : (
+            <ScrollView style={styles.legalModalBody} contentContainerStyle={{ paddingBottom: 40 }}>
+              <Text style={styles.legalModalMarkdown}>{legalModal.content}</Text>
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -1768,5 +1915,101 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
     lineHeight: 17,
+  },
+  consentContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    marginBottom: spacing.md,
+  },
+  consentHeading: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  consentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: colors.textMuted,
+    marginRight: spacing.sm,
+    marginTop: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  checkboxActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  consentTextWrap: {
+    flex: 1,
+  },
+  consentText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  legalLink: {
+    color: colors.primary,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  legalModalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'ios' ? 44 : 20,
+  },
+  legalModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+    backgroundColor: colors.surface,
+  },
+  legalModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  legalModalCloseBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: borderRadius.sm,
+    backgroundColor: '#f1f5f9',
+  },
+  legalModalCloseText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  legalModalLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  legalModalBody: {
+    flex: 1,
+    padding: spacing.md,
+  },
+  legalModalMarkdown: {
+    fontSize: 12,
+    color: colors.textPrimary,
+    lineHeight: 20,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });

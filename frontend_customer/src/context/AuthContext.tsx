@@ -26,7 +26,13 @@ interface AuthContextType {
     name: string,
     email: string,
     password: string,
-    phone?: string
+    phone?: string,
+    consentOptions?: {
+      accept_terms?: boolean;
+      accept_privacy?: boolean;
+      policy_version?: string;
+      marketing_opt_in?: boolean;
+    }
   ) => Promise<AuthUser>;
   submitOnboardingPayload: (payload: CustomerOnboardPayload) => Promise<CustomerMeResponse>;
   finalizeOnboardingSession: () => Promise<void>;
@@ -121,9 +127,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     name: string,
     email: string,
     password: string,
-    phone?: string
+    phone?: string,
+    consentOptions?: {
+      accept_terms?: boolean;
+      accept_privacy?: boolean;
+      policy_version?: string;
+      marketing_opt_in?: boolean;
+    }
   ): Promise<AuthUser> => {
-    const regRes = await api.registerCustomer(name, email, password, phone);
+    const regRes = await api.registerCustomer(name, email, password, phone, consentOptions);
     if (regRes.access_token) {
       await storage.setItem('access_token', regRes.access_token);
       if (regRes.refresh_token) {

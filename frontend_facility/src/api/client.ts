@@ -81,7 +81,7 @@ export function getErrorMessage(error: unknown): string {
       return 'Request timed out. Please check your network connection.';
     }
     if (!error.response) {
-      return 'Unable to connect to the Pharmatrix backend service at http://localhost:8000.';
+      return 'Unable to connect to the Pharmatrix backend service. Please check your network connection.';
     }
   }
   if (error instanceof Error) {

@@ -355,6 +355,9 @@ app.include_router(admin_pricing_router)
 app.include_router(admin_disposal_certificates_router)
 from app.api.admin_audit_logs import router as admin_audit_logs_router
 app.include_router(admin_audit_logs_router)
+from app.api.compliance import router as compliance_router
+app.include_router(compliance_router)
+
 @app.get("/health")
 def health():
     return {

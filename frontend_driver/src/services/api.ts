@@ -68,8 +68,11 @@ export const getApiBaseUrl = (): string => {
     }
   }
 
-  // 6. Direct fallback to host computer's Wi-Fi LAN IP on default FastAPI port 8000
-  return 'http://10.235.154.167:8000';
+  // 6. Fallback endpoint: dev uses local LAN IP; production uses configured API endpoint
+  if (__DEV__) {
+    return 'http://10.235.154.167:8000';
+  }
+  return 'https://api.pharmatrix.com';
 };
 
 // Asynchronously load custom url from storage at app start

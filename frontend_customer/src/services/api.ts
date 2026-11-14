@@ -12,9 +12,6 @@ export const setUnauthorizedHandler = (handler: (() => void) | null) => {
 export const setCustomApiBaseUrl = async (url: string | null) => {
   if (url && url.trim().length > 0) {
     let clean = url.trim().replace(/\/+$/, '');
-    if (clean.includes(':8000') && !clean.includes('127.0.0.1') && !clean.includes('localhost')) {
-      clean = clean.replace(':8000', ':8001');
-    }
     cachedCustomUrl = clean;
     await storage.setItem('custom_api_url', clean);
   } else {
@@ -27,12 +24,8 @@ export const getCustomApiBaseUrl = () => cachedCustomUrl;
 
 export const getApiBaseUrl = (): string => {
   if (cachedCustomUrl) {
-    if (
-      cachedCustomUrl.includes(':8000') &&
-      !cachedCustomUrl.includes('127.0.0.1') &&
-      !cachedCustomUrl.includes('localhost')
-    ) {
-      cachedCustomUrl = cachedCustomUrl.replace(':8000', ':8001');
+    if (cachedCustomUrl.includes(':8001')) {
+      cachedCustomUrl = cachedCustomUrl.replace(':8001', ':8000');
       storage.setItem('custom_api_url', cachedCustomUrl).catch(() => {});
     }
     return cachedCustomUrl;
@@ -41,28 +34,22 @@ export const getApiBaseUrl = (): string => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
   if (envUrl && envUrl.trim().length > 0) {
     let cleanEnv = envUrl.trim().replace(/\/+$/, '');
-    if (Platform.OS === 'web') {
-      return cleanEnv;
+    if (cleanEnv.includes(':8001')) {
+      cleanEnv = cleanEnv.replace(':8001', ':8000');
     }
-    if (!cleanEnv.includes('localhost') && !cleanEnv.includes('127.0.0.1')) {
-      if (cleanEnv.includes(':8000')) {
-        cleanEnv = cleanEnv.replace(':8000', ':8001');
-      }
-      return cleanEnv;
-    }
+    return cleanEnv;
   }
 
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
     const hostname = window.location.hostname || 'localhost';
-    const port = hostname === 'localhost' || hostname === '127.0.0.1' ? 8000 : 8001;
-    return `http://${hostname}:${port}`;
+    return `http://${hostname}:8000`;
   }
 
   const scriptUrl: string | undefined = NativeModules?.SourceCode?.scriptURL;
   if (scriptUrl) {
     const match = scriptUrl.match(/^https?:\/\/([^:/]+)/);
     if (match && match[1] && match[1] !== 'localhost' && match[1] !== '127.0.0.1' && !match[1].includes('exp.direct')) {
-      return `http://${match[1]}:8001`;
+      return `http://${match[1]}:8000`;
     }
   }
 
@@ -75,11 +62,14 @@ export const getApiBaseUrl = (): string => {
   if (hostUri) {
     const host = hostUri.split(':')[0];
     if (host && host !== 'localhost' && host !== '127.0.0.1' && !host.includes('exp.direct')) {
-      return `http://${host}:8001`;
+      return `http://${host}:8000`;
     }
   }
 
-  return 'http://10.235.154.167:8001';
+  if (__DEV__) {
+    return 'http://10.235.154.167:8000';
+  }
+  return 'https://api.pharmatrix.com';
 };
 
 storage
@@ -87,8 +77,8 @@ storage
   .then((val) => {
     if (val) {
       let clean = val.trim().replace(/\/+$/, '');
-      if (clean.includes(':8000') && !clean.includes('127.0.0.1') && !clean.includes('localhost')) {
-        clean = clean.replace(':8000', ':8001');
+      if (clean.includes(':8001')) {
+        clean = clean.replace(':8001', ':8000');
         storage.setItem('custom_api_url', clean).catch(() => {});
       }
       cachedCustomUrl = clean;
@@ -584,7 +574,13 @@ export const api = {
     name: string,
     email: string,
     password: string,
-    phone?: string
+    phone?: string,
+    consentOptions?: {
+      accept_terms?: boolean;
+      accept_privacy?: boolean;
+      policy_version?: string;
+      marketing_opt_in?: boolean;
+    }
   ): Promise<{
     id: number;
     auth_user_id: string;
@@ -601,6 +597,10 @@ export const api = {
         email: email.trim(),
         password,
         ...(phone && phone.trim() ? { phone: phone.trim() } : {}),
+        accept_terms: consentOptions?.accept_terms ?? true,
+        accept_privacy: consentOptions?.accept_privacy ?? true,
+        policy_version: consentOptions?.policy_version || '1.0.0',
+        marketing_opt_in: consentOptions?.marketing_opt_in || false,
       }),
     });
   },
@@ -793,6 +793,19 @@ export const api = {
     });
   },
 
+  async simulateTestPayment(pickupPublicId: string): Promise<{
+    status: string;
+    message: string;
+    payment_id: number;
+    pickup_id: string;
+    pickup_code: string;
+    invoice: InvoiceData;
+  }> {
+    return request(`/api/pickups/${pickupPublicId}/payment/simulate-test`, {
+      method: 'POST',
+    });
+  },
+
   async cancelPickup(
     pickupPublicId: string,
     reason: string
@@ -876,6 +889,67 @@ export const api = {
         title: title || 'Pharmatrix Test',
         body: body || 'Test notification delivery.',
       }),
+    });
+  },
+
+  // Compliance & Data Subject Rights
+  async getPrivacyPolicy(): Promise<{
+    version: string;
+    effective_date: string;
+    document_name: string;
+    content_markdown: string;
+  }> {
+    return request('/api/compliance/privacy-policy');
+  },
+
+  async getTermsAndConditions(): Promise<{
+    version: string;
+    effective_date: string;
+    document_name: string;
+    content_markdown: string;
+  }> {
+    return request('/api/compliance/terms');
+  },
+
+  async exportUserData(): Promise<any> {
+    return request('/api/compliance/data-export');
+  },
+
+  async requestDataDeletion(reason?: string): Promise<{
+    status: string;
+    message: string;
+    user_id: number;
+    statutory_retention_notice: string;
+  }> {
+    return request('/api/compliance/data-deletion', {
+      method: 'POST',
+      body: JSON.stringify({
+        confirm_legal_acknowledgement: true,
+        reason: reason || 'Customer requested account closure and erasure',
+      }),
+    });
+  },
+
+  async getMarketingPreferences(): Promise<{
+    user_id: number;
+    email_promotions: boolean;
+    sms_promotions: boolean;
+    whatsapp_promotions: boolean;
+    push_promotions: boolean;
+    updated_at: string;
+  }> {
+    return request('/api/compliance/marketing-preferences');
+  },
+
+  async updateMarketingPreferences(prefs: {
+    email_promotions?: boolean;
+    sms_promotions?: boolean;
+    whatsapp_promotions?: boolean;
+    push_promotions?: boolean;
+  }): Promise<any> {
+    return request('/api/compliance/marketing-preferences', {
+      method: 'PUT',
+      body: JSON.stringify(prefs),
     });
   },
 };

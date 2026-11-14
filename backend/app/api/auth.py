@@ -9,6 +9,7 @@ from app.core.supabase import supabase
 from app.core.supabase_admin import get_supabase_admin
 from app.models.enums import UserRole
 from app.models.user import User
+from app.models.user_consent import UserConsent, MarketingPreference
 
 
 router = APIRouter(
@@ -27,6 +28,10 @@ class RegisterCustomerRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
     phone: str | None = Field(default=None, min_length=7, max_length=20)
+    accept_terms: bool = Field(default=True, description="Acceptance of Terms and Conditions")
+    accept_privacy: bool = Field(default=True, description="Acceptance of Privacy Policy")
+    policy_version: str = Field(default="1.0.0", max_length=20)
+    marketing_opt_in: bool = Field(default=False, description="Consent to receive promotional communications")
 
 
 @router.post("/login")
@@ -155,6 +160,12 @@ def register_customer(
     data: RegisterCustomerRequest,
     db: Session = Depends(get_db),
 ):
+    if not data.accept_terms or not data.accept_privacy:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Explicit acceptance of Terms and Conditions and Privacy Policy is required to register an account.",
+        )
+
     clean_email = data.email.strip().lower()
     existing_user = (
         db.query(User)
@@ -245,6 +256,54 @@ def register_customer(
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # Persist mandatory regulatory consents and preferences
+    try:
+        ip_addr = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent")
+
+        consent_tc = UserConsent(
+            user_id=user.id,
+            consent_type="TERMS_AND_CONDITIONS",
+            policy_version=data.policy_version,
+            status="CONSENTED",
+            ip_address=ip_addr[:45] if ip_addr else None,
+            user_agent=user_agent[:255] if user_agent else None,
+        )
+        consent_pp = UserConsent(
+            user_id=user.id,
+            consent_type="PRIVACY_POLICY",
+            policy_version=data.policy_version,
+            status="CONSENTED",
+            ip_address=ip_addr[:45] if ip_addr else None,
+            user_agent=user_agent[:255] if user_agent else None,
+        )
+        db.add(consent_tc)
+        db.add(consent_pp)
+
+        m_pref = MarketingPreference(
+            user_id=user.id,
+            email_promotions=data.marketing_opt_in,
+            sms_promotions=data.marketing_opt_in,
+            whatsapp_promotions=data.marketing_opt_in,
+            push_promotions=data.marketing_opt_in,
+        )
+        db.add(m_pref)
+        if data.marketing_opt_in:
+            db.add(
+                UserConsent(
+                    user_id=user.id,
+                    consent_type="MARKETING_PROMOTIONAL",
+                    policy_version=data.policy_version,
+                    status="CONSENTED",
+                    ip_address=ip_addr[:45] if ip_addr else None,
+                    user_agent=user_agent[:255] if user_agent else None,
+                )
+            )
+        db.commit()
+    except Exception as consent_err:
+        db.rollback()
+
 
     # Sign in to return active session tokens
     try:

@@ -1,5 +1,8 @@
 from datetime import datetime, timezone
+import logging
 import secrets
+
+logger = logging.getLogger(__name__)
 
 from fastapi import HTTPException, UploadFile
 from sqlalchemy import select
@@ -47,10 +50,10 @@ def delete_certificate_file(
             [storage_path]
         )
     except Exception as exc:
-        print(
-            f"[disposal-certificate] "
-            f"Failed to delete orphaned storage file "
-            f"{storage_path}: {exc}"
+        logger.warning(
+            "Failed to delete orphaned storage file %s: %s",
+            storage_path,
+            exc,
         )
 
 

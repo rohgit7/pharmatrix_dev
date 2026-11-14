@@ -8,6 +8,9 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {
   Building2,
@@ -21,6 +24,9 @@ import {
   Plus,
   AlertCircle,
   Navigation,
+  FileText,
+  Download,
+  Trash2,
 } from 'lucide-react-native';
 import {
   colors,
@@ -69,6 +75,98 @@ export const ProfileScreen: React.FC = () => {
   const [newLocErrors, setNewLocErrors] = useState<BusinessLocationFieldErrors>({});
   const [savingLoc, setSavingLoc] = useState(false);
   const [verifyingLocId, setVerifyingLocId] = useState<number | null>(null);
+
+  // Compliance, Data Rights & Legal
+  const [legalModal, setLegalModal] = useState<{
+    visible: boolean;
+    title: string;
+    loading: boolean;
+    content: string;
+  }>({
+    visible: false,
+    title: '',
+    loading: false,
+    content: '',
+  });
+  const [exportingData, setExportingData] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const openPrivacyModal = async () => {
+    setLegalModal({ visible: true, title: 'Pharmatrix Privacy Policy', loading: true, content: '' });
+    try {
+      const data = await api.getPrivacyPolicy();
+      setLegalModal({ visible: true, title: 'Pharmatrix Privacy Policy', loading: false, content: data.content_markdown });
+    } catch {
+      setLegalModal({
+        visible: true,
+        title: 'Pharmatrix Privacy Policy',
+        loading: false,
+        content: 'Pharmatrix Privacy Policy v1.0.0. Full document available at /legal/01_privacy_policy.md',
+      });
+    }
+  };
+
+  const openTermsModal = async () => {
+    setLegalModal({ visible: true, title: 'Terms and Conditions', loading: true, content: '' });
+    try {
+      const data = await api.getTermsAndConditions();
+      setLegalModal({ visible: true, title: 'Terms and Conditions', loading: false, content: data.content_markdown });
+    } catch {
+      setLegalModal({
+        visible: true,
+        title: 'Terms and Conditions',
+        loading: false,
+        content: 'Pharmatrix Terms and Conditions v1.0.0. Full document available at /legal/02_terms_and_conditions.md',
+      });
+    }
+  };
+
+  const handleExportData = async () => {
+    setExportingData(true);
+    try {
+      const exportJson = await api.exportUserData();
+      setLegalModal({
+        visible: true,
+        title: 'Your Account Data Export (JSON)',
+        loading: false,
+        content: JSON.stringify(exportJson, null, 2),
+      });
+    } catch (err: any) {
+      Alert.alert('Export Failed', err.message || 'Unable to generate account export.');
+    } finally {
+      setExportingData(false);
+    }
+  };
+
+  const handleRequestDeletion = () => {
+    Alert.alert(
+      'Request Account Erasure',
+      'This will erase your personal profile and deactivate your account under Section 12 of the Digital Personal Data Protection Act, 2023. In accordance with Indian environmental and tax laws, statutory waste manifests and tax invoices will be retained in anonymized format for statutory periods.\n\nAre you sure you want to proceed?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Erase Account',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingAccount(true);
+            try {
+              const res = await api.requestDataDeletion('User requested erasure from mobile app');
+              Alert.alert('Account Erased', res.message, [
+                {
+                  text: 'OK',
+                  onPress: () => logout(),
+                },
+              ]);
+            } catch (err: any) {
+              Alert.alert('Erasure Blocked', err.message || 'Unable to process deletion request.');
+            } finally {
+              setDeletingAccount(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -475,6 +573,70 @@ export const ProfileScreen: React.FC = () => {
           </View>
         </Card>
 
+        {/* ==================== PRIVACY, LEGAL & DATA RIGHTS (DPDPA 2023) ==================== */}
+        <Card style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.inline}>
+              <ShieldCheck size={18} color={colors.accent} />
+              <Text style={styles.sectionTitle}>Privacy & Data Protection</Text>
+            </View>
+          </View>
+
+          <View style={styles.complianceActionsContainer}>
+            <TouchableOpacity style={styles.complianceRow} onPress={openPrivacyModal}>
+              <FileText size={16} color={colors.primary} />
+              <View style={styles.complianceRowTextWrap}>
+                <Text style={styles.complianceRowTitle}>Privacy Policy</Text>
+                <Text style={styles.complianceRowDesc}>Version 1.0.0 (DPDPA 2023 / IT Act compliant)</Text>
+              </View>
+              <Text style={styles.complianceActionText}>View</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.complianceRow} onPress={openTermsModal}>
+              <FileText size={16} color={colors.primary} />
+              <View style={styles.complianceRowTextWrap}>
+                <Text style={styles.complianceRowTitle}>Terms and Conditions</Text>
+                <Text style={styles.complianceRowDesc}>Version 1.0.0 governing collection & disposal</Text>
+              </View>
+              <Text style={styles.complianceActionText}>View</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.complianceRow}
+              onPress={handleExportData}
+              disabled={exportingData}
+            >
+              <Download size={16} color={colors.primary} />
+              <View style={styles.complianceRowTextWrap}>
+                <Text style={styles.complianceRowTitle}>Export Personal Data</Text>
+                <Text style={styles.complianceRowDesc}>Download complete account records in JSON format</Text>
+              </View>
+              <Text style={styles.complianceActionText}>
+                {exportingData ? 'Exporting...' : 'Export'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.complianceRow, { borderBottomWidth: 0 }]}
+              onPress={handleRequestDeletion}
+              disabled={deletingAccount}
+            >
+              <Trash2 size={16} color={colors.danger} />
+              <View style={styles.complianceRowTextWrap}>
+                <Text style={[styles.complianceRowTitle, { color: colors.danger }]}>
+                  Request Account Erasure
+                </Text>
+                <Text style={styles.complianceRowDesc}>
+                  Exercise Right to Erasure under DPDPA Section 12
+                </Text>
+              </View>
+              <Text style={[styles.complianceActionText, { color: colors.danger }]}>
+                {deletingAccount ? 'Processing...' : 'Request'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
+
         <PrimaryButton
           title="Sign Out"
           onPress={logout}
@@ -483,6 +645,35 @@ export const ProfileScreen: React.FC = () => {
           icon={<LogOut size={17} color={colors.textInverse} />}
         />
       </ScrollView>
+
+      {/* Legal & Data Export Viewer Modal */}
+      <Modal
+        visible={legalModal.visible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setLegalModal((prev) => ({ ...prev, visible: false }))}
+      >
+        <View style={styles.legalModalContainer}>
+          <View style={styles.legalModalHeader}>
+            <Text style={styles.legalModalTitle}>{legalModal.title}</Text>
+            <TouchableOpacity
+              onPress={() => setLegalModal((prev) => ({ ...prev, visible: false }))}
+              style={styles.legalModalCloseBtn}
+            >
+              <Text style={styles.legalModalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+          {legalModal.loading ? (
+            <View style={styles.legalModalLoading}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : (
+            <ScrollView style={styles.legalModalBody} contentContainerStyle={{ paddingBottom: 40 }}>
+              <Text style={styles.legalModalMarkdown}>{legalModal.content}</Text>
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -784,5 +975,80 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: colors.accent,
+  },
+  complianceActionsContainer: {
+    marginTop: spacing.xs,
+  },
+  complianceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border || '#e2e8f0',
+  },
+  complianceRowTextWrap: {
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
+  complianceRowTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  complianceRowDesc: {
+    fontSize: 11,
+    color: colors.textMuted || '#64748b',
+    marginTop: 1,
+  },
+  complianceActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  legalModalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'ios' ? 44 : 20,
+  },
+  legalModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border || '#e2e8f0',
+    backgroundColor: colors.surface,
+  },
+  legalModalTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  legalModalCloseBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: borderRadius.sm,
+    backgroundColor: '#f1f5f9',
+  },
+  legalModalCloseText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  legalModalLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  legalModalBody: {
+    flex: 1,
+    padding: spacing.md,
+  },
+  legalModalMarkdown: {
+    fontSize: 12,
+    color: colors.textPrimary,
+    lineHeight: 19,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });

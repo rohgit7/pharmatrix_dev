@@ -51,3 +51,4 @@ from app.models.razorpay_webhook_event import RazorpayWebhookEvent
 from app.models.audit_log import AuditLog
 from app.models.event import PickupEvent
 from app.models.optimization_run import OptimizationRun, OptimizationRunPickup
+from app.models.user_consent import UserConsent, MarketingPreference

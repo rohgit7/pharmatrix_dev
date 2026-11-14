@@ -88,7 +88,12 @@ def admin_create_user(
         )
         if auth_response and auth_response.user:
             auth_user_id = auth_response.user.id
-    except Exception:
+    except Exception as exc:
+        if settings.APP_ENV.lower() == "production":
+            raise HTTPException(
+                status_code=502,
+                detail=f"Failed to create user in identity provider: {exc}",
+            )
         # Fallback to generated uuid in development/test mock
         pass
 

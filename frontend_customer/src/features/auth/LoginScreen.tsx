@@ -294,7 +294,7 @@ export const LoginScreen: React.FC = () => {
                 style={styles.input}
                 value={customUrlInput}
                 onChangeText={setCustomUrlInput}
-                placeholder="http://10.235.154.167:8001"
+                placeholder="https://api.pharmatrix.com"
                 placeholderTextColor={colors.textMuted}
                 autoCapitalize="none"
                 autoCorrect={false}

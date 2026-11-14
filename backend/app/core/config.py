@@ -72,6 +72,21 @@ class Settings(BaseSettings):
                     "Wildcard CORS origins are not allowed in production"
                 )
 
+            if self.RAZORPAY_KEY_ID and self.RAZORPAY_KEY_ID.startswith("rzp_test_"):
+                raise ValueError(
+                    "Test Razorpay credentials (rzp_test_*) are not permitted in production"
+                )
+
+            if "localhost" in self.DATABASE_URL.lower() or "127.0.0.1" in self.DATABASE_URL:
+                raise ValueError(
+                    "Localhost DATABASE_URL is not permitted in production"
+                )
+
+            if "localhost" in self.SUPABASE_URL.lower() or "127.0.0.1" in self.SUPABASE_URL:
+                raise ValueError(
+                    "Localhost SUPABASE_URL is not permitted in production"
+                )
+
         return self
 
 
