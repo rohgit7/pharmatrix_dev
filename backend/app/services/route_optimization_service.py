@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import date, datetime, time as dt_time, timedelta, timezone
+import logging
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 from app.services.configuration_runtime_service import get_active_version
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
@@ -1313,7 +1316,7 @@ def optimize_and_dispatch(
         }
         db.commit()
     except Exception as exc:
-        logger.warning(f"OSRM road routing post-solve failed: {exc}")
+        logger.warning("OSRM road routing post-solve failed: %s", exc)
 
     return {
         "route_date": route_date,
